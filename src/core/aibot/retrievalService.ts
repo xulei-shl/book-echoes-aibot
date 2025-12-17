@@ -39,14 +39,14 @@ async function parseRetrievalResponse(
         // 尝试解析JSON响应
         const data = await response.clone().json();
         
-        // 如果是plain_text格式，从context_plain_text解析
-        if (data.context_plain_text) {
-            return parsePlainTextToBooks(data.context_plain_text, payload, endpoint);
-        }
-        
-        // 如果是JSON格式，直接解析results数组
+        // 优先检查JSON格式的results数组，这是API的标准响应格式
         if (data.results && Array.isArray(data.results)) {
             return parseJsonResultsToBooks(data.results, payload, endpoint);
+        }
+        
+        // 只有在没有results数组时，才尝试从context_plain_text解析（纯文本格式）
+        if (data.context_plain_text && !data.results) {
+            return parsePlainTextToBooks(data.context_plain_text, payload, endpoint);
         }
         
         // 兜底处理
@@ -221,4 +221,123 @@ export async function textSearch(payload: TextSearchPayload): Promise<EnhancedRe
 export async function multiQuery(payload: MultiQueryPayload): Promise<EnhancedRetrievalResult> {
     const enriched = ensureTemplate(ensureFormat(payload));
     return postBookApi('/api/books/multi-query', enriched as unknown as Record<string, unknown>);
+}
+
+/**
+ * 根据相似度阈值筛选图书
+ */
+export function filterBooksBySimilarity(
+    books: BookInfo[],
+    threshold: number = 0.42
+): BookInfo[] {
+    return books.filter(book => {
+        const similarity = book.similarityScore || book.finalScore || 0;
+        return similarity > threshold;
+    });
+}
+
+/**
+ * 根据图书ID筛选图书
+ */
+export function filterBooksByIds(
+    books: BookInfo[],
+    selectedIds: Set<string>
+): BookInfo[] {
+    return books.filter(book => selectedIds.has(book.id));
+}
+
+/**
+ * 智能图书筛选：结合人工选择和相似度过滤
+ */
+export function intelligentBookFiltering(
+    books: BookInfo[],
+    selectedIds: Set<string>,
+    similarityThreshold: number = 0.42,
+    maxBooks: number = 8
+): BookInfo[] {
+    // 如果有手动选择，优先使用手动选择
+    if (selectedIds.size > 0) {
+        const selectedBooks = filterBooksByIds(books, selectedIds);
+        
+        // 如果选择数量过多，按相似度排序并限制数量
+        if (selectedBooks.length > maxBooks) {
+            return selectedBooks
+                .sort((a, b) => (b.finalScore || b.similarityScore || 0) - (a.finalScore || a.similarityScore || 0))
+                .slice(0, maxBooks);
+        }
+        
+        return selectedBooks;
+    }
+    
+    // 没有手动选择时，使用相似度过滤
+    const filteredBooks = filterBooksBySimilarity(books, similarityThreshold);
+    
+    // 按相似度排序并限制数量
+    return filteredBooks
+        .sort((a, b) => (b.finalScore || b.similarityScore || 0) - (a.finalScore || a.similarityScore || 0))
+        .slice(0, maxBooks);
+}
+
+/**
+ * 为简单检索优化的文本搜索
+ */
+export async function simpleTextSearch(query: string): Promise<EnhancedRetrievalResult> {
+    return textSearch({
+        query,
+        top_k: 10, // 简单检索返回更多结果供选择
+        response_format: 'json',
+        min_rating: 6.0 // 最低评分要求
+    });
+}
+
+/**
+ * 计算图书相关性分数（综合多个指标）
+ */
+export function calculateRelevanceScore(book: BookInfo): number {
+    const similarity = book.similarityScore || 0;
+    const final = book.finalScore || 0;
+    const fused = book.fusedScore || 0;
+    const rating = (book.rating || 0) / 10; // 归一化评分
+    
+    // 加权计算相关性分数
+    return (similarity * 0.4) + (final * 0.3) + (fused * 0.2) + (rating * 0.1);
+}
+
+/**
+ * 检索错误处理类
+ */
+export class RetrievalError extends Error {
+    constructor(
+        message: string,
+        public readonly code: string,
+        public readonly details?: any
+    ) {
+        super(message);
+        this.name = 'RetrievalError';
+    }
+}
+
+/**
+ * 处理检索错误
+ */
+export function handleRetrievalError(error: unknown): RetrievalError {
+    if (error instanceof RetrievalError) {
+        return error;
+    }
+    
+    if (error instanceof Error) {
+        if (error.message.includes('timeout')) {
+            return new RetrievalError('检索超时', 'TIMEOUT', { originalError: error });
+        }
+        
+        if (error.message.includes('network')) {
+            return new RetrievalError('网络连接失败', 'NETWORK_ERROR', { originalError: error });
+        }
+        
+        if (error.message.includes('404')) {
+            return new RetrievalError('检索服务不可用', 'SERVICE_UNAVAILABLE', { originalError: error });
+        }
+    }
+    
+    return new RetrievalError('检索失败', 'UNKNOWN_ERROR', { originalError: error });
 }

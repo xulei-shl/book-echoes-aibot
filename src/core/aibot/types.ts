@@ -128,3 +128,38 @@ export interface RetrievalResultData {
 export interface EnhancedRetrievalResult<TMetadata = Record<string, unknown>> extends RetrievalResult<TMetadata> {
     structuredData?: RetrievalResultData;
 }
+
+// 检索流程阶段
+export type RetrievalPhase = 'search' | 'selection' | 'interpretation' | 'completed';
+
+// 图书选择状态
+export interface BookSelectionState {
+    selectedBookIds: Set<string>;
+    currentRetrievalResult?: RetrievalResultData;
+    originalQuery: string;
+    phase: RetrievalPhase;
+    isGeneratingInterpretation: boolean;
+}
+
+// 解读生成请求
+export interface GenerateInterpretationRequest {
+    originalQuery: string;
+    selectedBooks: BookInfo[];
+    messages?: ChatMessage[];
+}
+
+// 检索专用请求
+export interface SearchOnlyRequest {
+    query: string;
+    messages?: ChatMessage[];
+}
+
+// 检索专用响应
+export interface SearchOnlyResponse {
+    success: boolean;
+    query: string;
+    retrievalResult?: RetrievalResultData;
+    contextPlainText: string;
+    metadata: Record<string, unknown>;
+    message?: string;
+}

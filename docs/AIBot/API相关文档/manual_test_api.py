@@ -28,7 +28,7 @@ def print_book_details(book: dict, index: int = 1) -> None:
     
     # 分数信息
     if book.get('fused_score') is not None:
-        detail_parts.append(f"融合分数: {book.get('fused_score', 0):.4f}")
+        detail_parts.append(f"融合分数: {book.get('c', 0):.4f}")
     if book.get('similarity_score') is not None:
         detail_parts.append(f"相似度: {book.get('similarity_score', 0):.4f}")
     if book.get('reranker_score') is not None:

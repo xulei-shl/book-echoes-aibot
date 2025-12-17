@@ -35,6 +35,21 @@ export default function AIBotOverlay() {
         error,
         setError,
         setRetrievalResult,
+        
+        // 新增状态
+        retrievalPhase,
+        currentRetrievalResult,
+        selectedBookIds,
+        originalQuery,
+        isGeneratingInterpretation,
+        setRetrievalPhase,
+        setCurrentRetrievalResult,
+        setSelectedBookIds,
+        setOriginalQuery,
+        setIsGeneratingInterpretation,
+        addSelectedBook,
+        removeSelectedBook,
+        clearSelection,
     } = useAIBotStore();
 
     type Message = UIMessage;
@@ -210,7 +225,8 @@ export default function AIBotOverlay() {
             isDeepMode,
             hasPendingDraft: !!pendingDraft,
             currentMessagesCount: messages.length,
-            currentMessages: messages.map(msg => ({ role: msg.role }))
+            currentMessages: messages.map(msg => ({ role: msg.role })),
+            currentRetrievalPhase: retrievalPhase
         });
 
         if (!trimmed && !(isDeepMode && pendingDraft)) {
@@ -251,21 +267,144 @@ export default function AIBotOverlay() {
             return;
         }
 
+        // 简单检索：先执行检索，不直接调用AI
+        await performSimpleSearch(trimmed);
+    };
+
+    // 新增：执行简单检索
+    const performSimpleSearch = async (query: string) => {
+        setRetrievalPhase('search');
+        setOriginalQuery(query);
+        
         const userMessage: UIMessage = {
             id: crypto.randomUUID(),
             role: 'user',
-            content: trimmed
+            content: query
         } as any;
+        
         const nextMessages = [...messages, userMessage];
-        console.log('[AIBotOverlay] 准备发送文本搜索请求', {
-            userMessage: { role: userMessage.role, content: (userMessage as any).content },
-            nextMessagesCount: nextMessages.length,
-            nextMessages: nextMessages.map(msg => ({ role: msg.role }))
-        });
         appendMessage(userMessage);
         setMessages(nextMessages);
         setInputValue('');
-        await streamAssistant('text-search', nextMessages, undefined);
+        
+        try {
+            const response = await fetch('/api/local-aibot/search-only', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    query,
+                    messages: buildRequestMessages(nextMessages)
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('检索失败');
+            }
+
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.message || '检索失败');
+            }
+
+            setCurrentRetrievalResult(data.retrievalResult);
+            
+            // 添加检索结果消息
+            const retrievalMessage: UIMessage = {
+                id: crypto.randomUUID(),
+                role: 'assistant',
+                content: '请选择相关图书进行解读'
+            } as any;
+            
+            appendMessage(retrievalMessage);
+            setRetrievalResult(retrievalMessage.id, data.retrievalResult);
+            
+            // 进入选择阶段
+            setRetrievalPhase('selection');
+            
+        } catch (err) {
+            setError(err instanceof Error ? err.message : '检索失败，请稍后重试');
+            setRetrievalPhase('search');
+        }
+    };
+
+    // 新增：处理图书选择
+    const handleBookSelection = (bookId: string, isSelected: boolean) => {
+        if (isSelected) {
+            addSelectedBook(bookId);
+        } else {
+            removeSelectedBook(bookId);
+        }
+    };
+
+    // 新增：处理解读生成
+    const handleGenerateInterpretation = async (selectedBookIds: Set<string>) => {
+        if (selectedBookIds.size === 0) {
+            setError('请至少选择一本图书');
+            return;
+        }
+
+        setRetrievalPhase('interpretation');
+        setIsGeneratingInterpretation(true);
+        
+        try {
+            const selectedBooks = currentRetrievalResult?.books.filter(book => 
+                selectedBookIds.has(book.id)
+            ) || [];
+
+            const response = await fetch('/api/local-aibot/generate-interpretation', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    originalQuery,
+                    selectedBooks,
+                    messages: buildRequestMessages(messages)
+                })
+            });
+
+            if (!response.ok || !response.body) {
+                throw new Error('生成解读失败');
+            }
+
+            // 添加解读消息
+            const interpretationMessage: UIMessage = {
+                id: crypto.randomUUID(),
+                role: 'assistant',
+                content: ''
+            } as any;
+            
+            appendMessage(interpretationMessage);
+
+            // 流式读取解读内容
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                updateLastAssistantMessage(buffer);
+            }
+
+            setRetrievalPhase('completed');
+            clearSelection();
+            
+        } catch (err) {
+            setError(err instanceof Error ? err.message : '生成解读失败');
+            setRetrievalPhase('selection');
+        } finally {
+            setIsGeneratingInterpretation(false);
+        }
+    };
+
+    // 新增：取消选择
+    const cancelSelection = () => {
+        clearSelection();
+        setRetrievalPhase('search');
     };
 
     const handleRetry = async () => {
@@ -374,7 +513,15 @@ export default function AIBotOverlay() {
                             </div>
                         )}
                         <div className="flex-1" style={{ minHeight: '0', overflow: 'hidden' }}>
-                            <MessageStream messages={messages} isStreaming={isStreaming} />
+                            <MessageStream 
+                                messages={messages} 
+                                isStreaming={isStreaming || isGeneratingInterpretation}
+                                retrievalPhase={retrievalPhase}
+                                selectedBookIds={selectedBookIds}
+                                onBookSelection={handleBookSelection}
+                                onGenerateInterpretation={handleGenerateInterpretation}
+                                onCancelSelection={cancelSelection}
+                            />
                         </div>
 
                         {isDeepMode && (pendingDraft || isDraftLoading) && (
@@ -422,7 +569,7 @@ export default function AIBotOverlay() {
                                 onChange={(e) => setInputValue(e.target.value)}
                                 placeholder={isDeepMode ? '输入检索主题，先生成草稿再发送' : '想了解什么图书？'}
                                 className="w-full h-24 bg-[#1B1B1B] border border-[#3A3A3A] rounded-2xl p-4 text-sm text-[#E8E6DC] focus:outline-none focus:border-[#C9A063] font-info-content"
-                                disabled={isStreaming || (isDeepMode && !!pendingDraft)}
+                                disabled={isStreaming || isGeneratingInterpretation || (isDeepMode && !!pendingDraft)}
                             />
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3 text-xs text-[#7C7A74]">

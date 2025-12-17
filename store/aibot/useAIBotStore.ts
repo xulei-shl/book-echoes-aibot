@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { UIMessage } from 'ai';
-import type { DraftPayload, RetrievalResultData } from '@/src/core/aibot/types';
+import type { DraftPayload, RetrievalResultData, RetrievalPhase, BookSelectionState } from '@/src/core/aibot/types';
 
 interface AIBotState {
     isOverlayOpen: boolean;
@@ -12,6 +12,15 @@ interface AIBotState {
     messages: UIMessage[];
     error?: string;
     retrievalResults: Map<string, RetrievalResultData>; // 消息ID -> 检索结果
+    
+    // 新增：图书选择相关状态
+    retrievalPhase: RetrievalPhase;
+    currentRetrievalResult?: RetrievalResultData;
+    selectedBookIds: Set<string>;
+    originalQuery: string;
+    isGeneratingInterpretation: boolean;
+    
+    // 原有actions
     toggleOverlay: (force?: boolean) => void;
     setDeepMode: (value: boolean) => void;
     setMessages: (messages: UIMessage[]) => void;
@@ -24,9 +33,19 @@ interface AIBotState {
     setRetrievalResult: (messageId: string, result: RetrievalResultData) => void;
     clearRetrievalResults: () => void;
     reset: () => void;
+    
+    // 新增actions
+    setRetrievalPhase: (phase: RetrievalPhase) => void;
+    setCurrentRetrievalResult: (result?: RetrievalResultData) => void;
+    setSelectedBookIds: (bookIds: Set<string>) => void;
+    setOriginalQuery: (query: string) => void;
+    setIsGeneratingInterpretation: (generating: boolean) => void;
+    addSelectedBook: (bookId: string) => void;
+    removeSelectedBook: (bookId: string) => void;
+    clearSelection: () => void;
 }
 
-const initialState: Omit<AIBotState, 'toggleOverlay' | 'setDeepMode' | 'setMessages' | 'setPendingDraft' | 'setStreaming' | 'setDraftLoading' | 'setError' | 'reset' | 'appendMessage' | 'updateLastAssistantMessage' | 'setRetrievalResult' | 'clearRetrievalResults'> = {
+const initialState: Omit<AIBotState, 'toggleOverlay' | 'setDeepMode' | 'setMessages' | 'setPendingDraft' | 'setStreaming' | 'setDraftLoading' | 'setError' | 'reset' | 'appendMessage' | 'updateLastAssistantMessage' | 'setRetrievalResult' | 'clearRetrievalResults' | 'setRetrievalPhase' | 'setCurrentRetrievalResult' | 'setSelectedBookIds' | 'setOriginalQuery' | 'setIsGeneratingInterpretation' | 'addSelectedBook' | 'removeSelectedBook' | 'clearSelection'> = {
     isOverlayOpen: false,
     isDeepMode: false,
     isStreaming: false,
@@ -36,6 +55,13 @@ const initialState: Omit<AIBotState, 'toggleOverlay' | 'setDeepMode' | 'setMessa
     messages: [],
     error: undefined,
     retrievalResults: new Map(),
+    
+    // 新增状态初始值
+    retrievalPhase: 'search',
+    currentRetrievalResult: undefined,
+    selectedBookIds: new Set(),
+    originalQuery: '',
+    isGeneratingInterpretation: false,
 };
 
 export const useAIBotStore = create<AIBotState>((set) => ({
@@ -109,5 +135,23 @@ export const useAIBotStore = create<AIBotState>((set) => ({
             return { retrievalResults: newRetrievalResults };
         }),
     clearRetrievalResults: () => set({ retrievalResults: new Map() }),
-    reset: () => set({ ...initialState, retrievalResults: new Map() })
+    reset: () => set({ ...initialState, retrievalResults: new Map() }),
+    
+    // 新增actions实现
+    setRetrievalPhase: (phase) => set({ retrievalPhase: phase }),
+    setCurrentRetrievalResult: (result) => set({ currentRetrievalResult: result }),
+    setSelectedBookIds: (bookIds) => set({ selectedBookIds: bookIds }),
+    setOriginalQuery: (query) => set({ originalQuery: query }),
+    setIsGeneratingInterpretation: (generating) => set({ isGeneratingInterpretation: generating }),
+    addSelectedBook: (bookId) => set((state) => {
+        const newSelection = new Set(state.selectedBookIds);
+        newSelection.add(bookId);
+        return { selectedBookIds: newSelection };
+    }),
+    removeSelectedBook: (bookId) => set((state) => {
+        const newSelection = new Set(state.selectedBookIds);
+        newSelection.delete(bookId);
+        return { selectedBookIds: newSelection };
+    }),
+    clearSelection: () => set({ selectedBookIds: new Set() })
 }));

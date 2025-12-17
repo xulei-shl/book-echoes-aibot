@@ -6,19 +6,58 @@ import type { BookInfo } from '@/src/core/aibot/types';
 
 export default function BookItem({ 
     book, 
-    isCompact = false 
+    isCompact = false,
+    isSelected = false,
+    onSelectionChange,
+    showCheckbox = false
 }: { 
     book: BookInfo; 
     isCompact?: boolean;
+    isSelected?: boolean;
+    onSelectionChange?: (bookId: string, isSelected: boolean) => void;
+    showCheckbox?: boolean;
 }) {
     const [isExpanded, setIsExpanded] = useState(false);
+    const [localSelected, setLocalSelected] = useState(isSelected);
+
+    // 处理选择变化
+    const handleSelectionChange = (checked: boolean) => {
+        setLocalSelected(checked);
+        onSelectionChange?.(book.id, checked);
+    };
+
+    // 处理点击事件
+    const handleClick = (e: React.MouseEvent) => {
+        // 如果显示复选框，点击复选框区域才触发选择
+        if (showCheckbox && (e.target as HTMLElement).closest('.book-checkbox')) {
+            return;
+        }
+        
+        // 原有的展开逻辑
+        if (!isCompact && !showCheckbox) {
+            setIsExpanded(!isExpanded);
+        }
+    };
 
     return (
         <motion.div
-            className={`book-item ${isExpanded ? 'expanded' : ''} flex gap-3 p-3 rounded-lg bg-[rgba(27,27,27,0.6)] mb-2 cursor-pointer transition-all duration-200 hover:bg-[rgba(201,160,99,0.15)] hover:translate-x-1`}
+            className={`book-item ${isExpanded ? 'expanded' : ''} ${localSelected ? 'selected' : ''} flex gap-3 p-3 rounded-lg bg-[rgba(27,27,27,0.6)] mb-2 cursor-pointer transition-all duration-200 hover:bg-[rgba(201,160,99,0.15)] hover:translate-x-1 ${localSelected ? 'border border-[#C9A063] bg-[rgba(201,160,99,0.1)]' : ''}`}
             whileHover={{ scale: 1.01 }}
-            onClick={() => !isCompact && setIsExpanded(!isExpanded)}
+            onClick={handleClick}
         >
+            {/* 复选框 */}
+            {showCheckbox && (
+                <div className="book-checkbox flex items-center justify-center">
+                    <input
+                        type="checkbox"
+                        checked={localSelected}
+                        onChange={(e) => handleSelectionChange(e.target.checked)}
+                        className="w-4 h-4 text-[#C9A063] bg-[#1B1B1B] border-[#343434] rounded focus:ring-[#C9A063] focus:ring-2"
+                        style={{ accentColor: '#C9A063' }}
+                    />
+                </div>
+            )}
+            
             {/* 图书封面 */}
             {book.coverUrl && (
                 <img 
@@ -51,6 +90,24 @@ export default function BookItem({
                         <div className="flex items-center gap-1">
                             <span className="text-[#C9A063] text-xs">★</span>
                             <span className="text-[#E8E6DC] text-xs">{book.rating}</span>
+                        </div>
+                    )}
+                    {book.similarityScore !== undefined && book.similarityScore !== null && (
+                        <div className="flex items-center gap-1">
+                            <span className="text-[#6F6D68] text-xs">相似:</span>
+                            <span className="text-[#A2A09A] text-xs font-medium">{book.similarityScore.toFixed(3)}</span>
+                        </div>
+                    )}
+                    {book.fusedScore !== undefined && book.fusedScore !== null && (
+                        <div className="flex items-center gap-1">
+                            <span className="text-[#6F6D68] text-xs">融合:</span>
+                            <span className="text-[#A2A09A] text-xs font-medium">{book.fusedScore.toFixed(3)}</span>
+                        </div>
+                    )}
+                    {book.finalScore !== undefined && book.finalScore !== null && (
+                        <div className="flex items-center gap-1">
+                            <span className="text-[#6F6D68] text-xs">最终:</span>
+                            <span className="text-[#A2A09A] text-xs font-medium">{book.finalScore.toFixed(3)}</span>
                         </div>
                     )}
                     {book.callNumber && (

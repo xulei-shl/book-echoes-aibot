@@ -5,13 +5,27 @@ import { AnimatePresence, motion } from 'framer-motion';
 import type { UIMessage } from 'ai';
 import RetrievalResultDisplay from './RetrievalResultDisplay';
 import { useAIBotStore } from '@/store/aibot/useAIBotStore';
+import type { RetrievalPhase } from '@/src/core/aibot/types';
 
 interface MessageStreamProps {
     messages: UIMessage[];
     isStreaming: boolean;
+    retrievalPhase?: RetrievalPhase;
+    selectedBookIds?: Set<string>;
+    onBookSelection?: (bookId: string, isSelected: boolean) => void;
+    onGenerateInterpretation?: (selectedBookIds: Set<string>) => void;
+    onCancelSelection?: () => void;
 }
 
-export default function MessageStream({ messages, isStreaming }: MessageStreamProps) {
+export default function MessageStream({
+    messages,
+    isStreaming,
+    retrievalPhase = 'search',
+    selectedBookIds = new Set(),
+    onBookSelection,
+    onGenerateInterpretation,
+    onCancelSelection
+}: MessageStreamProps) {
     const { retrievalResults } = useAIBotStore(); // 获取检索结果状态
 
     // 调试日志：检查容器尺寸和滚动状态
@@ -20,7 +34,7 @@ export default function MessageStream({ messages, isStreaming }: MessageStreamPr
             console.log('[MessageStream DEBUG]', {
                 消息数量: messages.length,
                 流式状态: isStreaming,
-                总内容长度: messages.reduce((sum, msg) => sum + msg.content.length, 0),
+                总内容长度: messages.reduce((sum, msg) => sum + ((msg as any).content || '').length, 0),
                 时间戳: new Date().toISOString(),
                 检索结果数量: retrievalResults.size
             });
@@ -55,6 +69,11 @@ export default function MessageStream({ messages, isStreaming }: MessageStreamPr
                                 {retrievalResults.get(message.id) && (
                                     <RetrievalResultDisplay
                                         retrievalResult={retrievalResults.get(message.id)!}
+                                        mode={retrievalPhase === 'selection' ? 'selection' : 'display'}
+                                        selectedBookIds={selectedBookIds}
+                                        onSelectionChange={onBookSelection}
+                                        onGenerateInterpretation={onGenerateInterpretation}
+                                        onCancelSelection={onCancelSelection}
                                     />
                                 )}
                             </>
@@ -67,7 +86,7 @@ export default function MessageStream({ messages, isStreaming }: MessageStreamPr
                                     : 'bg-[#1B1B1B] border border-[#343434] text-[#E8E6DC]'
                             }`}
                         >
-                            {message.content}
+                            {(message as any).content}
                         </div>
                     </motion.div>
                 ))}
