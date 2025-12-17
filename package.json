@@ -1,0 +1,45 @@
+{
+  "name": "temp_app",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "test": "vitest run",
+    "init-fonts": "node scripts/init-fonts.mjs"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "^2.0.86",
+    "@aws-sdk/client-s3": "^3.937.0",
+    "@aws-sdk/s3-request-presigner": "^3.937.0",
+    "@modelcontextprotocol/sdk": "^1.25.0",
+    "ai": "^5.0.113",
+    "clsx": "^2.1.1",
+    "framer-motion": "^12.23.24",
+    "jszip": "^3.10.1",
+    "next": "^16.0.7",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "sharp": "^0.34.5",
+    "tailwind-merge": "^3.4.0",
+    "ws": "^8.18.3",
+    "xlsx": "^0.18.5",
+    "zod": "^4.2.1",
+    "zustand": "^5.0.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "^16.0.7",
+    "tailwindcss": "^4",
+    "typescript": "^5",
+    "vitest": "^4.0.15"
+  }
+}
