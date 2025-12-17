@@ -1,4 +1,4 @@
-import { openai } from '@ai-sdk/openai';
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { generateText } from 'ai';
 import { AIBOT_MODES, AIBOT_PROMPT_FILES, DEFAULT_MULTI_QUERY_TOP_K, DEFAULT_TOP_K } from '@/src/core/aibot/constants';
 import { loadPrompt } from '@/src/core/aibot/promptLoader';
@@ -10,11 +10,21 @@ import { getLogger } from '@/src/utils/logger';
 
 const logger = getLogger('aibot.workflow');
 
-const createModel = (config: LLMConfig) =>
-    openai(config.model, {
+const createModel = (config: LLMConfig) => {
+    logger.info('创建模型实例', {
+        model: config.model,
+        baseURL: config.baseURL,
+        hasApiKey: !!config.apiKey
+    });
+    
+    const customProvider = createOpenAICompatible({
+        name: 'custom-llm',
         baseURL: config.baseURL,
         apiKey: config.apiKey
     });
+    
+    return customProvider(config.model);
+};
 
 const joinSnippets = (snippets: DraftWorkflowResult['searchSnippets']): string =>
     snippets
@@ -22,6 +32,10 @@ const joinSnippets = (snippets: DraftWorkflowResult['searchSnippets']): string =
         .join('\n\n');
 
 const extractLatestUserMessage = (messages: ChatWorkflowInput['messages']): string => {
+    if (!Array.isArray(messages) || messages.length === 0) {
+        return '';
+    }
+    
     for (let i = messages.length - 1; i >= 0; i -= 1) {
         const message = messages[i];
         if (message.role === 'user' && message.content.trim()) {
@@ -89,11 +103,27 @@ export async function buildChatWorkflowContext(
 ): Promise<ChatWorkflowContext> {
     const userInput = extractLatestUserMessage(input.messages);
 
+    logger.info('buildChatWorkflowContext 开始', {
+        mode: input.mode,
+        userInput,
+        messagesCount: input.messages.length,
+        hasDraftMarkdown: !!input.draftMarkdown,
+        hasDeepMetadata: !!input.deepMetadata,
+        deepMetadataDraftMarkdown: input.deepMetadata?.draftMarkdown?.slice(0, 100) || null
+    });
+
     if (!userInput) {
         throw new Error('缺少用户输入内容，无法启动 AIBot 工作流');
     }
 
     const draftMarkdown = input.draftMarkdown ?? input.deepMetadata?.draftMarkdown ?? '';
+
+    logger.info('buildChatWorkflowContext 草稿检查', {
+        inputDraftMarkdown: input.draftMarkdown?.slice(0, 100) || null,
+        deepMetadataDraftMarkdown: input.deepMetadata?.draftMarkdown?.slice(0, 100) || null,
+        finalDraftMarkdown: draftMarkdown?.slice(0, 100) || null,
+        mode: input.mode
+    });
 
     if (input.mode === AIBOT_MODES.DEEP && !draftMarkdown.trim()) {
         throw new Error('深度检索缺少草稿内容');

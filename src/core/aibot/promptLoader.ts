@@ -13,7 +13,7 @@ export async function loadPrompt(promptName: string): Promise<string> {
         return cache.get(promptName)!;
     }
 
-    const filePath = path.join(process.cwd(), 'docs', 'AIBot', 'prompts', `${promptName}.md`);
+    const filePath = path.join(process.cwd(), 'public', 'prompts', `${promptName}.md`);
     try {
         const content = await fs.readFile(filePath, 'utf-8');
         cache.set(promptName, content);

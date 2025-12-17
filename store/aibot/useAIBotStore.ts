@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Message } from 'ai';
+import type { UIMessage } from 'ai';
 import type { DraftPayload } from '@/src/core/aibot/types';
 
 interface AIBotState {
@@ -9,12 +9,12 @@ interface AIBotState {
     isDraftLoading: boolean;
     pendingDraft: string | null;
     draftMetadata?: DraftPayload;
-    messages: Message[];
+    messages: UIMessage[];
     error?: string;
     toggleOverlay: (force?: boolean) => void;
     setDeepMode: (value: boolean) => void;
-    setMessages: (messages: Message[]) => void;
-    appendMessage: (message: Message) => void;
+    setMessages: (messages: UIMessage[]) => void;
+    appendMessage: (message: UIMessage) => void;
     updateLastAssistantMessage: (content: string) => void;
     setPendingDraft: (draft: string | null, metadata?: DraftPayload) => void;
     setStreaming: (value: boolean) => void;
@@ -23,7 +23,7 @@ interface AIBotState {
     reset: () => void;
 }
 
-const initialState: Omit<AIBotState, 'toggleOverlay' | 'setDeepMode' | 'setMessages' | 'setPendingDraft' | 'setStreaming' | 'setDraftLoading' | 'setError' | 'reset'> = {
+const initialState: Omit<AIBotState, 'toggleOverlay' | 'setDeepMode' | 'setMessages' | 'setPendingDraft' | 'setStreaming' | 'setDraftLoading' | 'setError' | 'reset' | 'appendMessage' | 'updateLastAssistantMessage'> = {
     isOverlayOpen: false,
     isDeepMode: false,
     isStreaming: false,
@@ -39,10 +39,36 @@ export const useAIBotStore = create<AIBotState>((set) => ({
     toggleOverlay: (force) =>
         set((state) => {
             const next = typeof force === 'boolean' ? force : !state.isOverlayOpen;
+            console.log('[useAIBotStore] toggleOverlay', {
+                force,
+                currentState: {
+                    isOverlayOpen: state.isOverlayOpen,
+                    isDeepMode: state.isDeepMode,
+                    messagesCount: state.messages.length,
+                    hasPendingDraft: !!state.pendingDraft
+                },
+                next,
+                willReset: !next
+            });
             return next ? { ...state, isOverlayOpen: true } : { ...initialState };
         }),
-    setDeepMode: (value) => set({ isDeepMode: value }),
-    setMessages: (messages) => set({ messages }),
+    setDeepMode: (value) => set((state) => {
+        console.log('[useAIBotStore] setDeepMode', {
+            from: state.isDeepMode,
+            to: value
+        });
+        return { isDeepMode: value };
+    }),
+    setMessages: (messages) => set((state) => {
+        console.log('[useAIBotStore] setMessages', {
+            from: state.messages.length,
+            to: messages.length,
+            messagePreview: messages.map(msg => ({
+                role: msg.role
+            }))
+        });
+        return { messages };
+    }),
     appendMessage: (message) =>
         set((state) => ({
             messages: [...state.messages, message]
@@ -52,15 +78,15 @@ export const useAIBotStore = create<AIBotState>((set) => ({
             const next = [...state.messages];
             for (let i = next.length - 1; i >= 0; i -= 1) {
                 if (next[i].role === 'assistant') {
-                    next[i] = { ...next[i], content };
+                    next[i] = { ...next[i], content: content as any };
                     return { messages: next };
                 }
             }
             next.push({
                 id: crypto.randomUUID(),
                 role: 'assistant',
-                content
-            });
+                content: content as any
+            } as any);
             return { messages: next };
         }),
     setPendingDraft: (draft, metadata) =>

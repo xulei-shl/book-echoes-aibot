@@ -1,4 +1,4 @@
-import type { AIBotMode } from '@/src/core/aibot/constants';
+import type { AIBotIntent, AIBotMode } from '@/src/core/aibot/constants';
 import type { LLMConfig } from '@/src/utils/aibot-env';
 
 export type ChatRole = 'system' | 'user' | 'assistant' | 'tool';
@@ -68,4 +68,18 @@ export interface MultiQueryPayload {
     disable_exact_match?: boolean;
     response_format?: 'json' | 'plain_text';
     plain_text_template?: string;
+}
+
+export interface IntentClassificationResult {
+    intent: AIBotIntent;
+    confidence: number;
+    reason?: string;
+    suggestedQuery?: string;
+    source: 'llm' | 'rule';
+    rawOutput?: string;
+}
+
+export interface IntentClassifierInput {
+    userInput: string;
+    messages?: ChatMessage[];
 }

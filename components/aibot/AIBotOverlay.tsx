@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import MessageStream from '@/components/aibot/MessageStream';
 import { useAIBotStore } from '@/store/aibot/useAIBotStore';
-import type { Message } from 'ai';
+import type { UIMessage } from 'ai';
 
 const buildRequestMessages = (messages: Message[]) =>
     messages.map((message) => ({
@@ -35,6 +35,8 @@ export default function AIBotOverlay() {
         setError,
     } = useAIBotStore();
 
+    type Message = UIMessage;
+
     const [inputValue, setInputValue] = useState('');
     const [draftEditorValue, setDraftEditorValue] = useState('');
     const [isMounted, setIsMounted] = useState(false);
@@ -52,19 +54,25 @@ export default function AIBotOverlay() {
     const lastAssistant = useMemo(() => {
         for (let i = messages.length - 1; i >= 0; i -= 1) {
             if (messages[i].role === 'assistant') {
-                return messages[i].content;
+                return messages[i].content as string;
             }
         }
         return '';
     }, [messages]);
 
     const closeOverlay = () => {
+        console.log('[AIBotOverlay] 关闭对话框，重置所有状态', {
+            currentMessages: messages.length,
+            currentDeepMode: isDeepMode,
+            hasPendingDraft: !!pendingDraft
+        });
         toggleOverlay(false);
         setInputValue('');
         setDraftEditorValue('');
         setMessages([]);
-        setPendingDraft(null, null);
+        setPendingDraft(null, undefined);
         setError(undefined);
+        console.log('[AIBotOverlay] 状态重置完成');
     };
 
     const requestDraft = async (question: string) => {
@@ -109,17 +117,31 @@ export default function AIBotOverlay() {
     ) => {
         setStreaming(true);
         setError(undefined);
+        
+        const requestBody = {
+            mode,
+            messages: buildRequestMessages(currentMessages),
+            ...extraBody
+        };
+        
+        console.log('[AIBotOverlay] streamAssistant 发送请求', {
+            mode,
+            messagesCount: currentMessages.length,
+            hasExtraBody: !!extraBody,
+            extraBodyKeys: extraBody ? Object.keys(extraBody) : [],
+            requestBody: {
+                ...requestBody,
+                messages: requestBody.messages.map(msg => ({ role: msg.role }))
+            }
+        });
+        
         try {
             const response = await fetch('/api/local-aibot/chat', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    mode,
-                    messages: buildRequestMessages(currentMessages),
-                    ...extraBody
-                })
+                body: JSON.stringify(requestBody)
             });
 
             if (!response.ok || !response.body) {
@@ -155,6 +177,14 @@ export default function AIBotOverlay() {
         event.preventDefault();
         const trimmed = inputValue.trim();
 
+        console.log('[AIBotOverlay] handleSubmit', {
+            trimmed,
+            isDeepMode,
+            hasPendingDraft: !!pendingDraft,
+            currentMessagesCount: messages.length,
+            currentMessages: messages.map(msg => ({ role: msg.role }))
+        });
+
         if (!trimmed && !(isDeepMode && pendingDraft)) {
             setError('请输入内容');
             return;
@@ -188,7 +218,7 @@ export default function AIBotOverlay() {
                 draft_markdown: draftText,
                 deep_metadata: mergedMetadata
             });
-            setPendingDraft(null, mergedMetadata);
+            setPendingDraft(null, mergedMetadata as any);
             setInputValue('');
             return;
         }
@@ -199,10 +229,15 @@ export default function AIBotOverlay() {
             content: trimmed
         };
         const nextMessages = [...messages, userMessage];
+        console.log('[AIBotOverlay] 准备发送文本搜索请求', {
+            userMessage: { role: userMessage.role, content: userMessage.content },
+            nextMessagesCount: nextMessages.length,
+            nextMessages: nextMessages.map(msg => ({ role: msg.role }))
+        });
         appendMessage(userMessage);
         setMessages(nextMessages);
         setInputValue('');
-        await streamAssistant('text-search', nextMessages);
+        await streamAssistant('text-search', nextMessages, undefined);
     };
 
     const handleRetry = async () => {
@@ -255,6 +290,7 @@ export default function AIBotOverlay() {
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.95 }}
                         onClick={(e) => e.stopPropagation()}
+                        style={{ minHeight: '0' }} // 确保flex容器可以正确计算高度
                     >
                     <header className="flex items-center justify-between pb-4 border-b border-[#2E2E2E]">
                         <div>
@@ -282,8 +318,17 @@ export default function AIBotOverlay() {
                         </div>
                     </header>
 
-                    <div className="flex-1 flex flex-col gap-6 py-4">
-                        <MessageStream messages={messages} isStreaming={isStreaming} />
+                    <div className="flex-1 flex flex-col gap-6 py-4 overflow-hidden" style={{ minHeight: '0' }}>
+                        {/* 调试日志：检查容器高度 */}
+                        {process.env.NODE_ENV === 'development' && (
+                            <div className="text-xs text-[#6F6D68] mb-2 bg-[#1B1B1B] p-2 rounded">
+                                [DEBUG] 容器诊断 - 消息数量: {messages.length}, 流式状态: {isStreaming ? '是' : '否'}
+                                <br />草稿状态: {pendingDraft ? '有' : '无'}, 草稿加载: {isDraftLoading ? '是' : '否'}
+                            </div>
+                        )}
+                        <div className="flex-1" style={{ minHeight: '0', overflow: 'hidden' }}>
+                            <MessageStream messages={messages} isStreaming={isStreaming} />
+                        </div>
 
                         {isDeepMode && (pendingDraft || isDraftLoading) && (
                             <div className="border border-[#2E2E2E] rounded-2xl p-4 space-y-3">
@@ -305,7 +350,7 @@ export default function AIBotOverlay() {
                                 <div className="flex items-center gap-3">
                                     <button
                                         type="button"
-                                        onClick={() => setPendingDraft(null, null)}
+                                        onClick={() => setPendingDraft(null, undefined)}
                                         className="text-xs px-3 py-1 border border-[#3A3A3A] rounded-full text-[#A2A09A]"
                                     >
                                         丢弃草稿

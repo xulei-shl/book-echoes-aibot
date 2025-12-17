@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { Message } from 'ai';
 
@@ -9,8 +10,31 @@ interface MessageStreamProps {
 }
 
 export default function MessageStream({ messages, isStreaming }: MessageStreamProps) {
+    // 调试日志：检查容器尺寸和滚动状态
+    useEffect(() => {
+        if (process.env.NODE_ENV === 'development') {
+            console.log('[MessageStream DEBUG]', {
+                消息数量: messages.length,
+                流式状态: isStreaming,
+                总内容长度: messages.reduce((sum, msg) => sum + msg.content.length, 0),
+                时间戳: new Date().toISOString()
+            });
+        }
+    }, [messages, isStreaming]);
+
     return (
-        <div className="flex-1 overflow-y-auto pr-2 space-y-4">
+        <div
+            className="flex-1 overflow-y-auto pr-2 space-y-4"
+            style={{
+                maxHeight: '100%',
+                minHeight: '0' // 确保flex子元素可以缩小
+            }}
+            onLoad={() => {
+                if (process.env.NODE_ENV === 'development') {
+                    console.log('[MessageStream DEBUG] 容器已加载');
+                }
+            }}
+        >
             <AnimatePresence initial={false}>
                 {messages.map((message) => (
                     <motion.div
