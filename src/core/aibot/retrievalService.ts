@@ -121,7 +121,7 @@ function parseJsonResultsToBooks(
     endpoint: string
 ): RetrievalResultData {
     const books: BookInfo[] = results.map((item, index) => ({
-        id: item.id || `book-${index}`,
+        id: item.book_id || item.id || `book-${index}`,
         title: item.title || item.豆瓣书名 || '',
         subtitle: item.subtitle || item.豆瓣副标题,
         author: item.author || item.豆瓣作者 || '',
@@ -129,15 +129,24 @@ function parseJsonResultsToBooks(
         publisher: item.publisher,
         publishYear: item.publishYear || item.豆瓣出版年份,
         rating: item.rating || item.豆瓣评分,
-        callNumber: item.callNumber || item.索书号,
+        callNumber: item.call_no || item.callNumber || item.索书号,
         pageCount: item.pageCount || item.豆瓣页数,
         coverUrl: item.coverUrl,
-        description: item.description || item.豆瓣内容简介,
+        description: item.summary || item.description || item.豆瓣内容简介,
         authorIntro: item.authorIntro || item.豆瓣作者简介,
         tableOfContents: item.tableOfContents || item.豆瓣目录,
         highlights: item.highlights,
         isbn: item.isbn,
-        tags: item.tags
+        tags: item.tags,
+        // API返回的评分相关字段
+        fusedScore: item.fused_score,
+        similarityScore: item.similarity_score,
+        rerankerScore: item.reranker_score,
+        finalScore: item.final_score,
+        // API返回的其他字段
+        matchSource: item.match_source,
+        embeddingId: item.embedding_id,
+        sourceQueryType: item.source_query_type
     }));
     
     return {

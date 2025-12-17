@@ -103,6 +103,15 @@ export interface BookInfo {
     highlights?: string[];
     isbn?: string;
     tags?: string[];
+    // API返回的评分相关字段
+    fusedScore?: number;
+    similarityScore?: number;
+    rerankerScore?: number;
+    finalScore?: number;
+    // API返回的其他字段
+    matchSource?: string;
+    embeddingId?: string;
+    sourceQueryType?: string;
 }
 
 // 检索结果数据结构
