@@ -404,7 +404,13 @@ export default function AIBotOverlay() {
     // 新增：取消选择
     const cancelSelection = () => {
         clearSelection();
-        setRetrievalPhase('search');
+        // 保持检索结果，只退出选择模式，允许用户重新进入选择
+        setRetrievalPhase('completed');
+    };
+
+    // 新增：重新进入选择模式
+    const reenterSelection = () => {
+        setRetrievalPhase('selection');
     };
 
     const handleRetry = async () => {
@@ -513,14 +519,15 @@ export default function AIBotOverlay() {
                             </div>
                         )}
                         <div className="flex-1" style={{ minHeight: '0', overflow: 'hidden' }}>
-                            <MessageStream 
-                                messages={messages} 
+                            <MessageStream
+                                messages={messages}
                                 isStreaming={isStreaming || isGeneratingInterpretation}
                                 retrievalPhase={retrievalPhase}
                                 selectedBookIds={selectedBookIds}
                                 onBookSelection={handleBookSelection}
                                 onGenerateInterpretation={handleGenerateInterpretation}
                                 onCancelSelection={cancelSelection}
+                                onReenterSelection={reenterSelection}
                             />
                         </div>
 

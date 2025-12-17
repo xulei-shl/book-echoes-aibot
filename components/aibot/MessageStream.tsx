@@ -15,6 +15,7 @@ interface MessageStreamProps {
     onBookSelection?: (bookId: string, isSelected: boolean) => void;
     onGenerateInterpretation?: (selectedBookIds: Set<string>) => void;
     onCancelSelection?: () => void;
+    onReenterSelection?: () => void;
 }
 
 export default function MessageStream({
@@ -24,7 +25,8 @@ export default function MessageStream({
     selectedBookIds = new Set(),
     onBookSelection,
     onGenerateInterpretation,
-    onCancelSelection
+    onCancelSelection,
+    onReenterSelection
 }: MessageStreamProps) {
     const { retrievalResults } = useAIBotStore(); // 获取检索结果状态
 
@@ -74,6 +76,7 @@ export default function MessageStream({
                                         onSelectionChange={onBookSelection}
                                         onGenerateInterpretation={onGenerateInterpretation}
                                         onCancelSelection={onCancelSelection}
+                                        onReenterSelection={onReenterSelection}
                                     />
                                 )}
                             </>

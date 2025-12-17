@@ -19,6 +19,7 @@ export default function BookItem({
 }) {
     const [isExpanded, setIsExpanded] = useState(false);
     const [localSelected, setLocalSelected] = useState(isSelected);
+    const [showAbstract, setShowAbstract] = useState(false);
 
     // 处理选择变化
     const handleSelectionChange = (checked: boolean) => {
@@ -127,6 +128,39 @@ export default function BookItem({
                         <p className="text-[#A2A09A] text-xs line-clamp-2">
                             {book.highlights.join('; ')}
                         </p>
+                    </div>
+                )}
+
+                {/* 摘要信息 - 可折叠显示 */}
+                {book.description && (
+                    <div className="mt-2">
+                        <div className="flex items-center gap-2 mb-1">
+                            <span className="text-[#6F6D68] text-xs">摘要:</span>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowAbstract(!showAbstract);
+                                }}
+                                className="text-[#C9A063] text-xs hover:text-[#E8E6DC] transition-colors"
+                            >
+                                {showAbstract ? '收起' : '展开'}
+                            </button>
+                        </div>
+                        <AnimatePresence>
+                            {showAbstract && (
+                                <motion.div
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: 'auto' }}
+                                    exit={{ opacity: 0, height: 0 }}
+                                    transition={{ duration: 0.3 }}
+                                    className="overflow-hidden"
+                                >
+                                    <p className="text-[#A2A09A] text-xs leading-relaxed bg-[#1B1B1B] p-2 rounded border border-[#343434]">
+                                        {book.description}
+                                    </p>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </div>
                 )}
             </div>

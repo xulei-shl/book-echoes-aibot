@@ -11,7 +11,8 @@ export default function RetrievalResultDisplay({
     selectedBookIds = new Set(),
     onSelectionChange,
     onGenerateInterpretation,
-    onCancelSelection
+    onCancelSelection,
+    onReenterSelection
 }: {
     retrievalResult: RetrievalResultData;
     mode?: 'display' | 'selection';
@@ -19,15 +20,17 @@ export default function RetrievalResultDisplay({
     onSelectionChange?: (bookId: string, isSelected: boolean) => void;
     onGenerateInterpretation?: (selectedBookIds: Set<string>) => void;
     onCancelSelection?: () => void;
+    onReenterSelection?: () => void;
 }) {
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [showAll, setShowAll] = useState(false);
 
-    const displayBooks = showAll
+    const isSelectionMode = mode === 'selection';
+    
+    // 选择模式下显示所有图书，非选择模式下默认显示3本
+    const displayBooks = isSelectionMode || showAll
         ? retrievalResult.books
         : retrievalResult.books.slice(0, 3);
-
-    const isSelectionMode = mode === 'selection';
     const selectedCount = selectedBookIds.size;
 
     // 处理生成解读
@@ -58,7 +61,7 @@ export default function RetrievalResultDisplay({
                 whileHover={{ backgroundColor: 'rgba(201, 160, 99, 0.3)' }}
                 transition={{ duration: 0.2 }}
             >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
                     {isSelectionMode ? (
                         <>
                             <span className="text-[#C9A063] text-sm font-info-content font-medium">
@@ -67,6 +70,11 @@ export default function RetrievalResultDisplay({
                             <span className="text-[#E8E6DC] text-sm">
                                 已选择 {selectedCount} 本图书
                             </span>
+                            {retrievalResult.books.length > 0 && (
+                                <span className="text-[#6F6D68] text-xs">
+                                    共 {retrievalResult.books.length} 本可供选择
+                                </span>
+                            )}
                         </>
                     ) : (
                         <>
@@ -115,7 +123,7 @@ export default function RetrievalResultDisplay({
                             
                             {/* 选择模式下的操作按钮 */}
                             {isSelectionMode && (
-                                <div className="selection-actions mt-4 flex gap-3">
+                                <div className="selection-actions mt-4 flex flex-wrap gap-3">
                                     <button
                                         onClick={handleGenerateInterpretation}
                                         className="px-4 py-2 bg-[#C9A063] text-black rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
@@ -138,7 +146,7 @@ export default function RetrievalResultDisplay({
                                 </div>
                             )}
                             
-                            {/* 显示更多按钮 */}
+                            {/* 显示更多按钮 - 只在非选择模式且有超过3本书时显示 */}
                             {!isSelectionMode && retrievalResult.books.length > 3 && (
                                 <button
                                     onClick={(e) => {
@@ -148,6 +156,19 @@ export default function RetrievalResultDisplay({
                                     className="w-full py-2 mt-3 text-center text-[#C9A063] text-sm hover:bg-[#1B1B1B] rounded-lg transition-colors border border-[#343434]"
                                 >
                                     {showAll ? '▲ 收起' : `▼ 显示全部 ${retrievalResult.books.length} 本`}
+                                </button>
+                            )}
+                            
+                            {/* 重新选择按钮 - 在非选择模式下显示 */}
+                            {!isSelectionMode && onReenterSelection && retrievalResult.books.length > 0 && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onReenterSelection();
+                                    }}
+                                    className="w-full py-2 mt-2 text-center text-[#E8E6DC] text-sm hover:bg-[#C9A063] hover:text-black rounded-lg transition-colors border border-[#343434]"
+                                >
+                                    🔄 重新选择图书进行解读
                                 </button>
                             )}
                         </div>
