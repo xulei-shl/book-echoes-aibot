@@ -8,10 +8,10 @@ import MessageStream from '@/components/aibot/MessageStream';
 import { useAIBotStore } from '@/store/aibot/useAIBotStore';
 import type { UIMessage } from 'ai';
 
-const buildRequestMessages = (messages: Message[]) =>
+const buildRequestMessages = (messages: UIMessage[]) =>
     messages.map((message) => ({
         role: message.role,
-        content: message.content
+        content: (message as any).content
     }));
 
 export default function AIBotOverlay() {
@@ -54,7 +54,7 @@ export default function AIBotOverlay() {
     const lastAssistant = useMemo(() => {
         for (let i = messages.length - 1; i >= 0; i -= 1) {
             if (messages[i].role === 'assistant') {
-                return messages[i].content as string;
+                return (messages[i] as any).content as string;
             }
         }
         return '';
@@ -149,11 +149,11 @@ export default function AIBotOverlay() {
                 throw new Error(fallback || '响应异常');
             }
 
-            const assistantMessage: Message = {
+            const assistantMessage: UIMessage = {
                 id: crypto.randomUUID(),
                 role: 'assistant',
                 content: ''
-            };
+            } as any;
             appendMessage(assistantMessage);
 
             const reader = response.body.getReader();
@@ -192,11 +192,11 @@ export default function AIBotOverlay() {
 
         if (isDeepMode) {
             if (!pendingDraft) {
-                const userMessage: Message = {
+                const userMessage: UIMessage = {
                     id: crypto.randomUUID(),
                     role: 'user',
                     content: trimmed
-                };
+                } as any;
                 const nextMessages = [...messages, userMessage];
                 appendMessage(userMessage);
                 setInputValue('');
@@ -223,14 +223,14 @@ export default function AIBotOverlay() {
             return;
         }
 
-        const userMessage: Message = {
+        const userMessage: UIMessage = {
             id: crypto.randomUUID(),
             role: 'user',
             content: trimmed
-        };
+        } as any;
         const nextMessages = [...messages, userMessage];
         console.log('[AIBotOverlay] 准备发送文本搜索请求', {
-            userMessage: { role: userMessage.role, content: userMessage.content },
+            userMessage: { role: userMessage.role, content: (userMessage as any).content },
             nextMessagesCount: nextMessages.length,
             nextMessages: nextMessages.map(msg => ({ role: msg.role }))
         });
@@ -270,6 +270,35 @@ export default function AIBotOverlay() {
         setTimeout(() => setError(undefined), 2000);
     };
 
+    const handleClear = async () => {
+        console.log('[AIBotOverlay] 清空聊天记录', {
+            currentMessages: messages.length,
+            currentDeepMode: isDeepMode
+        });
+        
+        // 清空前端状态
+        setMessages([]);
+        setInputValue('');
+        setDraftEditorValue('');
+        setPendingDraft(null, undefined);
+        setError(undefined);
+        
+        // 清空后端历史记录
+        try {
+            await fetch('/api/local-aibot/clear', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            console.log('[AIBotOverlay] 后端历史记录已清空');
+        } catch (err) {
+            console.error('[AIBotOverlay] 清空后端历史记录失败:', err);
+            setError('清空历史记录失败，请稍后重试');
+            setTimeout(() => setError(undefined), 2000);
+        }
+    };
+
     if (!isMounted) {
         return null;
     }
@@ -293,21 +322,11 @@ export default function AIBotOverlay() {
                         style={{ minHeight: '0' }} // 确保flex容器可以正确计算高度
                     >
                     <header className="flex items-center justify-between pb-4 border-b border-[#2E2E2E]">
-                        <div>
+                        <div className="font-info-content">
                             <p className="text-sm text-[#A2A09A]">AIBot 本地对话</p>
                             <p className="text-xs text-[#6F6D68]">仅限本地调试，云端默认关闭</p>
                         </div>
                         <div className="flex items-center gap-3">
-                            <button
-                                type="button"
-                                className={clsx(
-                                    'text-xs px-3 py-1 rounded-full border',
-                                    isDeepMode ? 'border-[#C9A063] text-[#C9A063]' : 'border-[#3A3A3A] text-[#A2A09A]'
-                                )}
-                                onClick={() => setDeepMode(!isDeepMode)}
-                            >
-                                {isDeepMode ? '深度检索已开启' : '深度检索关闭'}
-                            </button>
                             <button
                                 type="button"
                                 onClick={closeOverlay}
@@ -321,7 +340,7 @@ export default function AIBotOverlay() {
                     <div className="flex-1 flex flex-col gap-6 py-4 overflow-hidden" style={{ minHeight: '0' }}>
                         {/* 调试日志：检查容器高度 */}
                         {process.env.NODE_ENV === 'development' && (
-                            <div className="text-xs text-[#6F6D68] mb-2 bg-[#1B1B1B] p-2 rounded">
+                            <div className="text-xs text-[#6F6D68] mb-2 bg-[#1B1B1B] p-2 rounded font-info-content">
                                 [DEBUG] 容器诊断 - 消息数量: {messages.length}, 流式状态: {isStreaming ? '是' : '否'}
                                 <br />草稿状态: {pendingDraft ? '有' : '无'}, 草稿加载: {isDraftLoading ? '是' : '否'}
                             </div>
@@ -332,7 +351,7 @@ export default function AIBotOverlay() {
 
                         {isDeepMode && (pendingDraft || isDraftLoading) && (
                             <div className="border border-[#2E2E2E] rounded-2xl p-4 space-y-3">
-                                <div className="flex items-center justify-between text-sm text-[#C9A063]">
+                                <div className="flex items-center justify-between text-sm text-[#C9A063] font-info-content">
                                     <span>草稿确认</span>
                                     {isDraftLoading && <span className="animate-pulse text-xs">生成中...</span>}
                                 </div>
@@ -341,24 +360,27 @@ export default function AIBotOverlay() {
                                     onChange={(e) => {
                                         setDraftEditorValue(e.target.value);
                                         setPendingDraft(e.target.value, {
-                                            ...(draftMetadata ?? {}),
+                                            userInput: e.target.value,
+                                            searchSnippets: (draftMetadata?.searchSnippets) || [],
+                                            articleAnalysis: (draftMetadata?.articleAnalysis) || '',
+                                            crossAnalysis: (draftMetadata?.crossAnalysis) || '',
                                             draftMarkdown: e.target.value
                                         });
                                     }}
-                                    className="w-full h-32 rounded-xl bg-[#1B1B1B] border border-[#3A3A3A] text-sm text-[#E8E6DC] p-3 focus:outline-none focus:border-[#C9A063]"
+                                    className="w-full h-32 rounded-xl bg-[#1B1B1B] border border-[#3A3A3A] text-sm text-[#E8E6DC] p-3 focus:outline-none focus:border-[#C9A063] font-info-content"
                                 />
                                 <div className="flex items-center gap-3">
                                     <button
                                         type="button"
                                         onClick={() => setPendingDraft(null, undefined)}
-                                        className="text-xs px-3 py-1 border border-[#3A3A3A] rounded-full text-[#A2A09A]"
+                                        className="text-xs px-3 py-1 border border-[#3A3A3A] rounded-full text-[#A2A09A] font-info-content"
                                     >
                                         丢弃草稿
                                     </button>
                                     <button
                                         type="submit"
                                         form="aibot-form"
-                                        className="text-xs px-4 py-1 rounded-full bg-[#C9A063] text-black"
+                                        className="text-xs px-4 py-1 rounded-full bg-[#C9A063] text-black font-info-content"
                                     >
                                         确认发送
                                     </button>
@@ -371,15 +393,33 @@ export default function AIBotOverlay() {
                                 value={inputValue}
                                 onChange={(e) => setInputValue(e.target.value)}
                                 placeholder={isDeepMode ? '输入检索主题，先生成草稿再发送' : '想了解什么图书？'}
-                                className="w-full h-24 bg-[#1B1B1B] border border-[#3A3A3A] rounded-2xl p-4 text-sm text-[#E8E6DC] focus:outline-none focus:border-[#C9A063]"
+                                className="w-full h-24 bg-[#1B1B1B] border border-[#3A3A3A] rounded-2xl p-4 text-sm text-[#E8E6DC] focus:outline-none focus:border-[#C9A063] font-info-content"
                                 disabled={isStreaming || (isDeepMode && !!pendingDraft)}
                             />
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3 text-xs text-[#7C7A74]">
                                     <button
                                         type="button"
+                                        className={clsx(
+                                            'px-3 py-1 rounded-full border font-info-content',
+                                            isDeepMode ? 'border-[#C9A063] text-[#C9A063]' : 'border-[#3A3A3A] text-[#A2A09A]'
+                                        )}
+                                        onClick={() => setDeepMode(!isDeepMode)}
+                                    >
+                                        {isDeepMode ? '深度检索已开启' : '深度检索关闭'}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleClear}
+                                        disabled={isStreaming}
+                                        className="hover:text-white transition-colors disabled:cursor-not-allowed disabled:text-[#555] font-info-content"
+                                    >
+                                        清空
+                                    </button>
+                                    <button
+                                        type="button"
                                         onClick={handleCopy}
-                                        className="hover:text-white transition-colors"
+                                        className="hover:text-white transition-colors font-info-content"
                                     >
                                         复制
                                     </button>
@@ -387,7 +427,7 @@ export default function AIBotOverlay() {
                                         type="button"
                                         onClick={handleRetry}
                                         disabled={isStreaming}
-                                        className="hover:text-white transition-colors disabled:cursor-not-allowed disabled:text-[#555]"
+                                        className="hover:text-white transition-colors disabled:cursor-not-allowed disabled:text-[#555] font-info-content"
                                     >
                                         重试
                                     </button>
@@ -395,7 +435,7 @@ export default function AIBotOverlay() {
                                 <button
                                     type="submit"
                                     disabled={isStreaming}
-                                    className="px-4 py-2 rounded-full bg-[#C9A063] text-black text-sm disabled:opacity-50"
+                                    className="px-4 py-2 rounded-full bg-[#C9A063] text-black text-sm disabled:opacity-50 font-info-content"
                                 >
                                     {isDeepMode && !pendingDraft ? '生成草稿' : '发送'}
                                 </button>
@@ -403,7 +443,7 @@ export default function AIBotOverlay() {
                         </form>
 
                         {error && (
-                            <p className="text-xs text-[#C76B6B]">
+                            <p className="text-xs text-[#C76B6B] font-info-content">
                                 {error}
                             </p>
                         )}

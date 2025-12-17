@@ -24,7 +24,7 @@ export default function MessageStream({ messages, isStreaming }: MessageStreamPr
 
     return (
         <div
-            className="flex-1 overflow-y-auto pr-2 space-y-4"
+            className="flex-1 overflow-y-auto pr-2 space-y-4 aibot-scroll"
             style={{
                 maxHeight: '100%',
                 minHeight: '0' // 确保flex子元素可以缩小
@@ -45,7 +45,7 @@ export default function MessageStream({ messages, isStreaming }: MessageStreamPr
                         className={message.role === 'user' ? 'text-right' : 'text-left'}
                     >
                         <div
-                            className={`inline-block rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
+                            className={`inline-block rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap font-info-content ${
                                 message.role === 'user'
                                     ? 'bg-[#2F2F2F] text-[#E8E6DC]'
                                     : 'bg-[#1B1B1B] border border-[#343434] text-[#E8E6DC]'

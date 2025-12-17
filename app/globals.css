@@ -166,6 +166,29 @@ body {
   background: var(--accent-interactive);
 }
 
+/* AIBot 对话页面滚动条样式 */
+.aibot-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-interactive) transparent;
+}
+
+.aibot-scroll::-webkit-scrollbar {
+  width: 0.45rem;
+}
+
+.aibot-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.aibot-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.35), var(--accent-interactive));
+  border-radius: 999px;
+}
+
+.aibot-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-interactive);
+}
+
 /* 首页封面区统一容器,避免卡片无限拉伸 */
 .magazine-cover-wrapper {
   max-width: min(1040px, 92vw);
