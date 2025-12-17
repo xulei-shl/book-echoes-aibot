@@ -3,7 +3,8 @@ export const AIBOT_PROMPT_FILES = {
     ARTICLE_CROSS_ANALYSIS: 'article_cross_analysis',
     QUESTION_CLASSIFIER: 'aibot_question_classifier',
     RECOMMENDATION: '推荐导语',
-    SIMPLE_SEARCH: 'simple_search_prompt'
+    SIMPLE_SEARCH: 'simple_search_prompt',
+    KEYWORD_GENERATION: 'keyword_generation'
 } as const;
 
 export const AIBOT_MODES = {

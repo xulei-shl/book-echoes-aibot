@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import MessageStream from '@/components/aibot/MessageStream';
+import DeepSearchWorkflow from '@/components/aibot/DeepSearchWorkflow';
 import { useAIBotStore } from '@/store/aibot/useAIBotStore';
 import type { UIMessage } from 'ai';
 import type { RetrievalResultData } from '@/src/core/aibot/types';
@@ -57,6 +58,8 @@ export default function AIBotOverlay() {
     const [inputValue, setInputValue] = useState('');
     const [draftEditorValue, setDraftEditorValue] = useState('');
     const [isMounted, setIsMounted] = useState(false);
+    const [showDeepSearchWorkflow, setShowDeepSearchWorkflow] = useState(false);
+    const [deepSearchInput, setDeepSearchInput] = useState('');
 
     useEffect(() => {
         if (pendingDraft) {
@@ -236,16 +239,10 @@ export default function AIBotOverlay() {
 
         if (isDeepMode) {
             if (!pendingDraft) {
-                const userMessage: UIMessage = {
-                    id: crypto.randomUUID(),
-                    role: 'user',
-                    content: trimmed
-                } as any;
-                const nextMessages = [...messages, userMessage];
-                appendMessage(userMessage);
+                // 启动深度检索工作流
+                setDeepSearchInput(trimmed);
+                setShowDeepSearchWorkflow(true);
                 setInputValue('');
-                await requestDraft(trimmed);
-                setMessages(nextMessages);
                 return;
             }
 
@@ -455,6 +452,8 @@ export default function AIBotOverlay() {
         setDraftEditorValue('');
         setPendingDraft(null, undefined);
         setError(undefined);
+        setShowDeepSearchWorkflow(false);
+        setDeepSearchInput('');
         
         // 清空后端历史记录
         try {
@@ -531,7 +530,30 @@ export default function AIBotOverlay() {
                             />
                         </div>
 
-                        {isDeepMode && (pendingDraft || isDraftLoading) && (
+                        {/* 深度检索工作流 */}
+                        {showDeepSearchWorkflow && (
+                            <DeepSearchWorkflow
+                                userInput={deepSearchInput}
+                                onInterpretationGenerated={(interpretation) => {
+                                    // 添加解读消息
+                                    const interpretationMessage: UIMessage = {
+                                        id: crypto.randomUUID(),
+                                        role: 'assistant',
+                                        content: interpretation
+                                    } as any;
+                                    
+                                    appendMessage(interpretationMessage);
+                                    setShowDeepSearchWorkflow(false);
+                                    setDeepSearchInput('');
+                                }}
+                                onCancel={() => {
+                                    setShowDeepSearchWorkflow(false);
+                                    setDeepSearchInput('');
+                                }}
+                            />
+                        )}
+
+                        {isDeepMode && (pendingDraft || isDraftLoading) && !showDeepSearchWorkflow && (
                             <div className="border border-[#2E2E2E] rounded-2xl p-4 space-y-3">
                                 <div className="flex items-center justify-between text-sm text-[#C9A063] font-info-content">
                                     <span>草稿确认</span>
@@ -619,7 +641,7 @@ export default function AIBotOverlay() {
                                     disabled={isStreaming}
                                     className="px-4 py-2 rounded-full bg-[#C9A063] text-black text-sm disabled:opacity-50 font-info-content"
                                 >
-                                    {isDeepMode && !pendingDraft ? '生成草稿' : '发送'}
+                                    {isDeepMode && !pendingDraft && !showDeepSearchWorkflow ? '开始深度检索' : showDeepSearchWorkflow ? '检索进行中...' : '发送'}
                                 </button>
                             </div>
                         </form>
