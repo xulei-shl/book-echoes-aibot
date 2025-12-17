@@ -40,6 +40,10 @@ export default function DeepSearchWorkflow({
     // 使用本地状态管理日志
     const [logs, setLogs] = useState<any[]>([]);
     const [currentPhase, setCurrentPhase] = useState<string>('');
+    // 跟踪是否已收到交叉分析完成的进度更新
+    const [hasReceivedCrossAnalysisComplete, setHasReceivedCrossAnalysisComplete] = useState(false);
+    // 存储最终结果，等待所有进度更新完成后再显示
+    const [pendingFinalResult, setPendingFinalResult] = useState<any>(null);
 
     const addLog = (entry: any) => {
         const newLog = {
@@ -59,6 +63,25 @@ export default function DeepSearchWorkflow({
         });
         
         setCurrentPhase(entry.phase);
+        
+        // 检查是否收到了交叉分析完成的进度更新
+        if (entry.phase === 'cross-analysis' && entry.status === 'completed') {
+            setHasReceivedCrossAnalysisComplete(true);
+            
+            // 如果有待处理的最终结果，现在可以处理它了
+            if (pendingFinalResult) {
+                processFinalResult(pendingFinalResult);
+                setPendingFinalResult(null);
+            }
+        }
+    };
+    
+    // 处理最终结果的函数
+    const processFinalResult = (data: any) => {
+        setKeywords(data.keywords || []);
+        setDraftMarkdown(data.draftMarkdown);
+        setSearchSnippets(data.searchSnippets);
+        setPhase('draft');  // 进入草稿确认阶段
     };
 
     // 自动执行深度检索分析（生成关键词、检索、分析、交叉分析）
@@ -73,6 +96,9 @@ export default function DeepSearchWorkflow({
     const executeDeepSearchAnalysis = async () => {
         setPhase('draft');
         setIsLoading(true);
+        // 重置进度同步状态
+        setHasReceivedCrossAnalysisComplete(false);
+        setPendingFinalResult(null);
         
         try {
             // 调用深度检索分析API（SSE流式响应）
@@ -124,10 +150,23 @@ export default function DeepSearchWorkflow({
                             } else if (data.type === 'complete') {
                                 // 处理最终结果
                                 if (data.success) {
-                                    setKeywords(data.keywords || []);
-                                    setDraftMarkdown(data.draftMarkdown);
-                                    setSearchSnippets(data.searchSnippets);
-                                    setPhase('draft');  // 进入草稿确认阶段
+                                    // 检查是否已经收到了交叉分析完成的进度更新
+                                    if (hasReceivedCrossAnalysisComplete) {
+                                        // 如果已经收到，直接处理结果
+                                        processFinalResult(data);
+                                    } else {
+                                        // 如果还没收到，先保存结果，等待进度更新
+                                        setPendingFinalResult(data);
+                                        
+                                        // 设置一个超时，以防进度更新丢失
+                                        setTimeout(() => {
+                                            if (!hasReceivedCrossAnalysisComplete) {
+                                                console.warn('未收到交叉分析完成的进度更新，强制显示草稿');
+                                                processFinalResult(data);
+                                                setPendingFinalResult(null);
+                                            }
+                                        }, 2000); // 2秒超时
+                                    }
                                 } else {
                                     throw new Error(data.message || '深度检索分析失败');
                                 }
@@ -269,6 +308,9 @@ export default function DeepSearchWorkflow({
         setSearchSnippets([]);
         setBooks([]);
         setSelectedBooks([]);
+        // 重置进度同步状态
+        setHasReceivedCrossAnalysisComplete(false);
+        setPendingFinalResult(null);
     };
 
     // 草稿取消

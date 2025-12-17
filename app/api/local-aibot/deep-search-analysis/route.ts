@@ -172,6 +172,10 @@ export async function POST(request: Request) {
                             keyword: keywordItem.keyword,
                             analysisLength: analysisResult.text.length
                         });
+                        
+                        // 发送分析完成的进度更新
+                        sendProgress(controller, 'analysis', `关键词分析完成: ${keywordItem.keyword}`, 'completed',
+                            `生成了 ${analysisResult.text.length} 字符的分析`);
                     }
                 }
 

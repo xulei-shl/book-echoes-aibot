@@ -96,7 +96,7 @@ export default function DraftConfirmationDisplay({
                                     >
                                         <div className="p-4">
                                             <h4 className="text-[#C9A063] text-sm font-medium mb-3">检索源数据</h4>
-                                            <div className="space-y-3 max-h-48 overflow-y-auto">
+                                            <div className="space-y-3 max-h-48 overflow-y-auto about-overlay-scroll">
                                                 {searchSnippets.map((snippet, index) => (
                                                     <div key={index} className="p-3 bg-[#1B1B1B] rounded-lg border border-[#343434]">
                                                         <h5 className="text-[#E8E6DC] font-medium text-sm mb-1 truncate">
@@ -133,7 +133,7 @@ export default function DraftConfirmationDisplay({
                                 <textarea
                                     value={draftMarkdown}
                                     onChange={(e) => onDraftChange(e.target.value)}
-                                    className="w-full h-40 rounded-lg bg-[#1B1B1B] border border-[#343434] text-sm text-[#E8E6DC] p-3 focus:outline-none focus:border-[#C9A063] font-info-content resize-none"
+                                    className="w-full h-64 rounded-lg bg-[#1B1B1B] border border-[#343434] text-sm text-[#E8E6DC] p-3 focus:outline-none focus:border-[#C9A063] font-info-content resize-none"
                                     placeholder="检索草稿将在此显示..."
                                     disabled={isGenerating}
                                 />

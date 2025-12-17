@@ -128,7 +128,7 @@ export default function ProgressLogDisplay({
                                 </span>
                             </div>
                             <div className="text-xs text-[#A2A09A]">
-                                {logs.filter(l => l.status === 'completed').length} / {logs.length} 完成
+                                {logs.filter(l => l.status === 'completed').length} / {Math.max(logs.length, 1)} 完成
                             </div>
                         </div>
 
@@ -147,7 +147,7 @@ export default function ProgressLogDisplay({
                         </div>
 
                         {/* 日志列表 */}
-                        <div className="space-y-2 max-h-64 overflow-y-auto">
+                        <div className="space-y-2 max-h-32 overflow-y-auto about-overlay-scroll">
                             {logs.map((log) => (
                                 <motion.div
                                     key={log.id}
