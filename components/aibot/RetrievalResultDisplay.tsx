@@ -1,0 +1,86 @@
+'use client';
+
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import type { RetrievalResultData } from '@/src/core/aibot/types';
+import BookItem from './BookItem';
+
+export default function RetrievalResultDisplay({ 
+    retrievalResult 
+}: { 
+    retrievalResult: RetrievalResultData 
+}) {
+    const [isCollapsed, setIsCollapsed] = useState(false);
+    const [showAll, setShowAll] = useState(false);
+
+    const displayBooks = showAll 
+        ? retrievalResult.books 
+        : retrievalResult.books.slice(0, 3);
+
+    return (
+        <div className="retrieval-result-container mb-3">
+            {/* 折叠头部 */}
+            <motion.div 
+                className="retrieval-header flex items-center justify-between p-3 cursor-pointer bg-[rgba(201,160,99,0.1)] rounded-t-xl border border-[#343434] border-b-0"
+                onClick={() => setIsCollapsed(!isCollapsed)}
+                whileHover={{ backgroundColor: 'rgba(201, 160, 99, 0.2)' }}
+                transition={{ duration: 0.2 }}
+            >
+                <div className="flex items-center gap-3">
+                    <span className="text-[#C9A063] text-sm font-info-content font-medium">
+                        {retrievalResult.searchType === 'text-search' ? '📚 简单检索' : '🔍 深度检索'}
+                    </span>
+                    <span className="text-[#E8E6DC] text-sm">
+                        找到 {retrievalResult.totalCount} 本相关图书
+                    </span>
+                    <span className="text-[#6F6D68] text-xs">
+                        检索词: "{retrievalResult.searchQuery.slice(0, 20)}{retrievalResult.searchQuery.length > 20 ? '...' : ''}"
+                    </span>
+                </div>
+                <motion.div
+                    animate={{ rotate: isCollapsed ? 180 : 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="text-[#A2A09A]"
+                >
+                    ▼
+                </motion.div>
+            </motion.div>
+
+            {/* 可折叠内容 */}
+            <AnimatePresence>
+                {!isCollapsed && (
+                    <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="overflow-hidden"
+                    >
+                        <div className="book-list p-4 border border-[#343434] border-t-0 rounded-b-xl bg-[rgba(26,26,26,0.8)] max-h-96 overflow-y-auto">
+                            {displayBooks.map((book, index) => (
+                                <BookItem 
+                                    key={`${book.id}-${index}`} 
+                                    book={book} 
+                                    isCompact={true}
+                                />
+                            ))}
+                            
+                            {/* 显示更多按钮 */}
+                            {retrievalResult.books.length > 3 && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setShowAll(!showAll);
+                                    }}
+                                    className="w-full py-2 mt-3 text-center text-[#C9A063] text-sm hover:bg-[#1B1B1B] rounded-lg transition-colors border border-[#343434]"
+                                >
+                                    {showAll ? '▲ 收起' : `▼ 显示全部 ${retrievalResult.books.length} 本`}
+                                </button>
+                            )}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+}

@@ -7,6 +7,7 @@ import clsx from 'clsx';
 import MessageStream from '@/components/aibot/MessageStream';
 import { useAIBotStore } from '@/store/aibot/useAIBotStore';
 import type { UIMessage } from 'ai';
+import type { RetrievalResultData } from '@/src/core/aibot/types';
 
 const buildRequestMessages = (messages: UIMessage[]) =>
     messages.map((message) => ({
@@ -33,6 +34,7 @@ export default function AIBotOverlay() {
         setDraftLoading,
         error,
         setError,
+        setRetrievalResult,
     } = useAIBotStore();
 
     type Message = UIMessage;
@@ -149,12 +151,38 @@ export default function AIBotOverlay() {
                 throw new Error(fallback || '响应异常');
             }
 
+            // 解析检索结果
+            const retrievalResultHeader = response.headers.get('X-Retrieval-Result');
+            const retrievalResultEncoded = response.headers.get('X-Retrieval-Result-Encoded');
+            let retrievalResultData: RetrievalResultData | undefined;
+            
+            if (retrievalResultHeader) {
+                try {
+                    if (retrievalResultEncoded === 'base64') {
+                        // 解码 base64 编码的 JSON
+                        const decodedJson = Buffer.from(retrievalResultHeader, 'base64').toString('utf8');
+                        retrievalResultData = JSON.parse(decodedJson);
+                    } else {
+                        // 直接解析 JSON（向后兼容）
+                        retrievalResultData = JSON.parse(retrievalResultHeader);
+                    }
+                } catch (error) {
+                    console.error('解析检索结果失败:', error);
+                }
+            }
+
             const assistantMessage: UIMessage = {
                 id: crypto.randomUUID(),
                 role: 'assistant',
                 content: ''
             } as any;
+            
             appendMessage(assistantMessage);
+            
+            // 如果有检索结果，存储到状态中
+            if (retrievalResultData) {
+                setRetrievalResult(assistantMessage.id, retrievalResultData);
+            }
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();

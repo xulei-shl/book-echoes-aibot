@@ -2,14 +2,18 @@
 
 import { useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import type { Message } from 'ai';
+import type { UIMessage } from 'ai';
+import RetrievalResultDisplay from './RetrievalResultDisplay';
+import { useAIBotStore } from '@/store/aibot/useAIBotStore';
 
 interface MessageStreamProps {
-    messages: Message[];
+    messages: UIMessage[];
     isStreaming: boolean;
 }
 
 export default function MessageStream({ messages, isStreaming }: MessageStreamProps) {
+    const { retrievalResults } = useAIBotStore(); // 获取检索结果状态
+
     // 调试日志：检查容器尺寸和滚动状态
     useEffect(() => {
         if (process.env.NODE_ENV === 'development') {
@@ -17,10 +21,11 @@ export default function MessageStream({ messages, isStreaming }: MessageStreamPr
                 消息数量: messages.length,
                 流式状态: isStreaming,
                 总内容长度: messages.reduce((sum, msg) => sum + msg.content.length, 0),
-                时间戳: new Date().toISOString()
+                时间戳: new Date().toISOString(),
+                检索结果数量: retrievalResults.size
             });
         }
-    }, [messages, isStreaming]);
+    }, [messages, isStreaming, retrievalResults]);
 
     return (
         <div
@@ -44,6 +49,17 @@ export default function MessageStream({ messages, isStreaming }: MessageStreamPr
                         exit={{ opacity: 0, y: -10 }}
                         className={message.role === 'user' ? 'text-right' : 'text-left'}
                     >
+                        {message.role === 'assistant' && (
+                            <>
+                                {/* 检索结果显示 */}
+                                {retrievalResults.get(message.id) && (
+                                    <RetrievalResultDisplay
+                                        retrievalResult={retrievalResults.get(message.id)!}
+                                    />
+                                )}
+                            </>
+                        )}
+                        
                         <div
                             className={`inline-block rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap font-info-content ${
                                 message.role === 'user'

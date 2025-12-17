@@ -123,6 +123,32 @@ const streamHeaders = (
     'X-AIBot-Intent-Confidence': classification.confidence.toFixed(2)
 });
 
+const streamHeadersWithRetrieval = (
+    classification: IntentClassificationResult,
+    mode: AIBotMode,
+    retrievalResultData?: any
+): Record<string, string> => {
+    const headers: Record<string, string> = {
+        'X-AIBot-Mode': mode,
+        'X-AIBot-Intent': classification.intent,
+        'X-AIBot-Intent-Confidence': classification.confidence.toFixed(2)
+    };
+    
+    if (retrievalResultData) {
+        try {
+            // 使用 Buffer 确保中文字符正确编码
+            const jsonString = JSON.stringify(retrievalResultData);
+            headers['X-Retrieval-Result'] = Buffer.from(jsonString, 'utf8').toString('base64');
+            headers['X-Retrieval-Result-Encoded'] = 'base64';
+        } catch (error) {
+            logger.error('编码检索结果失败', { error, retrievalResultData });
+            // 如果编码失败，至少记录错误但不中断流程
+        }
+    }
+    
+    return headers;
+};
+
 export async function POST(request: Request) {
     try {
         assertAIBotEnabled();
@@ -209,13 +235,8 @@ export async function POST(request: Request) {
         logger.info('工作流上下文构建完成', {
             hasSystemPrompt: !!workflowContext.systemPrompt,
             llmConfig: workflowContext.llmConfig,
-            hasDraftMarkdown: !!payload?.draft_markdown,
-            hasDeepMetadata: !!payload?.deep_metadata,
-            deepMetadataKeys: payload?.deep_metadata ? Object.keys(payload.deep_metadata) : []
-        });
-        logger.info('工作流上下文构建完成', {
-            hasSystemPrompt: !!workflowContext.systemPrompt,
-            llmConfig: workflowContext.llmConfig
+            hasRetrievalResultData: !!workflowContext.retrievalResultData,
+            booksCount: workflowContext.retrievalResultData?.books.length || 0
         });
 
         logger.info('准备调用 streamText', {
@@ -241,7 +262,7 @@ export async function POST(request: Request) {
         });
 
         return result.toTextStreamResponse({
-            headers: streamHeaders(classification, workflowContext.mode)
+            headers: streamHeadersWithRetrieval(classification, workflowContext.mode, workflowContext.retrievalResultData)
         });
     } catch (error) {
         logger.error('AIBot 对话失败', { error });

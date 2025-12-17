@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { UIMessage } from 'ai';
-import type { DraftPayload } from '@/src/core/aibot/types';
+import type { DraftPayload, RetrievalResultData } from '@/src/core/aibot/types';
 
 interface AIBotState {
     isOverlayOpen: boolean;
@@ -11,6 +11,7 @@ interface AIBotState {
     draftMetadata?: DraftPayload;
     messages: UIMessage[];
     error?: string;
+    retrievalResults: Map<string, RetrievalResultData>; // 消息ID -> 检索结果
     toggleOverlay: (force?: boolean) => void;
     setDeepMode: (value: boolean) => void;
     setMessages: (messages: UIMessage[]) => void;
@@ -20,10 +21,12 @@ interface AIBotState {
     setStreaming: (value: boolean) => void;
     setDraftLoading: (value: boolean) => void;
     setError: (message?: string) => void;
+    setRetrievalResult: (messageId: string, result: RetrievalResultData) => void;
+    clearRetrievalResults: () => void;
     reset: () => void;
 }
 
-const initialState: Omit<AIBotState, 'toggleOverlay' | 'setDeepMode' | 'setMessages' | 'setPendingDraft' | 'setStreaming' | 'setDraftLoading' | 'setError' | 'reset' | 'appendMessage' | 'updateLastAssistantMessage'> = {
+const initialState: Omit<AIBotState, 'toggleOverlay' | 'setDeepMode' | 'setMessages' | 'setPendingDraft' | 'setStreaming' | 'setDraftLoading' | 'setError' | 'reset' | 'appendMessage' | 'updateLastAssistantMessage' | 'setRetrievalResult' | 'clearRetrievalResults'> = {
     isOverlayOpen: false,
     isDeepMode: false,
     isStreaming: false,
@@ -31,7 +34,8 @@ const initialState: Omit<AIBotState, 'toggleOverlay' | 'setDeepMode' | 'setMessa
     pendingDraft: null,
     draftMetadata: undefined,
     messages: [],
-    error: undefined
+    error: undefined,
+    retrievalResults: new Map(),
 };
 
 export const useAIBotStore = create<AIBotState>((set) => ({
@@ -78,14 +82,14 @@ export const useAIBotStore = create<AIBotState>((set) => ({
             const next = [...state.messages];
             for (let i = next.length - 1; i >= 0; i -= 1) {
                 if (next[i].role === 'assistant') {
-                    next[i] = { ...next[i], content: content as any };
+                    (next[i] as any).content = content;
                     return { messages: next };
                 }
             }
             next.push({
                 id: crypto.randomUUID(),
                 role: 'assistant',
-                content: content as any
+                content
             } as any);
             return { messages: next };
         }),
@@ -98,5 +102,12 @@ export const useAIBotStore = create<AIBotState>((set) => ({
     setStreaming: (value) => set({ isStreaming: value }),
     setDraftLoading: (value) => set({ isDraftLoading: value }),
     setError: (message) => set({ error: message }),
-    reset: () => set({ ...initialState })
+    setRetrievalResult: (messageId, result) =>
+        set((state) => {
+            const newRetrievalResults = new Map(state.retrievalResults);
+            newRetrievalResults.set(messageId, result);
+            return { retrievalResults: newRetrievalResults };
+        }),
+    clearRetrievalResults: () => set({ retrievalResults: new Map() }),
+    reset: () => set({ ...initialState, retrievalResults: new Map() })
 }));

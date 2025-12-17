@@ -83,3 +83,39 @@ export interface IntentClassifierInput {
     userInput: string;
     messages?: ChatMessage[];
 }
+
+// 图书信息结构
+export interface BookInfo {
+    id: string;
+    title: string;
+    subtitle?: string;
+    author: string;
+    translator?: string;
+    publisher?: string;
+    publishYear?: number;
+    rating?: number;
+    callNumber?: string;
+    pageCount?: number;
+    coverUrl?: string;
+    description?: string;
+    authorIntro?: string;
+    tableOfContents?: string;
+    highlights?: string[];
+    isbn?: string;
+    tags?: string[];
+}
+
+// 检索结果数据结构
+export interface RetrievalResultData {
+    books: BookInfo[];
+    totalCount: number;
+    searchQuery: string;
+    searchType: 'text-search' | 'multi-query';
+    metadata: Record<string, unknown>;
+    timestamp: string;
+}
+
+// 扩展的RetrievalResult
+export interface EnhancedRetrievalResult<TMetadata = Record<string, unknown>> extends RetrievalResult<TMetadata> {
+    structuredData?: RetrievalResultData;
+}

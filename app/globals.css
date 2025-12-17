@@ -247,3 +247,70 @@ body {
     transform: scale(1.05);
   }
 }
+
+/* 检索结果容器样式 */
+.retrieval-result-container {
+    background: rgba(26, 26, 26, 0.8);
+    border-radius: 12px;
+    backdrop-filter: blur(10px);
+    font-family: var(--font-info-content);
+}
+
+/* 折叠头部样式 */
+.retrieval-header {
+    user-select: none;
+}
+
+/* 图书列表滚动条样式 */
+.book-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.book-list::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 3px;
+}
+
+.book-list::-webkit-scrollbar-thumb {
+    background: rgba(201, 160, 99, 0.3);
+    border-radius: 3px;
+}
+
+.book-list::-webkit-scrollbar-thumb:hover {
+    background: rgba(201, 160, 99, 0.5);
+}
+
+/* 图书卡片样式 */
+.book-item {
+    border: 1px solid rgba(52, 52, 52, 0.3);
+}
+
+.book-item:hover {
+    border-color: rgba(201, 160, 99, 0.3);
+}
+
+/* 文本截断样式 */
+.line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .retrieval-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .book-item {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .book-item img {
+        align-self: center;
+    }
+}

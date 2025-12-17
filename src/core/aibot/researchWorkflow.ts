@@ -4,7 +4,7 @@ import { AIBOT_MODES, AIBOT_PROMPT_FILES, DEFAULT_MULTI_QUERY_TOP_K, DEFAULT_TOP
 import { loadPrompt } from '@/src/core/aibot/promptLoader';
 import { multiQuery, textSearch } from '@/src/core/aibot/retrievalService';
 import { researchWithDuckDuckGo } from '@/src/core/aibot/mcp/duckduckgoResearcher';
-import type { ChatWorkflowContext, ChatWorkflowInput, DraftWorkflowResult } from '@/src/core/aibot/types';
+import type { ChatWorkflowContext, ChatWorkflowInput, DraftWorkflowResult, RetrievalResultData } from '@/src/core/aibot/types';
 import { resolveLLMConfig, type LLMConfig, type LLMHintMetadata } from '@/src/utils/aibot-env';
 import { getLogger } from '@/src/utils/logger';
 
@@ -100,7 +100,7 @@ export async function runDraftWorkflow(userInput: string): Promise<DraftWorkflow
  */
 export async function buildChatWorkflowContext(
     input: ChatWorkflowInput
-): Promise<ChatWorkflowContext> {
+): Promise<ChatWorkflowContext & { retrievalResultData?: RetrievalResultData }> {
     const userInput = extractLatestUserMessage(input.messages);
 
     logger.info('buildChatWorkflowContext 开始', {
@@ -168,7 +168,8 @@ export async function buildChatWorkflowContext(
         systemPrompt: composedSystemPrompt,
         contextPlainText: retrieval.contextPlainText,
         metadata,
-        llmConfig
+        llmConfig,
+        retrievalResultData: retrieval.structuredData // 新增字段
     };
 }
 
