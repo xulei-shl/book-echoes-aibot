@@ -66,11 +66,21 @@ export async function POST(request: Request) {
         let parsedResult: { keywords: KeywordResult[] };
         
         try {
-            parsedResult = JSON.parse(result.text.trim());
+            // 处理可能被markdown代码块包装的JSON
+            let textToParse = result.text.trim();
+            
+            // 如果结果被markdown代码块包装，提取其中的JSON内容
+            if (textToParse.startsWith('```json')) {
+                textToParse = textToParse.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+            } else if (textToParse.startsWith('```')) {
+                textToParse = textToParse.replace(/^```\s*/, '').replace(/\s*```$/, '');
+            }
+            
+            parsedResult = JSON.parse(textToParse.trim());
         } catch (parseError) {
-            logger.error('关键词生成结果解析失败', { 
-                rawText: result.text, 
-                error: parseError 
+            logger.error('关键词生成结果解析失败', {
+                rawText: result.text,
+                error: parseError
             });
             
             // 提供默认关键词作为回退

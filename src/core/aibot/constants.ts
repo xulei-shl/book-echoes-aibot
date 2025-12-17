@@ -30,4 +30,5 @@ export const STREAM_EVENTS = {
 
 export const DEFAULT_TOP_K = 8;
 export const DEFAULT_MULTI_QUERY_TOP_K = 12;
-export const MAX_SNIPPETS = 6;
+export const MAX_SNIPPETS = 8;
+export const DEEP_SEARCH_SNIPPETS_PER_KEYWORD = 5;

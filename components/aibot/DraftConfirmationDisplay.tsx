@@ -133,7 +133,7 @@ export default function DraftConfirmationDisplay({
                                 <textarea
                                     value={draftMarkdown}
                                     onChange={(e) => onDraftChange(e.target.value)}
-                                    className="w-full h-40 rounded-lg bg-[#1B1B1B] border border-[#343434] text-sm text-[#E8E6DC] p-3 focus:outline-none focus:border-[#C9A063] font-mono resize-none"
+                                    className="w-full h-40 rounded-lg bg-[#1B1B1B] border border-[#343434] text-sm text-[#E8E6DC] p-3 focus:outline-none focus:border-[#C9A063] font-info-content resize-none"
                                     placeholder="检索草稿将在此显示..."
                                     disabled={isGenerating}
                                 />

@@ -13,7 +13,7 @@ interface KeywordResult {
     priority: 'high' | 'medium' | 'low';
 }
 
-type DeepSearchPhase = 'keywords' | 'draft' | 'search' | 'selection' | 'interpretation' | 'completed';
+type DeepSearchPhase = 'analysis' | 'draft' | 'search' | 'selection' | 'interpretation' | 'completed';
 
 interface DeepSearchWorkflowProps {
     userInput: string;
@@ -26,7 +26,7 @@ export default function DeepSearchWorkflow({
     onInterpretationGenerated,
     onCancel
 }: DeepSearchWorkflowProps) {
-    const [phase, setPhase] = useState<DeepSearchPhase>('keywords');
+    const [phase, setPhase] = useState<DeepSearchPhase>('analysis');
     const [keywords, setKeywords] = useState<KeywordResult[]>([]);
     const [draftMarkdown, setDraftMarkdown] = useState('');
     const [searchSnippets, setSearchSnippets] = useState<any[]>([]);
@@ -35,7 +35,82 @@ export default function DeepSearchWorkflow({
     const [isLoading, setIsLoading] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
 
-    // 关键词生成完成
+    // 执行深度检索分析（生成关键词、检索、分析、交叉分析）
+    const handleDeepSearchAnalysis = async () => {
+        setPhase('draft');
+        setIsLoading(true);
+        
+        try {
+            // 调用深度检索分析API
+            const response = await fetch('/api/local-aibot/deep-search-analysis', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    userInput
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('深度检索分析失败');
+            }
+
+            const data = await response.json();
+            
+            if (data.success) {
+                setKeywords(data.keywords || []);  // 保存自动生成的关键词
+                setDraftMarkdown(data.draftMarkdown);
+                setSearchSnippets(data.searchSnippets);
+                setPhase('draft');  // 进入草稿确认阶段
+            } else {
+                throw new Error(data.message || '深度检索分析失败');
+            }
+        } catch (error) {
+            console.error('深度检索分析错误:', error);
+            // 可以添加错误处理逻辑
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // 确认草稿并执行图书检索
+    const handleDraftConfirmAndSearch = async () => {
+        setIsLoading(true);
+        
+        try {
+            // 调用深度检索API进行图书检索
+            const response = await fetch('/api/local-aibot/deep-search', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    draftMarkdown,
+                    userInput
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('图书检索失败');
+            }
+
+            const data = await response.json();
+            
+            if (data.success) {
+                setBooks(data.retrievalResult?.books || []);
+                setPhase('search');
+            } else {
+                throw new Error(data.message || '图书检索失败');
+            }
+        } catch (error) {
+            console.error('图书检索错误:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // 关键词生成完成（保留原有功能作为备选）
     const handleKeywordsGenerated = async (generatedKeywords: KeywordResult[]) => {
         setKeywords(generatedKeywords);
         setPhase('draft');
@@ -83,7 +158,7 @@ export default function DeepSearchWorkflow({
 
     // 草稿重新生成
     const handleDraftRegenerate = async () => {
-        setPhase('keywords');
+        setPhase('analysis');
         setDraftMarkdown('');
         setSearchSnippets([]);
         setBooks([]);
@@ -140,28 +215,56 @@ export default function DeepSearchWorkflow({
 
     return (
         <div className="space-y-4">
-            {/* 关键词生成阶段 */}
+            {/* 深度检索分析阶段 */}
             <AnimatePresence>
-                {phase === 'keywords' && (
+                {phase === 'analysis' && (
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -20 }}
                         transition={{ duration: 0.3 }}
+                        className="flex flex-col items-center justify-center p-8"
                     >
-                        <DeepSearchKeywordGenerator
-                            userInput={userInput}
-                            onKeywordsGenerated={handleKeywordsGenerated}
-                            isGenerating={isLoading}
-                            onGeneratingChange={setIsLoading}
-                        />
+                        <div className="mb-6 text-center">
+                            <h3 className="text-[#C9A063] text-lg font-medium mb-2">深度检索</h3>
+                            <p className="text-[#E8E6DC] text-sm mb-4">将自动生成关键词并进行全面检索分析</p>
+                            <div className="p-3 bg-[#1B1B1B] rounded border border-[#343434] mb-4">
+                                <p className="text-[#A2A09A] text-xs">查询主题</p>
+                                <p className="text-[#E8E6DC] text-sm">{userInput}</p>
+                            </div>
+                        </div>
+                        
+                        <div className="flex gap-3">
+                            <button
+                                onClick={handleDeepSearchAnalysis}
+                                disabled={isLoading}
+                                className="px-6 py-3 bg-[#C9A063] text-black rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {isLoading ? '分析中...' : '开始深度检索分析'}
+                            </button>
+                            
+                            <details className="group">
+                                <summary className="px-4 py-3 border border-[#343434] text-[#E8E6DC] rounded-lg text-sm cursor-pointer hover:bg-[#1B1B1B] transition-colors">
+                                    高级选项
+                                </summary>
+                                <div className="mt-3 p-4 bg-[#1B1B1B] rounded border border-[#343434]">
+                                    <p className="text-[#A2A09A] text-xs mb-3">手动设置关键词</p>
+                                    <DeepSearchKeywordGenerator
+                                        userInput={userInput}
+                                        onKeywordsGenerated={handleKeywordsGenerated}
+                                        isGenerating={isLoading}
+                                        onGeneratingChange={setIsLoading}
+                                    />
+                                </div>
+                            </details>
+                        </div>
                     </motion.div>
                 )}
             </AnimatePresence>
 
             {/* 草稿确认阶段 */}
             <AnimatePresence>
-                {(phase === 'draft' || phase === 'search') && (
+                {phase === 'draft' && (
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -171,7 +274,7 @@ export default function DeepSearchWorkflow({
                         <DraftConfirmationDisplay
                             draftMarkdown={draftMarkdown}
                             onDraftChange={setDraftMarkdown}
-                            onConfirm={handleDraftConfirm}
+                            onConfirm={handleDraftConfirmAndSearch}
                             onCancel={handleDraftCancel}
                             onRegenerate={handleDraftRegenerate}
                             isGenerating={isLoading}
@@ -219,13 +322,13 @@ export default function DeepSearchWorkflow({
 
             {/* 流程进度指示器 */}
             <div className="flex items-center justify-center gap-2 py-4">
-                {['keywords', 'draft', 'search', 'selection', 'interpretation'].map((p, index) => (
+                {['analysis', 'draft', 'search', 'selection', 'interpretation'].map((p, index) => (
                     <div key={p} className="flex items-center gap-2">
-                        <div 
+                        <div
                             className={`w-2 h-2 rounded-full ${
-                                phase === p ? 'bg-[#C9A063]' : 
-                                ['keywords', 'draft', 'search', 'selection', 'interpretation'].indexOf(p) < 
-                                ['keywords', 'draft', 'search', 'selection', 'interpretation'].indexOf(phase) 
+                                phase === p ? 'bg-[#C9A063]' :
+                                ['analysis', 'draft', 'search', 'selection', 'interpretation'].indexOf(p) <
+                                ['analysis', 'draft', 'search', 'selection', 'interpretation'].indexOf(phase)
                                     ? 'bg-[#C9A063]' : 'bg-[#343434]'
                             }`}
                         />
