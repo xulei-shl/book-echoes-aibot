@@ -146,9 +146,14 @@ export async function buildChatWorkflowContext(
         throw new Error('图书检索返回空结果');
     }
 
-    const recommendationPrompt = await loadPrompt(AIBOT_PROMPT_FILES.RECOMMENDATION);
+    // 根据模式选择不同的提示词
+    const promptFile = input.mode === AIBOT_MODES.TEXT
+        ? AIBOT_PROMPT_FILES.SIMPLE_SEARCH
+        : AIBOT_PROMPT_FILES.RECOMMENDATION;
+    
+    const basePrompt = await loadPrompt(promptFile);
     const composedSystemPrompt = buildSystemPrompt(
-        recommendationPrompt,
+        basePrompt,
         retrieval.contextPlainText,
         userInput,
         draftMarkdown
