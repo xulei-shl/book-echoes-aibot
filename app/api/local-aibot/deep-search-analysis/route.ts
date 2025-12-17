@@ -11,6 +11,24 @@ import type { DuckDuckGoSnippet } from '@/src/core/aibot/types';
 
 const logger = getLogger('aibot.api.deep-search-analysis');
 
+// 进度回调函数类型
+type ProgressCallback = (phase: string, message: string, status: 'running' | 'completed' | 'error', details?: string) => void;
+
+// 发送SSE进度更新
+const sendProgress = (controller: ReadableStreamDefaultController, phase: string, message: string, status: 'running' | 'completed' | 'error', details?: string) => {
+    const progressData = {
+        type: 'progress',
+        phase,
+        message,
+        status,
+        details,
+        timestamp: new Date().toISOString()
+    };
+    
+    const data = `data: ${JSON.stringify(progressData)}\n\n`;
+    controller.enqueue(new TextEncoder().encode(data));
+};
+
 const createModel = (config: any) => {
     logger.info('创建深度检索分析模型实例', {
         model: config.model,
@@ -52,128 +70,164 @@ export async function POST(request: Request) {
         throw error;
     }
 
-    try {
-        const body = await request.json();
-        const { userInput } = body as DeepSearchAnalysisRequest;
+    // 创建SSE流
+    const encoder = new TextEncoder();
+    
+    const stream = new ReadableStream({
+        async start(controller) {
+            try {
+                const body = await request.json();
+                const { userInput } = body as DeepSearchAnalysisRequest;
 
-        if (!userInput || typeof userInput !== 'string') {
-            return NextResponse.json({ message: 'userInput 不能为空' }, { status: 400 });
-        }
+                if (!userInput || typeof userInput !== 'string') {
+                    sendProgress(controller, 'error', 'userInput 不能为空', 'error');
+                    controller.close();
+                    return;
+                }
 
-        logger.info('开始深度检索分析流程', { userInput });
+                logger.info('开始深度检索分析流程', { userInput });
 
-        const llmConfig = resolveLLMConfig();
-        const model = createModel(llmConfig);
+                const llmConfig = resolveLLMConfig();
+                const model = createModel(llmConfig);
 
-        // 第一步：自动生成关键词
-        logger.info('开始生成检索关键词');
-        
-        const keywordPrompt = await loadPrompt(AIBOT_PROMPT_FILES.KEYWORD_GENERATION);
-        const keywordResult = await generateText({
-            model,
-            system: keywordPrompt,
-            prompt: `用户输入：${userInput}\n\n请生成适合的检索关键词。`
-        });
-
-        let parsedKeywordResult: { keywords: KeywordResult[] };
-        
-        try {
-            // 处理可能被markdown代码块包装的JSON
-            let textToParse = keywordResult.text.trim();
-            
-            if (textToParse.startsWith('```json')) {
-                textToParse = textToParse.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-            } else if (textToParse.startsWith('```')) {
-                textToParse = textToParse.replace(/^```\s*/, '').replace(/\s*```$/, '');
-            }
-            
-            parsedKeywordResult = JSON.parse(textToParse.trim());
-        } catch (parseError) {
-            logger.error('关键词生成结果解析失败', { 
-                rawText: keywordResult.text, 
-                error: parseError 
-            });
-            
-            // 提供默认关键词作为回退
-            parsedKeywordResult = {
-                keywords: [
-                    {
-                        keyword: userInput,
-                        reason: '基于用户原始输入',
-                        priority: 'high' as const
-                    }
-                ]
-            };
-        }
-
-        const keywords = parsedKeywordResult.keywords;
-        logger.info('关键词生成完成', { 
-            keywordCount: keywords.length,
-            keywords: keywords.map(k => k.keyword)
-        });
-
-        // 第二步：对每个关键词进行检索
-        const allSnippets: DuckDuckGoSnippet[] = [];
-        const allAnalyses: string[] = [];
-
-        for (const keywordItem of keywords) {
-            logger.info('检索关键词', { keyword: keywordItem.keyword });
-            
-            // 使用DuckDuckGo检索
-            const snippets = await researchWithDuckDuckGo(keywordItem.keyword, { topK: DEEP_SEARCH_SNIPPETS_PER_KEYWORD });
-            allSnippets.push(...snippets);
-
-            if (snippets.length > 0) {
-                // 单篇分析
-                const articlePrompt = await loadPrompt(AIBOT_PROMPT_FILES.ARTICLE_ANALYSIS);
-                const duckduckgoText = joinSnippets(snippets);
+                // 第一步：自动生成关键词
+                logger.info('开始生成检索关键词');
+                sendProgress(controller, 'keyword', '正在生成检索关键词...', 'running');
                 
-                const analysisResult = await generateText({
+                const keywordPrompt = await loadPrompt(AIBOT_PROMPT_FILES.KEYWORD_GENERATION);
+                const keywordResult = await generateText({
                     model,
-                    system: articlePrompt,
-                    prompt: `# 关键词\n${keywordItem.keyword}\n\n# 用户原始输入\n${userInput}\n\n# DuckDuckGo 摘要\n${duckduckgoText}`
+                    system: keywordPrompt,
+                    prompt: `用户输入：${userInput}\n\n请生成适合的检索关键词。`
                 });
 
-                allAnalyses.push(analysisResult.text.trim());
-                logger.info('关键词分析完成', { 
-                    keyword: keywordItem.keyword,
-                    analysisLength: analysisResult.text.length 
+                let parsedKeywordResult: { keywords: KeywordResult[] };
+                
+                try {
+                    // 处理可能被markdown代码块包装的JSON
+                    let textToParse = keywordResult.text.trim();
+                    
+                    if (textToParse.startsWith('```json')) {
+                        textToParse = textToParse.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+                    } else if (textToParse.startsWith('```')) {
+                        textToParse = textToParse.replace(/^```\s*/, '').replace(/\s*```$/, '');
+                    }
+                    
+                    parsedKeywordResult = JSON.parse(textToParse.trim());
+                } catch (parseError) {
+                    logger.error('关键词生成结果解析失败', {
+                        rawText: keywordResult.text,
+                        error: parseError
+                    });
+                    
+                    // 提供默认关键词作为回退
+                    parsedKeywordResult = {
+                        keywords: [
+                            {
+                                keyword: userInput,
+                                reason: '基于用户原始输入',
+                                priority: 'high' as const
+                            }
+                        ]
+                    };
+                }
+
+                const keywords = parsedKeywordResult.keywords;
+                logger.info('关键词生成完成', {
+                    keywordCount: keywords.length,
+                    keywords: keywords.map(k => k.keyword)
                 });
+                
+                sendProgress(controller, 'keyword', `成功生成 ${keywords.length} 个关键词`, 'completed',
+                    keywords.map(k => k.keyword).join(', '));
+
+                // 第二步：对每个关键词进行检索
+                const allSnippets: DuckDuckGoSnippet[] = [];
+                const allAnalyses: string[] = [];
+                
+                sendProgress(controller, 'search', '正在执行MCP检索...', 'running');
+
+                for (const keywordItem of keywords) {
+                    logger.info('检索关键词', { keyword: keywordItem.keyword });
+                    
+                    // 使用DuckDuckGo检索
+                    const snippets = await researchWithDuckDuckGo(keywordItem.keyword, { topK: DEEP_SEARCH_SNIPPETS_PER_KEYWORD });
+                    allSnippets.push(...snippets);
+
+                    if (snippets.length > 0) {
+                        // 单篇分析
+                        sendProgress(controller, 'analysis', `正在分析关键词: ${keywordItem.keyword}`, 'running');
+                        
+                        const articlePrompt = await loadPrompt(AIBOT_PROMPT_FILES.ARTICLE_ANALYSIS);
+                        const duckduckgoText = joinSnippets(snippets);
+                        
+                        const analysisResult = await generateText({
+                            model,
+                            system: articlePrompt,
+                            prompt: `# 关键词\n${keywordItem.keyword}\n\n# 用户原始输入\n${userInput}\n\n# DuckDuckGo 摘要\n${duckduckgoText}`
+                        });
+
+                        allAnalyses.push(analysisResult.text.trim());
+                        logger.info('关键词分析完成', {
+                            keyword: keywordItem.keyword,
+                            analysisLength: analysisResult.text.length
+                        });
+                    }
+                }
+
+                sendProgress(controller, 'search', `MCP检索完成，获取 ${allSnippets.length} 条结果`, 'completed');
+
+                // 第三步：交叉分析
+                sendProgress(controller, 'cross-analysis', '正在进行交叉分析...', 'running');
+                
+                const crossPrompt = await loadPrompt(AIBOT_PROMPT_FILES.ARTICLE_CROSS_ANALYSIS);
+                const combinedAnalyses = allAnalyses.join('\n\n---\n\n');
+                
+                const crossAnalysisResult = await generateText({
+                    model,
+                    system: crossPrompt,
+                    prompt: `# 用户原始输入\n${userInput}\n\n# 检索关键词\n${keywords.map(k => `- ${k.keyword} (${k.priority})`).join('\n')}\n\n# 文章分析结果\n${combinedAnalyses}`
+                });
+
+                const draftMarkdown = crossAnalysisResult.text.trim();
+                
+                logger.info('交叉分析完成', {
+                    draftLength: draftMarkdown.length,
+                    snippetsCount: allSnippets.length,
+                    analysesCount: allAnalyses.length
+                });
+
+                sendProgress(controller, 'cross-analysis', '交叉分析完成', 'completed', `生成了 ${draftMarkdown.length} 字符的草稿`);
+
+                // 发送最终结果
+                const finalResult = {
+                    type: 'complete',
+                    success: true,
+                    keywords,
+                    searchSnippets: allSnippets,
+                    articleAnalysis: combinedAnalyses,
+                    draftMarkdown,
+                    userInput
+                };
+                
+                const finalData = `data: ${JSON.stringify(finalResult)}\n\n`;
+                controller.enqueue(encoder.encode(finalData));
+                
+                controller.close();
+
+            } catch (error) {
+                logger.error('深度检索分析失败', { error });
+                sendProgress(controller, 'error', '深度检索分析失败', 'error', error instanceof Error ? error.message : '未知错误');
+                controller.close();
             }
         }
+    });
 
-        // 第三步：交叉分析
-        const crossPrompt = await loadPrompt(AIBOT_PROMPT_FILES.ARTICLE_CROSS_ANALYSIS);
-        const combinedAnalyses = allAnalyses.join('\n\n---\n\n');
-        
-        const crossAnalysisResult = await generateText({
-            model,
-            system: crossPrompt,
-            prompt: `# 用户原始输入\n${userInput}\n\n# 检索关键词\n${keywords.map(k => `- ${k.keyword} (${k.priority})`).join('\n')}\n\n# 文章分析结果\n${combinedAnalyses}`
-        });
-
-        const draftMarkdown = crossAnalysisResult.text.trim();
-        
-        logger.info('交叉分析完成', { 
-            draftLength: draftMarkdown.length,
-            snippetsCount: allSnippets.length,
-            analysesCount: allAnalyses.length
-        });
-
-        return NextResponse.json({
-            success: true,
-            keywords,
-            searchSnippets: allSnippets,
-            articleAnalysis: combinedAnalyses,
-            draftMarkdown,
-            userInput
-        });
-
-    } catch (error) {
-        logger.error('深度检索分析失败', { error });
-        return NextResponse.json({ 
-            message: '深度检索分析失败，请稍后重试',
-            success: false
-        }, { status: 500 });
-    }
+    return new Response(stream, {
+        headers: {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+        },
+    });
 }

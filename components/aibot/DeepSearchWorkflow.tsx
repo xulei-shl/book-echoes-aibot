@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import DeepSearchKeywordGenerator from './DeepSearchKeywordGenerator';
 import DraftConfirmationDisplay from './DraftConfirmationDisplay';
 import DeepSearchBookList from './DeepSearchBookList';
+import ProgressLogDisplay, { useProgressLog } from './ProgressLogDisplay';
 import type { BookInfo } from '@/src/core/aibot/types';
 
 interface KeywordResult {
@@ -34,14 +35,47 @@ export default function DeepSearchWorkflow({
     const [selectedBooks, setSelectedBooks] = useState<BookInfo[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
+    const [showProgress, setShowProgress] = useState(false);
+    
+    // 使用本地状态管理日志
+    const [logs, setLogs] = useState<any[]>([]);
+    const [currentPhase, setCurrentPhase] = useState<string>('');
 
-    // 执行深度检索分析（生成关键词、检索、分析、交叉分析）
-    const handleDeepSearchAnalysis = async () => {
+    const addLog = (entry: any) => {
+        const newLog = {
+            ...entry,
+            id: `${Date.now()}-${Math.random()}`,
+            timestamp: new Date().toLocaleTimeString('zh-CN')
+        };
+        
+        setLogs(prev => {
+            const existingIndex = prev.findIndex(log => log.phase === entry.phase);
+            if (existingIndex >= 0) {
+                const updated = [...prev];
+                updated[existingIndex] = newLog;
+                return updated;
+            }
+            return [...prev, newLog];
+        });
+        
+        setCurrentPhase(entry.phase);
+    };
+
+    // 自动执行深度检索分析（生成关键词、检索、分析、交叉分析）
+    useEffect(() => {
+        if (userInput && phase === 'analysis') {
+            // 自动开始执行流程
+            setShowProgress(true);
+            executeDeepSearchAnalysis();
+        }
+    }, [userInput, phase]);
+
+    const executeDeepSearchAnalysis = async () => {
         setPhase('draft');
         setIsLoading(true);
         
         try {
-            // 调用深度检索分析API
+            // 调用深度检索分析API（SSE流式响应）
             const response = await fetch('/api/local-aibot/deep-search-analysis', {
                 method: 'POST',
                 headers: {
@@ -56,19 +90,62 @@ export default function DeepSearchWorkflow({
                 throw new Error('深度检索分析失败');
             }
 
-            const data = await response.json();
+            const reader = response.body?.getReader();
+            const decoder = new TextDecoder();
+
+            if (!reader) {
+                throw new Error('无法读取响应流');
+            }
+
+            let buffer = '';
             
-            if (data.success) {
-                setKeywords(data.keywords || []);  // 保存自动生成的关键词
-                setDraftMarkdown(data.draftMarkdown);
-                setSearchSnippets(data.searchSnippets);
-                setPhase('draft');  // 进入草稿确认阶段
-            } else {
-                throw new Error(data.message || '深度检索分析失败');
+            while (true) {
+                const { done, value } = await reader.read();
+                
+                if (done) break;
+                
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+                
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        try {
+                            const data = JSON.parse(line.slice(6));
+                            
+                            if (data.type === 'progress') {
+                                // 更新进度日志
+                                addLog({
+                                    phase: data.phase,
+                                    message: data.message,
+                                    status: data.status,
+                                    details: data.details
+                                });
+                            } else if (data.type === 'complete') {
+                                // 处理最终结果
+                                if (data.success) {
+                                    setKeywords(data.keywords || []);
+                                    setDraftMarkdown(data.draftMarkdown);
+                                    setSearchSnippets(data.searchSnippets);
+                                    setPhase('draft');  // 进入草稿确认阶段
+                                } else {
+                                    throw new Error(data.message || '深度检索分析失败');
+                                }
+                            }
+                        } catch (parseError) {
+                            console.error('解析SSE数据失败:', parseError);
+                        }
+                    }
+                }
             }
         } catch (error) {
             console.error('深度检索分析错误:', error);
-            // 可以添加错误处理逻辑
+            addLog({
+                phase: 'error',
+                message: '深度检索分析失败',
+                status: 'error',
+                details: error instanceof Error ? error.message : '未知错误'
+            });
         } finally {
             setIsLoading(false);
         }
@@ -77,8 +154,16 @@ export default function DeepSearchWorkflow({
     // 确认草稿并执行图书检索
     const handleDraftConfirmAndSearch = async () => {
         setIsLoading(true);
+        setShowProgress(true);
         
         try {
+            // 更新日志：开始图书检索
+            addLog({
+                phase: 'book-search',
+                message: '正在检索相关图书...',
+                status: 'running'
+            });
+
             // 调用深度检索API进行图书检索
             const response = await fetch('/api/local-aibot/deep-search', {
                 method: 'POST',
@@ -98,13 +183,34 @@ export default function DeepSearchWorkflow({
             const data = await response.json();
             
             if (data.success) {
+                const bookCount = data.retrievalResult?.books?.length || 0;
+                
+                // 更新日志：图书检索完成
+                addLog({
+                    phase: 'book-search',
+                    message: `成功检索到 ${bookCount} 本相关图书`,
+                    status: 'completed',
+                    details: bookCount > 0 ? `已按相关性排序` : '未找到匹配的图书'
+                });
+
                 setBooks(data.retrievalResult?.books || []);
-                setPhase('search');
+                setPhase('selection');  // 修正阶段，应该进入selection而不是search
+                
+                // 隐藏进度日志，显示图书列表
+                setTimeout(() => {
+                    setShowProgress(false);
+                }, 1500);
             } else {
                 throw new Error(data.message || '图书检索失败');
             }
         } catch (error) {
             console.error('图书检索错误:', error);
+            addLog({
+                phase: 'book-search',
+                message: '图书检索失败',
+                status: 'error',
+                details: error instanceof Error ? error.message : '未知错误'
+            });
         } finally {
             setIsLoading(false);
         }
@@ -215,7 +321,17 @@ export default function DeepSearchWorkflow({
 
     return (
         <div className="space-y-4">
-            {/* 深度检索分析阶段 */}
+            {/* 进度日志显示 */}
+            <ProgressLogDisplay
+                isVisible={showProgress}
+                logs={logs}
+                currentPhase={currentPhase}
+                onComplete={() => {
+                    // 进度完成后的回调
+                }}
+            />
+
+            {/* 深度检索分析阶段 - 自动执行 */}
             <AnimatePresence>
                 {phase === 'analysis' && (
                     <motion.div
@@ -227,37 +343,19 @@ export default function DeepSearchWorkflow({
                     >
                         <div className="mb-6 text-center">
                             <h3 className="text-[#C9A063] text-lg font-medium mb-2">深度检索</h3>
-                            <p className="text-[#E8E6DC] text-sm mb-4">将自动生成关键词并进行全面检索分析</p>
+                            <p className="text-[#E8E6DC] text-sm mb-4">正在自动生成关键词并进行全面检索分析</p>
                             <div className="p-3 bg-[#1B1B1B] rounded border border-[#343434] mb-4">
                                 <p className="text-[#A2A09A] text-xs">查询主题</p>
                                 <p className="text-[#E8E6DC] text-sm">{userInput}</p>
                             </div>
                         </div>
                         
-                        <div className="flex gap-3">
-                            <button
-                                onClick={handleDeepSearchAnalysis}
-                                disabled={isLoading}
-                                className="px-6 py-3 bg-[#C9A063] text-black rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {isLoading ? '分析中...' : '开始深度检索分析'}
-                            </button>
-                            
-                            <details className="group">
-                                <summary className="px-4 py-3 border border-[#343434] text-[#E8E6DC] rounded-lg text-sm cursor-pointer hover:bg-[#1B1B1B] transition-colors">
-                                    高级选项
-                                </summary>
-                                <div className="mt-3 p-4 bg-[#1B1B1B] rounded border border-[#343434]">
-                                    <p className="text-[#A2A09A] text-xs mb-3">手动设置关键词</p>
-                                    <DeepSearchKeywordGenerator
-                                        userInput={userInput}
-                                        onKeywordsGenerated={handleKeywordsGenerated}
-                                        isGenerating={isLoading}
-                                        onGeneratingChange={setIsLoading}
-                                    />
-                                </div>
-                            </details>
-                        </div>
+                        {isLoading && (
+                            <div className="flex items-center gap-3">
+                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#C9A063]"></div>
+                                <span className="text-[#C9A063] text-sm">正在执行深度检索分析...</span>
+                            </div>
+                        )}
                     </motion.div>
                 )}
             </AnimatePresence>
