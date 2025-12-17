@@ -104,14 +104,68 @@ function parsePlainTextToBooks(
         }
     });
     
+    // 应用去重逻辑
+    const deduplicatedBooks = deduplicateBooks(books);
+    
+    // 记录去重统计信息
+    if (books.length !== deduplicatedBooks.length) {
+        logger.info('纯文本格式图书去重完成', {
+            originalCount: books.length,
+            deduplicatedCount: deduplicatedBooks.length,
+            removedCount: books.length - deduplicatedBooks.length,
+            searchType: endpoint.includes('text-search') ? 'text-search' : 'multi-query'
+        });
+    }
+    
     return {
-        books,
-        totalCount: books.length,
+        books: deduplicatedBooks,
+        totalCount: deduplicatedBooks.length,
         searchQuery: payload.query as string || payload.markdown_text as string || '',
         searchType: endpoint.includes('text-search') ? 'text-search' : 'multi-query',
-        metadata: {},
+        metadata: { originalCount: books.length, deduplicatedCount: deduplicatedBooks.length },
         timestamp: new Date().toISOString()
     };
+}
+
+/**
+ * 图书去重函数
+ * 优先使用book_id或embedding_id作为唯一标识，如果没有则回退到书名+作者组合
+ */
+function deduplicateBooks(books: BookInfo[]): BookInfo[] {
+    const bookMap = new Map<string, BookInfo>();
+    
+    books.forEach(book => {
+        // 优先使用book_id作为去重键，其次是embedding_id，最后回退到书名+作者组合
+        let dedupeKey: string;
+        
+        if (book.id && !book.id.startsWith('book-')) {
+            // 如果有真实的book_id（不是自动生成的），使用book_id
+            dedupeKey = `book_id:${book.id}`;
+        } else if (book.embeddingId) {
+            // 如果有embedding_id，使用embedding_id
+            dedupeKey = `embedding:${book.embeddingId}`;
+        } else {
+            // 回退到书名+作者的组合
+            dedupeKey = `title_author:${book.title.toLowerCase().trim()}-${book.author.toLowerCase().trim()}`;
+        }
+        
+        const existingBook = bookMap.get(dedupeKey);
+        
+        if (!existingBook) {
+            // 如果不存在，直接添加
+            bookMap.set(dedupeKey, book);
+        } else {
+            // 如果已存在，比较并保留评分更高的版本
+            const currentScore = book.finalScore || book.similarityScore || book.rating || 0;
+            const existingScore = existingBook.finalScore || existingBook.similarityScore || existingBook.rating || 0;
+            
+            if (currentScore > existingScore) {
+                bookMap.set(dedupeKey, book);
+            }
+        }
+    });
+    
+    return Array.from(bookMap.values());
 }
 
 // 解析JSON格式为结构化数据
@@ -149,12 +203,25 @@ function parseJsonResultsToBooks(
         sourceQueryType: item.source_query_type
     }));
     
+    // 应用去重逻辑
+    const deduplicatedBooks = deduplicateBooks(books);
+    
+    // 记录去重统计信息
+    if (books.length !== deduplicatedBooks.length) {
+        logger.info('图书去重完成', {
+            originalCount: books.length,
+            deduplicatedCount: deduplicatedBooks.length,
+            removedCount: books.length - deduplicatedBooks.length,
+            searchType: endpoint.includes('text-search') ? 'text-search' : 'multi-query'
+        });
+    }
+    
     return {
-        books,
-        totalCount: books.length,
+        books: deduplicatedBooks,
+        totalCount: deduplicatedBooks.length,
         searchQuery: payload.query as string || payload.markdown_text as string || '',
         searchType: endpoint.includes('text-search') ? 'text-search' : 'multi-query',
-        metadata: { results },
+        metadata: { results, originalCount: results.length, deduplicatedCount: deduplicatedBooks.length },
         timestamp: new Date().toISOString()
     };
 }
