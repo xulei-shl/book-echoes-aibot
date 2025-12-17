@@ -181,7 +181,7 @@ async function postBookApi<T>(
     const clonedResponse = response.clone();
     
     const contentType = response.headers.get('content-type') ?? '';
-    let contextPlainText: string;
+    let contextPlainText: string = '';
     let metadata: T = {} as T;
 
     if (contentType.includes('text/plain')) {
@@ -192,13 +192,22 @@ async function postBookApi<T>(
         metadata = (data.metadata ?? {}) as T;
     }
 
-    if (!contextPlainText) {
-        logger.error('API 响应缺少 context_plain_text', { endpoint });
-        throw new Error('图书检索 API 响应异常：缺少 context_plain_text');
-    }
-
     // 使用克隆的响应解析结构化数据
     const structuredData = await parseRetrievalResponse(clonedResponse, endpoint, payload);
+
+    // 如果没有contextPlainText但有结构化数据，从结构化数据生成
+    if (!contextPlainText && structuredData.books && structuredData.books.length > 0) {
+        contextPlainText = structuredData.books
+            .map(book => `【${book.title}】${book.highlights?.join('；') || book.description || ''} - ${book.rating || 0}分`)
+            .join('\n');
+        logger.info('从结构化数据生成 contextPlainText', { booksCount: structuredData.books.length });
+    }
+
+    // 如果仍然没有contextPlainText且没有结构化数据，才抛出错误
+    if (!contextPlainText && (!structuredData.books || structuredData.books.length === 0)) {
+        logger.error('API 响应既没有 context_plain_text 也没有有效的结构化数据', { endpoint });
+        throw new Error('图书检索 API 响应异常：缺少有效数据');
+    }
 
     return {
         contextPlainText,
