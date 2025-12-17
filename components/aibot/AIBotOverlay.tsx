@@ -410,25 +410,6 @@ export default function AIBotOverlay() {
         setRetrievalPhase('selection');
     };
 
-    const handleRetry = async () => {
-        if (!messages.length) return;
-        const lastMessage = messages[messages.length - 1];
-        if (lastMessage.role !== 'assistant') return;
-        const retriedMessages = messages.slice(0, -1);
-        setMessages(retriedMessages);
-        if (isDeepMode) {
-            const mergedMetadata = {
-                ...(draftMetadata ?? {}),
-                draftMarkdown: draftEditorValue || draftMetadata?.draftMarkdown || ''
-            };
-            await streamAssistant('deep', retriedMessages, {
-                draft_markdown: mergedMetadata.draftMarkdown,
-                deep_metadata: mergedMetadata
-            });
-            return;
-        }
-        await streamAssistant('text-search', retriedMessages);
-    };
 
     const handleCopy = async () => {
         if (!lastAssistant) {
@@ -626,14 +607,6 @@ export default function AIBotOverlay() {
                                         className="hover:text-white transition-colors font-info-content"
                                     >
                                         复制
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={handleRetry}
-                                        disabled={isStreaming}
-                                        className="hover:text-white transition-colors disabled:cursor-not-allowed disabled:text-[#555] font-info-content"
-                                    >
-                                        重试
                                     </button>
                                 </div>
                                 <button
