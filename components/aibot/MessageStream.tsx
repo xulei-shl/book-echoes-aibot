@@ -4,18 +4,23 @@ import { useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { UIMessage } from 'ai';
 import RetrievalResultDisplay from './RetrievalResultDisplay';
+import ProgressLogDisplay from './ProgressLogDisplay';
+import type { LogEntry } from './ProgressLogDisplay';
 import { useAIBotStore } from '@/store/aibot/useAIBotStore';
 import type { RetrievalPhase } from '@/src/core/aibot/types';
 
 interface MessageStreamProps {
     messages: UIMessage[];
     isStreaming: boolean;
-    isSearching?: boolean; // 新增：检索中状态
+    isSearching?: boolean;
     retrievalPhase?: RetrievalPhase;
     selectedBookIds?: Set<string>;
     onBookSelection?: (bookId: string, isSelected: boolean) => void;
     onGenerateInterpretation?: (selectedBookIds: Set<string>) => void;
     onReenterSelection?: () => void;
+    // 简单检索进度相关
+    simpleSearchLogs?: LogEntry[];
+    simpleSearchPhase?: string;
 }
 
 export default function MessageStream({
@@ -26,7 +31,9 @@ export default function MessageStream({
     selectedBookIds = new Set(),
     onBookSelection,
     onGenerateInterpretation,
-    onReenterSelection
+    onReenterSelection,
+    simpleSearchLogs = [],
+    simpleSearchPhase = ''
 }: MessageStreamProps) {
     const { retrievalResults } = useAIBotStore(); // 获取检索结果状态
 
@@ -96,12 +103,17 @@ export default function MessageStream({
                     </motion.div>
                 ))}
             </AnimatePresence>
-            {isSearching && (
-                <div className="text-left text-xs text-[#C9A063] animate-pulse flex items-center gap-2">
-                    <span className="inline-block w-2 h-2 bg-[#C9A063] rounded-full animate-bounce"></span>
-                    正在扩展检索中，请稍候...
-                </div>
+
+            {/* 简单检索进度显示 */}
+            {isSearching && simpleSearchLogs.length > 0 && (
+                <ProgressLogDisplay
+                    isVisible={true}
+                    logs={simpleSearchLogs}
+                    currentPhase={simpleSearchPhase}
+                    title="检索进度"
+                />
             )}
+
             {isStreaming && (
                 <div className="text-left text-xs text-[#A2A09A] animate-pulse">
                     正在生成中，请稍候...

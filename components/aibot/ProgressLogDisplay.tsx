@@ -3,10 +3,19 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-interface LogEntry {
+// 深度检索阶段
+type DeepSearchPhase = 'keyword' | 'search' | 'analysis' | 'cross-analysis' | 'book-search';
+// 简单检索阶段
+type SimpleSearchPhase = 'classify' | 'expand' | 'parallel-search' | 'merge';
+// 通用阶段
+type CommonPhase = 'completed' | 'error';
+// 所有阶段类型
+export type SearchPhase = DeepSearchPhase | SimpleSearchPhase | CommonPhase;
+
+export interface LogEntry {
     id: string;
     timestamp: string;
-    phase: 'keyword' | 'search' | 'analysis' | 'cross-analysis' | 'book-search' | 'completed' | 'error';
+    phase: SearchPhase;
     message: string;
     status: 'pending' | 'running' | 'completed' | 'error';
     details?: string;
@@ -17,24 +26,39 @@ interface ProgressLogDisplayProps {
     logs?: any[];
     currentPhase?: string;
     onComplete?: () => void;
+    title?: string; // 支持自定义标题
 }
 
-const PHASE_LABELS = {
+const PHASE_LABELS: Record<SearchPhase, string> = {
+    // 深度检索阶段
     'keyword': '关键词生成',
     'search': 'MCP检索',
     'analysis': '文章分析',
     'cross-analysis': '交叉分析',
     'book-search': '图书检索',
+    // 简单检索阶段
+    'classify': '问题分类',
+    'expand': '检索扩展',
+    'parallel-search': '并行检索',
+    'merge': '结果合并',
+    // 通用阶段
     'completed': '完成',
     'error': '错误'
 };
 
-const PHASE_ICONS = {
+const PHASE_ICONS: Record<SearchPhase, string> = {
+    // 深度检索阶段
     'keyword': '🔍',
     'search': '🌐',
     'analysis': '📄',
     'cross-analysis': '🔗',
     'book-search': '📚',
+    // 简单检索阶段
+    'classify': '🏷️',
+    'expand': '🔀',
+    'parallel-search': '⚡',
+    'merge': '📊',
+    // 通用阶段
     'completed': '✅',
     'error': '❌'
 };
@@ -43,7 +67,8 @@ export default function ProgressLogDisplay({
     isVisible,
     logs: externalLogs = [],
     currentPhase: externalCurrentPhase = '',
-    onComplete
+    onComplete,
+    title = '检索进度'
 }: ProgressLogDisplayProps) {
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const [currentPhase, setCurrentPhase] = useState<string>('');
@@ -123,7 +148,7 @@ export default function ProgressLogDisplay({
                                 <div className="w-2 h-2 bg-[#C9A063] rounded-full"></div>
                             </div>
                             <span className="text-[#C9A063] text-sm font-medium">
-                                深度检索进度
+                                {title}
                             </span>
                             <div className="text-xs text-[#A2A09A]">
                                 {logs.filter(l => l.status === 'completed').length} / {Math.max(logs.length, 1)} 完成

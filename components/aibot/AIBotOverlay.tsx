@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
@@ -9,6 +9,7 @@ import DeepSearchWorkflow from '@/components/aibot/DeepSearchWorkflow';
 import { useAIBotStore } from '@/store/aibot/useAIBotStore';
 import type { UIMessage } from 'ai';
 import type { RetrievalResultData } from '@/src/core/aibot/types';
+import type { LogEntry, SearchPhase } from '@/components/aibot/ProgressLogDisplay';
 
 const buildRequestMessages = (messages: UIMessage[]) =>
     messages.map((message) => ({
@@ -61,6 +62,45 @@ export default function AIBotOverlay() {
     const [showDeepSearchWorkflow, setShowDeepSearchWorkflow] = useState(false);
     const [deepSearchInput, setDeepSearchInput] = useState('');
     const [isSearching, setIsSearching] = useState(false); // 新增：检索中状态
+
+    // 简单检索进度日志状态
+    const [simpleSearchLogs, setSimpleSearchLogs] = useState<LogEntry[]>([]);
+    const [simpleSearchPhase, setSimpleSearchPhase] = useState<string>('');
+
+    // 更新简单检索日志
+    const updateSimpleSearchLog = useCallback((
+        phase: SearchPhase,
+        status: 'pending' | 'running' | 'completed' | 'error',
+        message: string,
+        details?: string
+    ) => {
+        const newLog: LogEntry = {
+            id: `${phase}-${Date.now()}`,
+            timestamp: new Date().toLocaleTimeString('zh-CN'),
+            phase,
+            status,
+            message,
+            details
+        };
+
+        setSimpleSearchLogs(prev => {
+            const existingIndex = prev.findIndex(log => log.phase === phase);
+            if (existingIndex >= 0) {
+                const updated = [...prev];
+                updated[existingIndex] = newLog;
+                return updated;
+            }
+            return [...prev, newLog];
+        });
+
+        setSimpleSearchPhase(phase);
+    }, []);
+
+    // 清空简单检索日志
+    const clearSimpleSearchLogs = useCallback(() => {
+        setSimpleSearchLogs([]);
+        setSimpleSearchPhase('');
+    }, []);
 
     useEffect(() => {
         if (pendingDraft) {
@@ -309,14 +349,16 @@ export default function AIBotOverlay() {
     const performSimpleSearchWithClassification = async (query: string) => {
         setRetrievalPhase('search');
         setOriginalQuery(query);
-        setIsSearching(true); // 开始检索
+        setIsSearching(true);
+        clearSimpleSearchLogs(); // 清空之前的日志
 
         try {
-            // 并行执行分类和检索
+            // 阶段1: 问题分类
+            updateSimpleSearchLog('classify', 'running', '正在分析问题类型...');
             const [classification] = await Promise.all([
                 classifyIntent(query),
-                // 可以在这里添加其他并行任务
             ]);
+            updateSimpleSearchLog('classify', 'completed', `识别为: ${classification.intent === 'other' ? '非检索' : '图书检索'}`, classification.reason);
 
             // 如果是其他类型，直接返回提示
             if (classification.intent === 'other') {
@@ -329,10 +371,19 @@ export default function AIBotOverlay() {
                 appendMessage(assistantMessage);
                 setRetrievalPhase('search');
                 setIsSearching(false);
+                updateSimpleSearchLog('completed', 'completed', '分类完成，无需检索');
                 return;
             }
 
-            // 执行扩展检索
+            // 阶段2: 检索扩展 + 阶段3: 并行检索（API内部执行）
+            updateSimpleSearchLog('expand', 'running', '正在扩展检索词...');
+
+            // 模拟扩展完成后显示并行检索状态
+            setTimeout(() => {
+                updateSimpleSearchLog('expand', 'completed', '检索词扩展完成');
+                updateSimpleSearchLog('parallel-search', 'running', '正在并行检索图书...');
+            }, 500);
+
             const response = await fetch('/api/local-aibot/search-only', {
                 method: 'POST',
                 headers: {
@@ -353,6 +404,10 @@ export default function AIBotOverlay() {
                 throw new Error(data.message || '检索失败');
             }
 
+            // 阶段3完成 + 阶段4: 结果合并
+            updateSimpleSearchLog('parallel-search', 'completed', '并行检索完成');
+            updateSimpleSearchLog('merge', 'running', '正在合并去重结果...');
+
             setCurrentRetrievalResult(data.retrievalResult);
 
             // 添加检索结果消息
@@ -365,14 +420,20 @@ export default function AIBotOverlay() {
             appendMessage(retrievalMessage);
             setRetrievalResult(retrievalMessage.id, data.retrievalResult);
 
+            // 阶段4完成
+            const booksCount = data.retrievalResult?.books?.length || 0;
+            updateSimpleSearchLog('merge', 'completed', `找到 ${booksCount} 本相关图书`);
+            updateSimpleSearchLog('completed', 'completed', '检索完成');
+
             // 进入选择阶段
             setRetrievalPhase('selection');
 
         } catch (err) {
+            updateSimpleSearchLog('error', 'error', err instanceof Error ? err.message : '检索失败');
             setError(err instanceof Error ? err.message : '检索失败，请稍后重试');
             setRetrievalPhase('search');
         } finally {
-            setIsSearching(false); // 结束检索
+            setIsSearching(false);
         }
     };
 
@@ -597,6 +658,8 @@ export default function AIBotOverlay() {
                                         onBookSelection={handleBookSelection}
                                         onGenerateInterpretation={handleGenerateInterpretation}
                                         onReenterSelection={reenterSelection}
+                                        simpleSearchLogs={simpleSearchLogs}
+                                        simpleSearchPhase={simpleSearchPhase}
                                     />
                                 </div>
 
