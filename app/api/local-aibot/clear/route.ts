@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { assertAIBotEnabled, AIBotDisabledError } from '@/src/utils/aibot-env';
 import { getLogger } from '@/src/utils/logger';
+import { clearPromptCache } from '@/src/core/aibot/promptLoader';
 
 const logger = getLogger('aibot.api.clear');
 
@@ -16,16 +17,20 @@ export async function POST(request: Request) {
 
     try {
         logger.info('收到清空聊天记录请求');
-        
+
+        // 清空提示词缓存
+        clearPromptCache();
+        logger.info('提示词缓存已清空');
+
         // 这里可以添加清空后端存储的逻辑
         // 例如：清空数据库中的聊天记录、清除缓存等
         // 目前这个 API 主要用于前端状态重置，后端暂无持久化存储
-        
+
         logger.info('聊天记录清空完成');
-        
-        return NextResponse.json({ 
-            success: true, 
-            message: '聊天记录已清空' 
+
+        return NextResponse.json({
+            success: true,
+            message: '聊天记录已清空'
         });
     } catch (error) {
         logger.error('清空聊天记录失败', { error });

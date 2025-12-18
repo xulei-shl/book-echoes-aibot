@@ -78,7 +78,17 @@ const buildClassifierPrompt = (input: IntentClassifierInput): string => {
 
 const parseClassifierText = (text: string): IntentClassificationResult => {
     try {
-        const parsed = JSON.parse(text.trim());
+        // 移除代码块标记（```json ... ```）
+        let cleanedText = text.trim();
+
+        // 匹配可选的代码块标记
+        const codeBlockRegex = /^```(?:json)?\s*([\s\S]*?)\s*```$/;
+        const match = cleanedText.match(codeBlockRegex);
+        if (match) {
+            cleanedText = match[1];
+        }
+
+        const parsed = JSON.parse(cleanedText);
         return {
             intent: normalizeIntent(parsed.intent),
             confidence: clampConfidence(Number(parsed.confidence)),
@@ -112,7 +122,7 @@ export async function classifyUserIntent(input: IntentClassifierInput): Promise<
     try {
         const prompt = await loadPrompt(AIBOT_PROMPT_FILES.QUESTION_CLASSIFIER);
         const llmConfig = resolveLLMConfig(undefined, {
-            model: 'gpt-4.1-nano',
+            model: 'gemini-flash-latest',
             temperature: 0
         });
         const customProvider = createOpenAICompatible({

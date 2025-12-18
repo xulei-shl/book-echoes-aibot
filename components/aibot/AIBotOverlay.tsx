@@ -264,10 +264,7 @@ export default function AIBotOverlay() {
             return;
         }
 
-        // 先分类判断意图
-        const classification = await classifyIntent(trimmed);
-
-        // 添加用户消息
+        // 立即添加用户消息到界面，无需等待分类
         const userMessage: UIMessage = {
             id: crypto.randomUUID(),
             role: 'user',
@@ -276,18 +273,6 @@ export default function AIBotOverlay() {
 
         appendMessage(userMessage);
         setInputValue('');
-
-        // 如果是其他类型，直接返回提示
-        if (classification.intent === 'other') {
-            const assistantMessage: UIMessage = {
-                id: crypto.randomUUID(),
-                role: 'assistant',
-                content: '你好，我是 Book Echoes 图书智搜助手，专注解读与推荐书籍内容。\n当前输入暂未匹配到图书检索任务。试着告诉我：你想解决的问题、关注的主题、阅读目标或领域关键词，我就能为你找到书。'
-            } as any;
-
-            appendMessage(assistantMessage);
-            return;
-        }
 
         // 处理深度模式的草稿逻辑
         if (isDeepMode) {
@@ -315,11 +300,78 @@ export default function AIBotOverlay() {
             return;
         }
 
-        // 普通模式下，所有检索需求都执行简单检索
-        await performSimpleSearch(trimmed);
+        // 普通模式下，并行执行分类和简单检索
+        await performSimpleSearchWithClassification(trimmed);
     };
 
-    // 执行简单检索
+    // 执行简单检索（带分类）
+    const performSimpleSearchWithClassification = async (query: string) => {
+        setRetrievalPhase('search');
+        setOriginalQuery(query);
+
+        // 并行执行分类和检索
+        const [classification] = await Promise.all([
+            classifyIntent(query),
+            // 可以在这里添加其他并行任务
+        ]);
+
+        // 如果是其他类型，直接返回提示
+        if (classification.intent === 'other') {
+            const assistantMessage: UIMessage = {
+                id: crypto.randomUUID(),
+                role: 'assistant',
+                content: '你好，我是 Book Echoes 图书智搜助手，专注解读与推荐书籍内容。\n当前输入暂未匹配到图书检索任务。试着告诉我：你想解决的问题、关注的主题、阅读目标或领域关键词，我就能为你找到书。'
+            } as any;
+
+            appendMessage(assistantMessage);
+            setRetrievalPhase('search');
+            return;
+        }
+
+        // 执行简单检索
+        try {
+            const response = await fetch('/api/local-aibot/search-only', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    query,
+                    messages: buildRequestMessages(messages)
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('检索失败');
+            }
+
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.message || '检索失败');
+            }
+
+            setCurrentRetrievalResult(data.retrievalResult);
+
+            // 添加检索结果消息
+            const retrievalMessage: UIMessage = {
+                id: crypto.randomUUID(),
+                role: 'assistant',
+                content: ''
+            } as any;
+
+            appendMessage(retrievalMessage);
+            setRetrievalResult(retrievalMessage.id, data.retrievalResult);
+
+            // 进入选择阶段
+            setRetrievalPhase('selection');
+
+        } catch (err) {
+            setError(err instanceof Error ? err.message : '检索失败，请稍后重试');
+            setRetrievalPhase('search');
+        }
+    };
+
+    // 执行简单检索（原方法保留，用于其他地方调用）
     const performSimpleSearch = async (query: string) => {
         setRetrievalPhase('search');
         setOriginalQuery(query);
