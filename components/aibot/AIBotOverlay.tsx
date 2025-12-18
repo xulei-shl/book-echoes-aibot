@@ -718,7 +718,7 @@ export default function AIBotOverlay() {
                                                     draftMarkdown: e.target.value
                                                 });
                                             }}
-                                            className="w-full h-32 rounded-xl bg-[#1B1B1B] border border-[#3A3A3A] text-sm text-[#E8E6DC] p-3 focus:outline-none focus:border-[#C9A063] font-info-content"
+                                            className="w-full h-32 rounded-xl bg-[#1B1B1B] border border-[#3A3A3A] text-sm text-[#E8E6DC] p-3 focus:outline-none focus:border-[#C9A063] font-info-content about-overlay-scroll overflow-y-auto"
                                         />
                                         <div className="flex items-center gap-3">
                                             <button
@@ -746,7 +746,7 @@ export default function AIBotOverlay() {
                                 value={inputValue}
                                 onChange={(e) => setInputValue(e.target.value)}
                                 placeholder={isDeepMode ? '输入检索主题，先生成草稿再发送' : '想了解什么图书？'}
-                                className="w-full h-24 bg-[#1B1B1B] border border-[#3A3A3A] rounded-2xl p-4 text-sm text-[#E8E6DC] focus:outline-none focus:border-[#C9A063] font-info-content"
+                                className="w-full h-24 bg-[#1B1B1B] border border-[#3A3A3A] rounded-2xl p-4 text-sm text-[#E8E6DC] focus:outline-none focus:border-[#C9A063] font-info-content about-overlay-scroll overflow-y-auto"
                                 disabled={isStreaming || isGeneratingInterpretation || isSearching || (isDeepMode && !!pendingDraft)}
                             />
                             <div className="flex items-center justify-between">
