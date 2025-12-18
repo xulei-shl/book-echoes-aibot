@@ -78,7 +78,7 @@ export default function BookItem({
             )}
             
             {/* 基本信息 */}
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 font-info-content">
                 <h3 className="text-[#E8E6DC] font-medium text-sm truncate mb-1">
                     {book.title}
                 </h3>
@@ -130,7 +130,7 @@ export default function BookItem({
                 {/* 亮点信息 */}
                 {book.highlights && book.highlights.length > 0 && (
                     <div className="mt-2">
-                        <p className="text-[#A2A09A] text-xs line-clamp-2">
+                        <p className="text-[#A2A09A] text-xs line-clamp-2 font-info-content">
                             {book.highlights.join('; ')}
                         </p>
                     </div>
@@ -160,7 +160,7 @@ export default function BookItem({
                                     transition={{ duration: 0.3 }}
                                     className="overflow-hidden"
                                 >
-                                    <p className="text-[#A2A09A] text-xs leading-relaxed bg-[#1B1B1B] p-2 rounded border border-[#343434]">
+                                    <p className="text-[#A2A09A] text-xs leading-relaxed bg-[#1B1B1B] p-2 rounded border border-[#343434] font-info-content">
                                         {book.description}
                                     </p>
                                 </motion.div>
@@ -183,14 +183,14 @@ export default function BookItem({
                         {book.description && (
                             <div className="mb-3">
                                 <h4 className="text-[#C9A063] font-medium mb-2 text-sm">内容简介</h4>
-                                <p className="text-[#A2A09A] text-sm leading-relaxed">{book.description}</p>
+                                <p className="text-[#A2A09A] text-sm leading-relaxed font-info-content">{book.description}</p>
                             </div>
                         )}
                         
                         {book.authorIntro && (
                             <div className="mb-3">
                                 <h4 className="text-[#C9A063] font-medium mb-2 text-sm">作者简介</h4>
-                                <p className="text-[#A2A09A] text-sm leading-relaxed">{book.authorIntro}</p>
+                                <p className="text-[#A2A09A] text-sm leading-relaxed font-info-content">{book.authorIntro}</p>
                             </div>
                         )}
                         
@@ -198,25 +198,25 @@ export default function BookItem({
                             {book.publisher && (
                                 <div>
                                     <span className="text-[#6F6D68]">出版社：</span>
-                                    <span className="text-[#E8E6DC]">{book.publisher}</span>
+                                    <span className="text-[#E8E6DC] font-info-content">{book.publisher}</span>
                                 </div>
                             )}
                             {book.pageCount && (
                                 <div>
                                     <span className="text-[#6F6D68]">页数：</span>
-                                    <span className="text-[#E8E6DC]">{book.pageCount}</span>
+                                    <span className="text-[#E8E6DC] font-info-content">{book.pageCount}</span>
                                 </div>
                             )}
                             {book.isbn && (
                                 <div>
                                     <span className="text-[#6F6D68]">ISBN：</span>
-                                    <span className="text-[#E8E6DC]">{book.isbn}</span>
+                                    <span className="text-[#E8E6DC] font-info-content">{book.isbn}</span>
                                 </div>
                             )}
                             {book.tags && book.tags.length > 0 && (
                                 <div className="col-span-2">
                                     <span className="text-[#6F6D68]">标签：</span>
-                                    <span className="text-[#E8E6DC]">{book.tags.join(', ')}</span>
+                                    <span className="text-[#E8E6DC] font-info-content">{book.tags.join(', ')}</span>
                                 </div>
                             )}
                         </div>

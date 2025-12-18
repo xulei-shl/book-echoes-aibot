@@ -116,14 +116,14 @@ export default function DeepSearchBookList({
                                     ))
                                 ) : (
                                     <div className="text-center py-8">
-                                        <p className="text-[#A2A09A] text-sm mb-2">未找到相关图书</p>
-                                        <p className="text-[#6F6D68] text-xs">请尝试调整搜索关键词或搜索条件</p>
+                                        <p className="text-[#A2A09A] text-sm mb-2 font-info-content">未找到相关图书</p>
+                                        <p className="text-[#6F6D68] text-xs font-info-content">请尝试调整搜索关键词或搜索条件</p>
                                         {/* 添加调试信息 */}
                                         <div className="mt-4 p-2 bg-[#1B1B1B] rounded text-xs text-left">
-                                            <p className="text-[#6F6D68]">调试信息:</p>
-                                            <p className="text-[#6F6D68]">总图书数: {books.length}</p>
-                                            <p className="text-[#6F6D68]">显示图书数: {displayBooks.length}</p>
-                                            <p className="text-[#6F6D68]">显示全部: {showAll ? '是' : '否'}</p>
+                                            <p className="text-[#6F6D68] font-info-content">调试信息:</p>
+                                            <p className="text-[#6F6D68] font-info-content">总图书数: {books.length}</p>
+                                            <p className="text-[#6F6D68] font-info-content">显示图书数: {displayBooks.length}</p>
+                                            <p className="text-[#6F6D68] font-info-content">显示全部: {showAll ? '是' : '否'}</p>
                                         </div>
                                     </div>
                                 )}
