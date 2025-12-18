@@ -95,6 +95,33 @@ export default function AIBotOverlay() {
         console.log('[AIBotOverlay] 状态重置完成');
     };
 
+    // 调用分类器接口
+    const classifyIntent = async (input: string) => {
+        try {
+            const response = await fetch('/api/local-aibot/classify', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    userInput: input,
+                    messages: buildRequestMessages(messages)
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('分类失败');
+            }
+
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error('[AIBotOverlay] 分类失败:', error);
+            // 默认返回简单检索
+            return { intent: 'simple_search', confidence: 0.5, reason: '分类服务不可用' };
+        }
+    };
+
     const requestDraft = async (question: string) => {
         if (!question) {
             setError('请输入问题后再生成草稿');
@@ -237,12 +264,37 @@ export default function AIBotOverlay() {
             return;
         }
 
+        // 先分类判断意图
+        const classification = await classifyIntent(trimmed);
+
+        // 添加用户消息
+        const userMessage: UIMessage = {
+            id: crypto.randomUUID(),
+            role: 'user',
+            content: trimmed
+        } as any;
+
+        appendMessage(userMessage);
+        setInputValue('');
+
+        // 如果是其他类型，直接返回提示
+        if (classification.intent === 'other') {
+            const assistantMessage: UIMessage = {
+                id: crypto.randomUUID(),
+                role: 'assistant',
+                content: '你好，我是 Book Echoes 图书智搜助手，专注解读与推荐书籍内容。\n当前输入暂未匹配到图书检索任务。试着告诉我：你想解决的问题、关注的主题、阅读目标或领域关键词，我就能为你找到书。'
+            } as any;
+
+            appendMessage(assistantMessage);
+            return;
+        }
+
+        // 处理深度模式的草稿逻辑
         if (isDeepMode) {
             if (!pendingDraft) {
-                // 启动深度检索工作流
+                // 深度模式下，所有检索需求都进入深度检索
                 setDeepSearchInput(trimmed);
                 setShowDeepSearchWorkflow(true);
-                setInputValue('');
                 return;
             }
 
@@ -260,30 +312,18 @@ export default function AIBotOverlay() {
                 deep_metadata: mergedMetadata
             });
             setPendingDraft(null, mergedMetadata as any);
-            setInputValue('');
             return;
         }
 
-        // 简单检索：先执行检索，不直接调用AI
+        // 普通模式下，所有检索需求都执行简单检索
         await performSimpleSearch(trimmed);
     };
 
-    // 新增：执行简单检索
+    // 执行简单检索
     const performSimpleSearch = async (query: string) => {
         setRetrievalPhase('search');
         setOriginalQuery(query);
-        
-        const userMessage: UIMessage = {
-            id: crypto.randomUUID(),
-            role: 'user',
-            content: query
-        } as any;
-        
-        const nextMessages = [...messages, userMessage];
-        appendMessage(userMessage);
-        setMessages(nextMessages);
-        setInputValue('');
-        
+
         try {
             const response = await fetch('/api/local-aibot/search-only', {
                 method: 'POST',
@@ -292,7 +332,7 @@ export default function AIBotOverlay() {
                 },
                 body: JSON.stringify({
                     query,
-                    messages: buildRequestMessages(nextMessages)
+                    messages: buildRequestMessages(messages)
                 })
             });
 
@@ -306,20 +346,20 @@ export default function AIBotOverlay() {
             }
 
             setCurrentRetrievalResult(data.retrievalResult);
-            
+
             // 添加检索结果消息
             const retrievalMessage: UIMessage = {
                 id: crypto.randomUUID(),
                 role: 'assistant',
                 content: ''
             } as any;
-            
+
             appendMessage(retrievalMessage);
             setRetrievalResult(retrievalMessage.id, data.retrievalResult);
-            
+
             // 进入选择阶段
             setRetrievalPhase('selection');
-            
+
         } catch (err) {
             setError(err instanceof Error ? err.message : '检索失败，请稍后重试');
             setRetrievalPhase('search');
@@ -490,14 +530,7 @@ export default function AIBotOverlay() {
                                 className="h-full flex flex-col gap-6 py-4 pr-2 overflow-y-auto aibot-scroll"
                                 style={{ minHeight: '0' }}
                             >
-                                {/* 调试日志：检查容器高度 */}
-                                {process.env.NODE_ENV === 'development' && (
-                                    <div className="text-xs text-[#6F6D68] bg-[#1B1B1B] p-2 rounded font-info-content">
-                                        [DEBUG] 容器诊断 - 消息数量: {messages.length}, 流式状态: {isStreaming ? '是' : '否'}
-                                        <br />草稿状态: {pendingDraft ? '有' : '无'}, 草稿加载: {isDraftLoading ? '是' : '否'}
-                                    </div>
-                                )}
-                                <div className="flex-1 min-h-0" style={{ overflow: 'hidden' }}>
+                                  <div className="flex-1 min-h-0" style={{ overflow: 'hidden' }}>
                                     <MessageStream
                                         messages={messages}
                                         isStreaming={isStreaming || isGeneratingInterpretation}

@@ -15,8 +15,7 @@ export const AIBOT_MODES = {
 export type AIBotMode = (typeof AIBOT_MODES)[keyof typeof AIBOT_MODES];
 
 export const AIBOT_INTENTS = {
-    SIMPLE_SEARCH: 'simple_search',
-    DEEP_SEARCH: 'deep_search',
+    SEARCH: 'search',
     OTHER: 'other'
 } as const;
 

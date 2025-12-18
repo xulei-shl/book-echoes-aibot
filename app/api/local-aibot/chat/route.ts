@@ -3,7 +3,7 @@ import { streamText, type CoreMessage } from 'ai';
 import { assertAIBotEnabled, AIBotDisabledError } from '@/src/utils/aibot-env';
 import { getLogger } from '@/src/utils/logger';
 import { buildChatWorkflowContext, createModel } from '@/src/core/aibot/researchWorkflow';
-import { classifyUserIntent, hasPromptInjectionRisk, shouldBypassClassifier } from '@/src/core/aibot/classifier';
+import { classifyUserIntent, hasPromptInjectionRisk } from '@/src/core/aibot/classifier';
 import { AIBOT_INTENTS, AIBOT_MODES, type AIBotMode } from '@/src/core/aibot/constants';
 import type { ChatMessage, IntentClassificationResult } from '@/src/core/aibot/types';
 
@@ -105,13 +105,12 @@ const determineMode = (
     requestedMode: AIBotMode,
     body: ChatRequestPayload
 ): { mode: AIBotMode; downgraded: boolean } => {
-    if (intent === AIBOT_INTENTS.DEEP_SEARCH && hasDeepPayload(body)) {
+    // 如果用户开启了深度模式，且有草稿内容，则使用深度模式
+    if (hasDeepPayload(body)) {
         return { mode: AIBOT_MODES.DEEP, downgraded: false };
     }
-    if (intent === AIBOT_INTENTS.DEEP_SEARCH && !hasDeepPayload(body)) {
-        return { mode: AIBOT_MODES.TEXT, downgraded: true };
-    }
-    return { mode: AIBOT_MODES.TEXT, downgraded: requestedMode === AIBOT_MODES.DEEP };
+    // 否则使用请求的模式
+    return { mode: requestedMode, downgraded: false };
 };
 
 const streamHeaders = (
@@ -194,21 +193,11 @@ export async function POST(request: Request) {
         }
 
         const previousMode = mode as AIBotMode;
-        const bypassClassifier = shouldBypassClassifier(latestUserMessage, previousMode);
-        let classification: IntentClassificationResult;
-        if (bypassClassifier) {
-            classification = {
-                intent: previousMode === AIBOT_MODES.DEEP ? AIBOT_INTENTS.DEEP_SEARCH : AIBOT_INTENTS.SIMPLE_SEARCH,
-                confidence: 0.85,
-                reason: '命中延续关键词，沿用上一轮意图',
-                source: 'rule'
-            };
-        } else {
-            classification = await classifyUserIntent({
-                userInput: latestUserMessage,
-                messages: chatMessages
-            });
-        }
+        // 移除硬编码绕过逻辑，所有输入都通过大模型进行意图分类
+        const classification = await classifyUserIntent({
+            userInput: latestUserMessage,
+            messages: chatMessages
+        });
 
         if (classification.intent === AIBOT_INTENTS.OTHER || hasPromptInjectionRisk(latestUserMessage)) {
             const reply = buildOtherReply(classification);

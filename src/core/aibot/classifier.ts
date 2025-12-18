@@ -24,7 +24,7 @@ const PROMPT_INJECTION_PATTERNS = [
 const MAX_CONTEXT_MESSAGES = 6;
 
 const FALLBACK_RESULT: IntentClassificationResult = {
-    intent: AIBOT_INTENTS.SIMPLE_SEARCH,
+    intent: AIBOT_INTENTS.SEARCH,
     confidence: 0.5,
     reason: 'LLM 分类失败，回落到默认检索',
     source: 'rule'
@@ -32,12 +32,12 @@ const FALLBACK_RESULT: IntentClassificationResult = {
 
 const normalizeIntent = (value?: string): IntentClassificationResult['intent'] => {
     switch (value) {
-        case AIBOT_INTENTS.DEEP_SEARCH:
-            return AIBOT_INTENTS.DEEP_SEARCH;
+        case AIBOT_INTENTS.SEARCH:
+            return AIBOT_INTENTS.SEARCH;
         case AIBOT_INTENTS.OTHER:
             return AIBOT_INTENTS.OTHER;
         default:
-            return AIBOT_INTENTS.SIMPLE_SEARCH;
+            return AIBOT_INTENTS.SEARCH;
     }
 };
 
