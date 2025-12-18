@@ -154,21 +154,33 @@ export default function DeepSearchBookList({
                                 </div>
                                 
                                 <div className="flex flex-wrap gap-3">
-                                    <button
-                                        onClick={handleGenerateInterpretation}
-                                        disabled={selectedBooks.length === 0 || isLoading}
-                                        className="px-4 py-2 bg-[#C9A063] text-black rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#D4A863] transition-colors"
-                                    >
-                                        生成深度解读 {selectedBooks.length > 0 && `(${selectedBooks.length}本)`}
-                                    </button>
+                                    <div className="relative group">
+                                        <button
+                                            onClick={handleGenerateInterpretation}
+                                            disabled={selectedBooks.length === 0 || isLoading}
+                                            className="px-4 py-2 bg-[#C9A063] text-black rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#D4A863] transition-colors"
+                                        >
+                                            深度解读 {selectedBooks.length > 0 && `(${selectedBooks.length}本)`}
+                                        </button>
+                                        <div className="absolute bottom-full left-0 mb-2 px-3 py-2 bg-[#1B1B1B] text-[#E8E6DC] text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 border border-[#343434] shadow-lg max-w-xs min-w-48">
+                                            基于选中的图书生成深度AI解读内容
+                                            <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-[#343434]"></div>
+                                        </div>
+                                    </div>
                                     
-                                    <button
-                                        onClick={handleAutoSelect}
-                                        disabled={isLoading}
-                                        className="px-4 py-2 border border-[#343434] text-[#E8E6DC] rounded-lg text-sm hover:bg-[#1B1B1B] transition-colors disabled:opacity-50"
-                                    >
-                                        自动筛选
-                                    </button>
+                                    <div className="relative group">
+                                        <button
+                                            onClick={handleAutoSelect}
+                                            disabled={isLoading}
+                                            className="px-4 py-2 border border-[#343434] text-[#E8E6DC] rounded-lg text-sm hover:bg-[#1B1B1B] transition-colors disabled:opacity-50"
+                                        >
+                                            自动筛选
+                                        </button>
+                                        <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-[#1B1B1B] text-[#E8E6DC] text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 border border-[#343434] shadow-lg max-w-xs min-w-48">
+                                            自动选择相似度{'>'}0.4的高相关度图书
+                                            <div className="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-[#343434]"></div>
+                                        </div>
+                                    </div>
                                     
                                     <button
                                         onClick={() => {
