@@ -181,9 +181,12 @@ export default function RetrievalResultDisplay({
                                         e.stopPropagation();
                                         onReenterSelection();
                                     }}
-                                    className="w-full py-2 mt-2 text-center text-[#E8E6DC] text-sm hover:bg-[#C9A063] hover:text-black rounded-lg transition-colors border border-[#343434]"
+                                    className="w-full py-2 mt-2 text-center text-[#E8E6DC] text-sm hover:bg-[#C9A063] hover:text-black rounded-lg transition-colors border border-[#343434] flex items-center justify-center gap-2"
                                 >
-                                    🔄 重新选择图书进行解读
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0">
+                                        <path d="M4 12a8 8 0 0 1 8-8V0l4 4-4 4V6a6 6 0 1 0 6 6h-2a8 8 0 1 1-8-8z" fill="currentColor" />
+                                    </svg>
+                                    重新选择图书进行解读
                                 </button>
                             )}
                         </div>

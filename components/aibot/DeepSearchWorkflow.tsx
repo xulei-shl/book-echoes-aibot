@@ -368,7 +368,10 @@ export default function DeepSearchWorkflow({
     };
 
     return (
-        <div className="space-y-4">
+        <div
+            className="space-y-4 max-h-[32rem] overflow-y-auto pr-1 aibot-scroll"
+            style={{ minHeight: '0' }}
+        >
             {/* 进度日志显示 */}
             <ProgressLogDisplay
                 isVisible={showProgress}

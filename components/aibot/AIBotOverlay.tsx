@@ -311,7 +311,7 @@ export default function AIBotOverlay() {
             const retrievalMessage: UIMessage = {
                 id: crypto.randomUUID(),
                 role: 'assistant',
-                content: '请选择相关图书进行解读'
+                content: ''
             } as any;
             
             appendMessage(retrievalMessage);
@@ -490,90 +490,97 @@ export default function AIBotOverlay() {
                         </div>
                     </header>
 
-                    <div className="flex-1 flex flex-col gap-6 py-4 overflow-hidden" style={{ minHeight: '0' }}>
-                        {/* 调试日志：检查容器高度 */}
-                        {process.env.NODE_ENV === 'development' && (
-                            <div className="text-xs text-[#6F6D68] mb-2 bg-[#1B1B1B] p-2 rounded font-info-content">
-                                [DEBUG] 容器诊断 - 消息数量: {messages.length}, 流式状态: {isStreaming ? '是' : '否'}
-                                <br />草稿状态: {pendingDraft ? '有' : '无'}, 草稿加载: {isDraftLoading ? '是' : '否'}
+                    <div className="flex-1 flex flex-col overflow-hidden" style={{ minHeight: '0' }}>
+                        <div className="flex-1 overflow-hidden">
+                            <div
+                                className="h-full flex flex-col gap-6 py-4 pr-2 overflow-y-auto aibot-scroll"
+                                style={{ minHeight: '0' }}
+                            >
+                                {/* 调试日志：检查容器高度 */}
+                                {process.env.NODE_ENV === 'development' && (
+                                    <div className="text-xs text-[#6F6D68] bg-[#1B1B1B] p-2 rounded font-info-content">
+                                        [DEBUG] 容器诊断 - 消息数量: {messages.length}, 流式状态: {isStreaming ? '是' : '否'}
+                                        <br />草稿状态: {pendingDraft ? '有' : '无'}, 草稿加载: {isDraftLoading ? '是' : '否'}
+                                    </div>
+                                )}
+                                <div className="flex-1 min-h-0" style={{ overflow: 'hidden' }}>
+                                    <MessageStream
+                                        messages={messages}
+                                        isStreaming={isStreaming || isGeneratingInterpretation}
+                                        retrievalPhase={retrievalPhase}
+                                        selectedBookIds={selectedBookIds}
+                                        onBookSelection={handleBookSelection}
+                                        onGenerateInterpretation={handleGenerateInterpretation}
+                                        onCancelSelection={cancelSelection}
+                                        onReenterSelection={reenterSelection}
+                                    />
+                                </div>
+
+                                {/* 深度检索工作流 */}
+                                {showDeepSearchWorkflow && (
+                                    <DeepSearchWorkflow
+                                        userInput={deepSearchInput}
+                                        onInterpretationGenerated={(interpretation) => {
+                                            // 添加解读消息
+                                            const interpretationMessage: UIMessage = {
+                                                id: crypto.randomUUID(),
+                                                role: 'assistant',
+                                                content: interpretation
+                                            } as any;
+                                            
+                                            appendMessage(interpretationMessage);
+                                            setShowDeepSearchWorkflow(false);
+                                            setDeepSearchInput('');
+                                        }}
+                                        onCancel={() => {
+                                            setShowDeepSearchWorkflow(false);
+                                            setDeepSearchInput('');
+                                        }}
+                                    />
+                                )}
+
+                                {isDeepMode && (pendingDraft || isDraftLoading) && !showDeepSearchWorkflow && (
+                                    <div className="border border-[#2E2E2E] rounded-2xl p-4 space-y-3">
+                                        <div className="flex items-center justify-between text-sm text-[#C9A063] font-info-content">
+                                            <span>草稿确认</span>
+                                            {isDraftLoading && <span className="animate-pulse text-xs">生成中...</span>}
+                                        </div>
+                                        <textarea
+                                            value={draftEditorValue}
+                                            onChange={(e) => {
+                                                setDraftEditorValue(e.target.value);
+                                                setPendingDraft(e.target.value, {
+                                                    userInput: e.target.value,
+                                                    searchSnippets: (draftMetadata?.searchSnippets) || [],
+                                                    articleAnalysis: (draftMetadata?.articleAnalysis) || '',
+                                                    crossAnalysis: (draftMetadata?.crossAnalysis) || '',
+                                                    draftMarkdown: e.target.value
+                                                });
+                                            }}
+                                            className="w-full h-32 rounded-xl bg-[#1B1B1B] border border-[#3A3A3A] text-sm text-[#E8E6DC] p-3 focus:outline-none focus:border-[#C9A063] font-info-content"
+                                        />
+                                        <div className="flex items-center gap-3">
+                                            <button
+                                                type="button"
+                                                onClick={() => setPendingDraft(null, undefined)}
+                                                className="text-xs px-3 py-1 border border-[#3A3A3A] rounded-full text-[#A2A09A] font-info-content"
+                                            >
+                                                丢弃草稿
+                                            </button>
+                                            <button
+                                                type="submit"
+                                                form="aibot-form"
+                                                className="text-xs px-4 py-1 rounded-full bg-[#C9A063] text-black font-info-content"
+                                            >
+                                                确认发送
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                        )}
-                        <div className="flex-1" style={{ minHeight: '0', overflow: 'hidden' }}>
-                            <MessageStream
-                                messages={messages}
-                                isStreaming={isStreaming || isGeneratingInterpretation}
-                                retrievalPhase={retrievalPhase}
-                                selectedBookIds={selectedBookIds}
-                                onBookSelection={handleBookSelection}
-                                onGenerateInterpretation={handleGenerateInterpretation}
-                                onCancelSelection={cancelSelection}
-                                onReenterSelection={reenterSelection}
-                            />
                         </div>
 
-                        {/* 深度检索工作流 */}
-                        {showDeepSearchWorkflow && (
-                            <DeepSearchWorkflow
-                                userInput={deepSearchInput}
-                                onInterpretationGenerated={(interpretation) => {
-                                    // 添加解读消息
-                                    const interpretationMessage: UIMessage = {
-                                        id: crypto.randomUUID(),
-                                        role: 'assistant',
-                                        content: interpretation
-                                    } as any;
-                                    
-                                    appendMessage(interpretationMessage);
-                                    setShowDeepSearchWorkflow(false);
-                                    setDeepSearchInput('');
-                                }}
-                                onCancel={() => {
-                                    setShowDeepSearchWorkflow(false);
-                                    setDeepSearchInput('');
-                                }}
-                            />
-                        )}
-
-                        {isDeepMode && (pendingDraft || isDraftLoading) && !showDeepSearchWorkflow && (
-                            <div className="border border-[#2E2E2E] rounded-2xl p-4 space-y-3">
-                                <div className="flex items-center justify-between text-sm text-[#C9A063] font-info-content">
-                                    <span>草稿确认</span>
-                                    {isDraftLoading && <span className="animate-pulse text-xs">生成中...</span>}
-                                </div>
-                                <textarea
-                                    value={draftEditorValue}
-                                    onChange={(e) => {
-                                        setDraftEditorValue(e.target.value);
-                                        setPendingDraft(e.target.value, {
-                                            userInput: e.target.value,
-                                            searchSnippets: (draftMetadata?.searchSnippets) || [],
-                                            articleAnalysis: (draftMetadata?.articleAnalysis) || '',
-                                            crossAnalysis: (draftMetadata?.crossAnalysis) || '',
-                                            draftMarkdown: e.target.value
-                                        });
-                                    }}
-                                    className="w-full h-32 rounded-xl bg-[#1B1B1B] border border-[#3A3A3A] text-sm text-[#E8E6DC] p-3 focus:outline-none focus:border-[#C9A063] font-info-content"
-                                />
-                                <div className="flex items-center gap-3">
-                                    <button
-                                        type="button"
-                                        onClick={() => setPendingDraft(null, undefined)}
-                                        className="text-xs px-3 py-1 border border-[#3A3A3A] rounded-full text-[#A2A09A] font-info-content"
-                                    >
-                                        丢弃草稿
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        form="aibot-form"
-                                        className="text-xs px-4 py-1 rounded-full bg-[#C9A063] text-black font-info-content"
-                                    >
-                                        确认发送
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-
-                        <form id="aibot-form" className="space-y-3" onSubmit={handleSubmit}>
+                        <form id="aibot-form" className="space-y-3 pt-4 border-t border-[#2E2E2E]" onSubmit={handleSubmit}>
                             <textarea
                                 value={inputValue}
                                 onChange={(e) => setInputValue(e.target.value)}

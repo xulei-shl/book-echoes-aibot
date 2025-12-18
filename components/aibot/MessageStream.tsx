@@ -82,15 +82,18 @@ export default function MessageStream({
                             </>
                         )}
                         
-                        <div
-                            className={`inline-block rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap font-info-content ${
-                                message.role === 'user'
-                                    ? 'bg-[#2F2F2F] text-[#E8E6DC]'
-                                    : 'bg-[#1B1B1B] border border-[#343434] text-[#E8E6DC]'
-                            }`}
-                        >
-                            {(message as any).content}
-                        </div>
+                        {/* 只有当消息内容不为空时才显示气泡 */}
+                        {(message as any).content && (
+                            <div
+                                className={`inline-block rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap font-info-content ${
+                                    message.role === 'user'
+                                        ? 'bg-[#2F2F2F] text-[#E8E6DC]'
+                                        : 'bg-[#1B1B1B] border border-[#343434] text-[#E8E6DC]'
+                                }`}
+                            >
+                                {(message as any).content}
+                            </div>
+                        )}
                     </motion.div>
                 ))}
             </AnimatePresence>
