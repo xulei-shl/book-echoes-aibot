@@ -98,6 +98,7 @@ export default function MessageStream({
                         )}
                         
                         {/* 只有当消息内容不为空时才显示气泡 */}
+                        {/* 使用 suppressHydrationWarning 和稳定容器防止 AnimatePresence 与 ReactMarkdown 的 DOM 冲突 */}
                         {(message as any).content && (
                             <div
                                 className={`inline-block rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap font-info-content ${
@@ -107,12 +108,15 @@ export default function MessageStream({
                                 }`}
                             >
                                 {message.role === 'assistant' ? (
-                                    <ReactMarkdown
-                                        remarkPlugins={[remarkGfm]}
-                                        components={messageMarkdownComponents}
-                                    >
-                                        {(message as any).content}
-                                    </ReactMarkdown>
+                                    // 稳定容器：阻止 AnimatePresence 追踪 ReactMarkdown 内部 DOM 变化
+                                    <div suppressHydrationWarning>
+                                        <ReactMarkdown
+                                            remarkPlugins={[remarkGfm]}
+                                            components={messageMarkdownComponents}
+                                        >
+                                            {(message as any).content}
+                                        </ReactMarkdown>
+                                    </div>
                                 ) : (
                                     (message as any).content
                                 )}

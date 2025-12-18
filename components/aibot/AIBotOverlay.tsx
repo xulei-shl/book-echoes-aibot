@@ -745,6 +745,17 @@ export default function AIBotOverlay() {
                             <textarea
                                 value={inputValue}
                                 onChange={(e) => setInputValue(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && e.ctrlKey) {
+                                        e.preventDefault();
+                                        // 创建一个模拟的表单事件
+                                        const syntheticEvent = {
+                                            preventDefault: () => {},
+                                            currentTarget: e.currentTarget.form
+                                        } as React.FormEvent<HTMLFormElement>;
+                                        handleSubmit(syntheticEvent);
+                                    }
+                                }}
                                 placeholder={isDeepMode ? '输入检索主题，先生成草稿再发送' : '想了解什么图书？'}
                                 className="w-full h-24 bg-[#1B1B1B] border border-[#3A3A3A] rounded-2xl p-4 text-sm text-[#E8E6DC] focus:outline-none focus:border-[#C9A063] font-info-content about-overlay-scroll overflow-y-auto"
                                 disabled={isStreaming || isGeneratingInterpretation || isSearching || (isDeepMode && !!pendingDraft)}
