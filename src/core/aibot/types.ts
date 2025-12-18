@@ -51,6 +51,26 @@ export interface DuckDuckGoOptions {
     locale?: string;
 }
 
+// ========== Jina AI 搜索相关类型 ==========
+
+// Jina 搜索选项
+export interface JinaSearchOptions {
+    topK?: number;         // 返回结果数量
+    locale?: string;       // 搜索地区
+    site?: string;         // 限定搜索域名
+    withContent?: boolean; // 是否获取全文内容
+}
+
+// 统一网络搜索结果类型（兼容 DuckDuckGo 和 Jina）
+export interface WebSearchSnippet {
+    title: string;
+    url: string;
+    snippet: string;       // 摘要
+    content?: string;      // 全文（可选）
+    source: 'jina' | 'duckduckgo';
+    raw?: unknown;
+}
+
 export interface TextSearchPayload {
     query: string;
     top_k?: number;

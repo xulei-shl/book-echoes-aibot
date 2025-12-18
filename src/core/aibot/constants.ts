@@ -31,3 +31,7 @@ export const DEFAULT_TOP_K = 8;
 export const DEFAULT_MULTI_QUERY_TOP_K = 12;
 export const MAX_SNIPPETS = 8;
 export const DEEP_SEARCH_SNIPPETS_PER_KEYWORD = 5;
+
+// ========== Jina AI 搜索配置 ==========
+export const JINA_SEARCH_PER_KEYWORD = 3;      // 每个关键词返回的搜索结果数
+export const JINA_API_TIMEOUT = 30000;         // Jina API 请求超时时间（毫秒）

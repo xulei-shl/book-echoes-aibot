@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import { assertAIBotEnabled, AIBotDisabledError } from '@/src/utils/aibot-env';
 import { getLogger } from '@/src/utils/logger';
-import { researchWithDuckDuckGo } from '@/src/core/aibot/mcp/duckduckgoResearcher';
+import { performWebSearch } from '@/src/core/aibot/webSearchService';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { generateText, streamText } from 'ai';
 import { loadPrompt } from '@/src/core/aibot/promptLoader';
 import { resolveLLMConfig } from '@/src/utils/aibot-env';
-import { AIBOT_PROMPT_FILES, DEEP_SEARCH_SNIPPETS_PER_KEYWORD } from '@/src/core/aibot/constants';
-import type { DuckDuckGoSnippet } from '@/src/core/aibot/types';
+import { AIBOT_PROMPT_FILES } from '@/src/core/aibot/constants';
+import type { WebSearchSnippet } from '@/src/core/aibot/types';
 
 const logger = getLogger('aibot.api.deep-search-analysis');
 
@@ -45,7 +45,7 @@ const createModel = (config: any) => {
     return customProvider(config.model);
 };
 
-const joinSnippets = (snippets: DuckDuckGoSnippet[]): string =>
+const joinSnippets = (snippets: WebSearchSnippet[]): string =>
     snippets
         .map((item, index) => `【${index + 1}】${item.title}\n${item.url}\n${item.snippet}`)
         .join('\n\n');
@@ -142,7 +142,7 @@ export async function POST(request: Request) {
                     keywords.map(k => k.keyword).join(', '));
 
                 // 第二步：对每个关键词进行检索和分析
-                const allSnippets: DuckDuckGoSnippet[] = [];
+                const allSnippets: WebSearchSnippet[] = [];
                 const allAnalyses: string[] = [];
 
                 // 初始化进度计数
@@ -150,15 +150,18 @@ export async function POST(request: Request) {
                 let analysisCompleted = 0;
                 const totalKeywords = keywords.length;
 
-                sendProgress(controller, 'search', '正在执行MCP检索...', 'running');
+                // 检测搜索引擎类型
+                const useJina = process.env.USE_JINA_SEARCH !== 'false';
+                const searchEngine = useJina ? 'Jina' : 'DuckDuckGo';
+                sendProgress(controller, 'search', `正在执行${searchEngine}检索...`, 'running');
                 sendProgress(controller, 'analysis', '准备分析检索结果...', 'running');
 
                 // 并行处理所有关键词的检索和分析
                 const searchAndAnalysisPromises = keywords.map(async (keywordItem, index) => {
                     logger.info('检索关键词', { keyword: keywordItem.keyword });
 
-                    // 使用DuckDuckGo检索
-                    const snippets = await researchWithDuckDuckGo(keywordItem.keyword, { topK: DEEP_SEARCH_SNIPPETS_PER_KEYWORD });
+                    // 使用统一的网络搜索服务
+                    const snippets = await performWebSearch(keywordItem.keyword);
 
                     // 更新检索进度
                     searchCompleted++;
@@ -171,12 +174,12 @@ export async function POST(request: Request) {
                         sendProgress(controller, 'analysis', `正在分析关键词: ${keywordItem.keyword}`, 'running');
 
                         const articlePrompt = await loadPrompt(AIBOT_PROMPT_FILES.ARTICLE_ANALYSIS);
-                        const duckduckgoText = joinSnippets(snippets);
+                        const searchResultText = joinSnippets(snippets);
 
                         const analysisResult = await generateText({
                             model,
                             system: articlePrompt,
-                            prompt: `# 关键词\n${keywordItem.keyword}\n\n# 用户原始输入\n${userInput}\n\n# DuckDuckGo 摘要\n${duckduckgoText}`
+                            prompt: `# 关键词\n${keywordItem.keyword}\n\n# 用户原始输入\n${userInput}\n\n# 网络搜索结果\n${searchResultText}`
                         });
 
                         // 更新分析进度
@@ -203,7 +206,7 @@ export async function POST(request: Request) {
                 });
 
                 // 最终进度确认
-                sendProgress(controller, 'search', `MCP检索完成，获取 ${allSnippets.length} 条结果`, 'completed');
+                sendProgress(controller, 'search', `${searchEngine}检索完成，获取 ${allSnippets.length} 条结果`, 'completed');
                 sendProgress(controller, 'analysis', `所有关键词分析完成，共生成 ${allAnalyses.length} 篇分析`, 'completed');
 
                 // 第三步：交叉分析（流式输出草稿）
