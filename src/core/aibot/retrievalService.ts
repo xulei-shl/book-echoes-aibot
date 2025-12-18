@@ -1,7 +1,8 @@
 import { DEFAULT_PLAIN_TEXT_TEMPLATE } from '@/src/utils/aibot-env';
 import { getBookApiBase } from '@/src/utils/aibot-env';
 import { getLogger } from '@/src/utils/logger';
-import type { MultiQueryPayload, RetrievalResult, TextSearchPayload, BookInfo, RetrievalResultData, EnhancedRetrievalResult } from '@/src/core/aibot/types';
+import type { MultiQueryPayload, RetrievalResult, TextSearchPayload, BookInfo, RetrievalResultData, EnhancedRetrievalResult, ExpandedSearchResult, ParallelSearchResult, QueryExpansionResult } from '@/src/core/aibot/types';
+import { expandQuery, extractSearchTexts } from './queryExpansionService';
 
 const logger = getLogger('aibot.retrieval');
 
@@ -602,20 +603,238 @@ export function handleRetrievalError(error: unknown): RetrievalError {
     if (error instanceof RetrievalError) {
         return error;
     }
-    
+
     if (error instanceof Error) {
         if (error.message.includes('timeout')) {
             return new RetrievalError('检索超时', 'TIMEOUT', { originalError: error });
         }
-        
+
         if (error.message.includes('network')) {
             return new RetrievalError('网络连接失败', 'NETWORK_ERROR', { originalError: error });
         }
-        
+
         if (error.message.includes('404')) {
             return new RetrievalError('检索服务不可用', 'SERVICE_UNAVAILABLE', { originalError: error });
         }
     }
-    
+
     return new RetrievalError('检索失败', 'UNKNOWN_ERROR', { originalError: error });
+}
+
+// ========== 查询扩展检索功能 ==========
+
+/**
+ * 执行单个检索查询
+ */
+async function executeSingleSearch(query: string): Promise<ParallelSearchResult> {
+    const startTime = Date.now();
+
+    try {
+        const result = await textSearch({
+            query,
+            top_k: 10,
+            response_format: 'json',
+            min_rating: 6.0
+        });
+
+        const duration = Date.now() - startTime;
+        const books = result.structuredData?.books || [];
+
+        logger.debug('单个检索完成', {
+            query: query.substring(0, 50),
+            booksCount: books.length,
+            duration
+        });
+
+        return {
+            query,
+            books,
+            success: true,
+            duration
+        };
+    } catch (error) {
+        const duration = Date.now() - startTime;
+        logger.error('单个检索失败', { query: query.substring(0, 50), error, duration });
+
+        return {
+            query,
+            books: [],
+            success: false,
+            error: error instanceof Error ? error.message : '检索失败',
+            duration
+        };
+    }
+}
+
+/**
+ * 并行执行多个检索查询
+ */
+async function executeParallelSearches(queries: string[]): Promise<ParallelSearchResult[]> {
+    logger.info('开始并行检索', { queriesCount: queries.length });
+
+    const results = await Promise.all(
+        queries.map(query => executeSingleSearch(query))
+    );
+
+    const successCount = results.filter(r => r.success).length;
+    logger.info('并行检索完成', {
+        total: queries.length,
+        success: successCount,
+        failed: queries.length - successCount
+    });
+
+    return results;
+}
+
+/**
+ * 合并并去重多个检索结果中的图书
+ * 使用 book_id 或 embedding_id 作为主键，书名+作者作为备选
+ */
+function mergeAndDeduplicateBooks(parallelResults: ParallelSearchResult[]): BookInfo[] {
+    const bookMap = new Map<string, BookInfo>();
+
+    parallelResults.forEach(result => {
+        if (!result.success) return;
+
+        result.books.forEach(book => {
+            // 生成去重键
+            const normalizedBookId = typeof book.id === 'string'
+                ? book.id
+                : (book.id !== undefined && book.id !== null ? String(book.id) : '');
+
+            let dedupeKey: string;
+            if (normalizedBookId && !normalizedBookId.startsWith('book-')) {
+                dedupeKey = `book_id:${normalizedBookId}`;
+            } else if (book.embeddingId) {
+                dedupeKey = `embedding:${book.embeddingId}`;
+            } else {
+                const safeTitle = (book.title || '').toLowerCase().trim();
+                const safeAuthor = (book.author || '').toLowerCase().trim();
+                dedupeKey = `title_author:${safeTitle}-${safeAuthor}`;
+            }
+
+            const existingBook = bookMap.get(dedupeKey);
+
+            if (!existingBook) {
+                bookMap.set(dedupeKey, book);
+            } else {
+                // 保留评分更高的版本
+                const currentScore = book.finalScore || book.similarityScore || book.rating || 0;
+                const existingScore = existingBook.finalScore || existingBook.similarityScore || existingBook.rating || 0;
+
+                if (currentScore > existingScore) {
+                    bookMap.set(dedupeKey, book);
+                }
+            }
+        });
+    });
+
+    // 按评分排序
+    const mergedBooks = Array.from(bookMap.values())
+        .sort((a, b) => {
+            const scoreA = a.finalScore || a.similarityScore || a.rating || 0;
+            const scoreB = b.finalScore || b.similarityScore || b.rating || 0;
+            return scoreB - scoreA;
+        });
+
+    logger.info('图书合并去重完成', {
+        inputResults: parallelResults.length,
+        totalBooks: parallelResults.reduce((sum, r) => sum + r.books.length, 0),
+        mergedBooks: mergedBooks.length
+    });
+
+    return mergedBooks;
+}
+
+/**
+ * 扩展检索：先进行查询扩展，再并行检索，最后合并去重
+ */
+export async function expandedSearch(query: string): Promise<ExpandedSearchResult> {
+    const startTime = Date.now();
+
+    logger.info('开始扩展检索', { query });
+
+    // 1. 执行查询扩展
+    const expansion = await expandQuery(query);
+
+    // 2. 提取所有检索文本
+    const searchTexts = extractSearchTexts(expansion);
+
+    logger.info('查询扩展完成', {
+        originalQuery: query,
+        expandedCount: expansion.expandedProbes.length,
+        totalSearchTexts: searchTexts.length,
+        expansionDuration: expansion.duration
+    });
+
+    // 3. 并行执行检索
+    const parallelResults = await executeParallelSearches(searchTexts);
+
+    // 4. 合并去重
+    const mergedBooks = mergeAndDeduplicateBooks(parallelResults);
+
+    const totalDuration = Date.now() - startTime;
+
+    // 5. 判断整体是否成功（至少有一个检索成功且有结果）
+    const anySuccess = parallelResults.some(r => r.success && r.books.length > 0);
+
+    logger.info('扩展检索完成', {
+        query,
+        totalDuration,
+        parallelResultsCount: parallelResults.length,
+        mergedBooksCount: mergedBooks.length,
+        success: anySuccess
+    });
+
+    return {
+        originalQuery: query,
+        expansion,
+        parallelResults,
+        mergedBooks,
+        totalDuration,
+        success: anySuccess
+    };
+}
+
+/**
+ * 为简单检索优化的扩展文本搜索
+ * 这是对外暴露的主要接口，替代原来的 simpleTextSearch
+ */
+export async function expandedSimpleSearch(query: string): Promise<EnhancedRetrievalResult> {
+    logger.info('执行扩展简单文本搜索', { query });
+
+    const expandedResult = await expandedSearch(query);
+
+    // 构建contextPlainText
+    const contextPlainText = expandedResult.mergedBooks
+        .map(book => `【${book.title}】${book.highlights?.join('；') || book.description || ''} - ${book.rating || 0}分`)
+        .join('\n');
+
+    // 构建结构化数据
+    const structuredData: RetrievalResultData = {
+        books: expandedResult.mergedBooks,
+        totalCount: expandedResult.mergedBooks.length,
+        searchQuery: query,
+        searchType: 'text-search',
+        metadata: {
+            expansionSuccess: expandedResult.expansion.success,
+            expandedProbesCount: expandedResult.expansion.expandedProbes.length,
+            parallelSearchCount: expandedResult.parallelResults.length,
+            totalDuration: expandedResult.totalDuration
+        },
+        timestamp: new Date().toISOString()
+    };
+
+    logger.info('扩展简单文本搜索完成', {
+        query,
+        hasContextPlainText: !!contextPlainText,
+        booksCount: structuredData.books.length,
+        totalDuration: expandedResult.totalDuration
+    });
+
+    return {
+        contextPlainText,
+        metadata: structuredData.metadata as Record<string, unknown>,
+        structuredData
+    };
 }

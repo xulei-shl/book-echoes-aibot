@@ -163,3 +163,40 @@ export interface SearchOnlyResponse {
     metadata: Record<string, unknown>;
     message?: string;
 }
+
+// ========== 查询扩展相关类型 ==========
+
+// 扩展探针
+export interface ExpandedProbe {
+    type: string;       // 探针类型：definitional, contextual, associative
+    label: string;      // 探针标签
+    text: string;       // 探针文本内容
+}
+
+// 查询扩展结果
+export interface QueryExpansionResult {
+    originalQuery: string;           // 原始查询
+    expandedProbes: ExpandedProbe[]; // 扩展探针列表
+    success: boolean;                // 扩展是否成功
+    error?: string;                  // 错误信息
+    duration?: number;               // 扩展耗时(ms)
+}
+
+// 并行检索单个结果
+export interface ParallelSearchResult {
+    query: string;                   // 检索查询
+    books: BookInfo[];               // 检索到的图书
+    success: boolean;                // 是否成功
+    error?: string;                  // 错误信息
+    duration?: number;               // 检索耗时(ms)
+}
+
+// 扩展检索聚合结果
+export interface ExpandedSearchResult {
+    originalQuery: string;           // 原始查询
+    expansion: QueryExpansionResult; // 扩展结果
+    parallelResults: ParallelSearchResult[]; // 并行检索结果
+    mergedBooks: BookInfo[];         // 去重合并后的图书
+    totalDuration: number;           // 总耗时(ms)
+    success: boolean;                // 整体是否成功
+}

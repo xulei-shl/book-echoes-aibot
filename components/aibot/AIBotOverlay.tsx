@@ -60,6 +60,7 @@ export default function AIBotOverlay() {
     const [isMounted, setIsMounted] = useState(false);
     const [showDeepSearchWorkflow, setShowDeepSearchWorkflow] = useState(false);
     const [deepSearchInput, setDeepSearchInput] = useState('');
+    const [isSearching, setIsSearching] = useState(false); // 新增：检索中状态
 
     useEffect(() => {
         if (pendingDraft) {
@@ -308,28 +309,30 @@ export default function AIBotOverlay() {
     const performSimpleSearchWithClassification = async (query: string) => {
         setRetrievalPhase('search');
         setOriginalQuery(query);
+        setIsSearching(true); // 开始检索
 
-        // 并行执行分类和检索
-        const [classification] = await Promise.all([
-            classifyIntent(query),
-            // 可以在这里添加其他并行任务
-        ]);
-
-        // 如果是其他类型，直接返回提示
-        if (classification.intent === 'other') {
-            const assistantMessage: UIMessage = {
-                id: crypto.randomUUID(),
-                role: 'assistant',
-                content: '你好，我是 Book Echoes 图书智搜助手，专注解读与推荐书籍内容。\n当前输入暂未匹配到图书检索任务。试着告诉我：你想解决的问题、关注的主题、阅读目标或领域关键词，我就能为你找到书。'
-            } as any;
-
-            appendMessage(assistantMessage);
-            setRetrievalPhase('search');
-            return;
-        }
-
-        // 执行简单检索
         try {
+            // 并行执行分类和检索
+            const [classification] = await Promise.all([
+                classifyIntent(query),
+                // 可以在这里添加其他并行任务
+            ]);
+
+            // 如果是其他类型，直接返回提示
+            if (classification.intent === 'other') {
+                const assistantMessage: UIMessage = {
+                    id: crypto.randomUUID(),
+                    role: 'assistant',
+                    content: '你好，我是 Book Echoes 图书智搜助手，专注解读与推荐书籍内容。\n当前输入暂未匹配到图书检索任务。试着告诉我：你想解决的问题、关注的主题、阅读目标或领域关键词，我就能为你找到书。'
+                } as any;
+
+                appendMessage(assistantMessage);
+                setRetrievalPhase('search');
+                setIsSearching(false);
+                return;
+            }
+
+            // 执行扩展检索
             const response = await fetch('/api/local-aibot/search-only', {
                 method: 'POST',
                 headers: {
@@ -368,6 +371,8 @@ export default function AIBotOverlay() {
         } catch (err) {
             setError(err instanceof Error ? err.message : '检索失败，请稍后重试');
             setRetrievalPhase('search');
+        } finally {
+            setIsSearching(false); // 结束检索
         }
     };
 
@@ -586,6 +591,7 @@ export default function AIBotOverlay() {
                                     <MessageStream
                                         messages={messages}
                                         isStreaming={isStreaming || isGeneratingInterpretation}
+                                        isSearching={isSearching}
                                         retrievalPhase={retrievalPhase}
                                         selectedBookIds={selectedBookIds}
                                         onBookSelection={handleBookSelection}
@@ -664,7 +670,7 @@ export default function AIBotOverlay() {
                                 onChange={(e) => setInputValue(e.target.value)}
                                 placeholder={isDeepMode ? '输入检索主题，先生成草稿再发送' : '想了解什么图书？'}
                                 className="w-full h-24 bg-[#1B1B1B] border border-[#3A3A3A] rounded-2xl p-4 text-sm text-[#E8E6DC] focus:outline-none focus:border-[#C9A063] font-info-content"
-                                disabled={isStreaming || isGeneratingInterpretation || (isDeepMode && !!pendingDraft)}
+                                disabled={isStreaming || isGeneratingInterpretation || isSearching || (isDeepMode && !!pendingDraft)}
                             />
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3 text-xs text-[#7C7A74]">
@@ -696,10 +702,10 @@ export default function AIBotOverlay() {
                                 </div>
                                 <button
                                     type="submit"
-                                    disabled={isStreaming}
+                                    disabled={isStreaming || isSearching}
                                     className="px-4 py-2 rounded-full bg-[#C9A063] text-black text-sm disabled:opacity-50 font-info-content"
                                 >
-                                    {isDeepMode && !pendingDraft && !showDeepSearchWorkflow ? '开始深度检索' : showDeepSearchWorkflow ? '检索进行中...' : '发送'}
+                                    {isSearching ? '检索中...' : isDeepMode && !pendingDraft && !showDeepSearchWorkflow ? '开始深度检索' : showDeepSearchWorkflow ? '检索进行中...' : '发送'}
                                 </button>
                             </div>
                         </form>

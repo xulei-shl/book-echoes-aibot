@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server';
 import { assertAIBotEnabled, AIBotDisabledError } from '@/src/utils/aibot-env';
 import { getLogger } from '@/src/utils/logger';
-import { classifyUserIntent } from '@/src/core/aibot/classifier';
-import { simpleTextSearch, handleRetrievalError } from '@/src/core/aibot/retrievalService';
-import type { ChatMessage, IntentClassificationResult, SearchOnlyRequest } from '@/src/core/aibot/types';
+import { expandedSimpleSearch, handleRetrievalError } from '@/src/core/aibot/retrievalService';
+import type { SearchOnlyRequest } from '@/src/core/aibot/types';
 
 const logger = getLogger('aibot.api.search-only');
 
@@ -28,10 +27,10 @@ export async function POST(request: Request) {
             }, { status: 400 });
         }
 
-        logger.info('执行检索', { query, messagesCount: messages.length });
+        logger.info('执行扩展检索', { query, messagesCount: messages.length });
 
-        // 执行检索
-        const retrieval = await simpleTextSearch(query.trim());
+        // 执行扩展检索（查询扩展 + 并行检索 + 去重合并）
+        const retrieval = await expandedSimpleSearch(query.trim());
 
         logger.info('检索完成', {
             query,

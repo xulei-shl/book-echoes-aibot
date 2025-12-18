@@ -10,6 +10,7 @@ import type { RetrievalPhase } from '@/src/core/aibot/types';
 interface MessageStreamProps {
     messages: UIMessage[];
     isStreaming: boolean;
+    isSearching?: boolean; // 新增：检索中状态
     retrievalPhase?: RetrievalPhase;
     selectedBookIds?: Set<string>;
     onBookSelection?: (bookId: string, isSelected: boolean) => void;
@@ -20,6 +21,7 @@ interface MessageStreamProps {
 export default function MessageStream({
     messages,
     isStreaming,
+    isSearching = false,
     retrievalPhase = 'search',
     selectedBookIds = new Set(),
     onBookSelection,
@@ -94,6 +96,12 @@ export default function MessageStream({
                     </motion.div>
                 ))}
             </AnimatePresence>
+            {isSearching && (
+                <div className="text-left text-xs text-[#C9A063] animate-pulse flex items-center gap-2">
+                    <span className="inline-block w-2 h-2 bg-[#C9A063] rounded-full animate-bounce"></span>
+                    正在扩展检索中，请稍候...
+                </div>
+            )}
             {isStreaming && (
                 <div className="text-left text-xs text-[#A2A09A] animate-pulse">
                     正在生成中，请稍候...
