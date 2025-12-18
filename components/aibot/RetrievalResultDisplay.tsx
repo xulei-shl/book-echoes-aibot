@@ -93,24 +93,24 @@ export default function RetrievalResultDisplay({
                 <div className="flex items-center gap-3 flex-wrap">
                     {isSelectionMode ? (
                         <>
-                            <span className="text-[#C9A063] text-sm font-medium">
+                            <span className="text-[#C9A063] text-sm font-medium font-body">
                                 📚 请选择相关图书进行解读
                             </span>
-                            <span className="text-[#E8E6DC] text-sm">
+                            <span className="text-[#E8E6DC] text-sm font-body">
                                 已选择 {selectedCount} 本图书
                             </span>
                             {retrievalResult.books.length > 0 && (
-                                <span className="text-[#6F6D68] text-xs">
+                                <span className="text-[#6F6D68] text-xs font-body">
                                     共 {retrievalResult.books.length} 本可供选择
                                 </span>
                             )}
                         </>
                     ) : (
                         <>
-                            <span className="text-[#C9A063] text-sm font-medium">
+                            <span className="text-[#C9A063] text-sm font-medium font-body">
                                 📚 检索结果
                             </span>
-                            <span className="text-[#E8E6DC] text-sm">
+                            <span className="text-[#E8E6DC] text-sm font-body">
                                 找到 {retrievalResult.totalCount} 本相关图书
                             </span>
                         </>
@@ -153,7 +153,7 @@ export default function RetrievalResultDisplay({
                             e.stopPropagation();
                             setShowAll(!showAll);
                         }}
-                        className="w-full py-2 mt-2 text-center text-[#C9A063] text-sm hover:bg-[#1B1B1B] rounded-lg transition-colors border border-[#343434]"
+                        className="w-full py-2 mt-2 text-center text-[#C9A063] text-sm hover:bg-[#1B1B1B] rounded-lg transition-colors border border-[#343434] font-body"
                     >
                         {showAll ? '▲ 收起' : `▼ 显示全部 ${retrievalResult.books.length} 本`}
                     </button>
@@ -162,29 +162,47 @@ export default function RetrievalResultDisplay({
                 {/* 选择模式下的操作按钮 */}
                 {isSelectionMode && (
                     <div className="selection-actions mt-4 flex flex-wrap gap-3">
-                        <button
-                            onClick={handleGenerateInterpretation}
-                            className="px-4 py-2 bg-[#C9A063] text-black rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#D4A863] transition-colors"
-                            disabled={selectedCount === 0 && retrievalResult.books.filter(book => (book.similarityScore || 0) > 0.42).length === 0}
-                        >
-                            生成解读 {selectedCount > 0 && `(${selectedCount}本)`}
-                        </button>
-                        <button
-                            onClick={handleSecondaryRetrieval}
-                            className="px-4 py-2 border border-[#C9A063] text-[#C9A063] rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[rgba(201,160,99,0.1)] transition-colors"
-                            disabled={selectedCount === 0}
-                        >
-                            二次检索 {selectedCount > 0 && `(${selectedCount}本)`}
-                        </button>
-                        <button
-                            onClick={handleAutoSelect}
-                            className="px-4 py-2 border border-[#343434] text-[#E8E6DC] rounded-lg text-sm hover:bg-[#1B1B1B] transition-colors"
-                        >
-                            自动筛选
-                        </button>
+                        <div className="relative group">
+                            <button
+                                onClick={handleGenerateInterpretation}
+                                className="px-4 py-2 bg-[#C9A063] text-black rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#D4A863] transition-colors font-body"
+                                disabled={selectedCount === 0 && retrievalResult.books.filter(book => (book.similarityScore || 0) > 0.42).length === 0}
+                            >
+                                生成解读 {selectedCount > 0 && `(${selectedCount}本)`}
+                            </button>
+                            <div className="absolute bottom-full left-0 mb-2 px-3 py-2 bg-[#1B1B1B] text-[#E8E6DC] text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 border border-[#343434] shadow-lg max-w-xs min-w-48 font-body">
+                                生成选中图书的AI解读，如未选择则自动筛选相似度{'>'}0.42的图书
+                                <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-[#343434]"></div>
+                            </div>
+                        </div>
+                        <div className="relative group">
+                            <button
+                                onClick={handleSecondaryRetrieval}
+                                className="px-4 py-2 border border-[#C9A063] text-[#C9A063] rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[rgba(201,160,99,0.1)] transition-colors font-body"
+                                disabled={selectedCount === 0}
+                            >
+                                二次检索 {selectedCount > 0 && `(${selectedCount}本)`}
+                            </button>
+                            <div className="absolute bottom-full left-0 mb-2 px-3 py-2 bg-[#1B1B1B] text-[#E8E6DC] text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 border border-[#343434] shadow-lg max-w-xs min-w-48 font-body">
+                                基于选中图书和原始查询进行深度检索分析
+                                <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-[#343434]"></div>
+                            </div>
+                        </div>
+                        <div className="relative group">
+                            <button
+                                onClick={handleAutoSelect}
+                                className="px-4 py-2 border border-[#343434] text-[#E8E6DC] rounded-lg text-sm hover:bg-[#1B1B1B] transition-colors font-body"
+                            >
+                                自动筛选
+                            </button>
+                            <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-[#1B1B1B] text-[#E8E6DC] text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 border border-[#343434] shadow-lg max-w-xs min-w-48 font-body">
+                                自动选择相似度{'>'}0.42的高相关度图书
+                                <div className="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-[#343434]"></div>
+                            </div>
+                        </div>
                         <button
                             onClick={handleClearSelection}
-                            className="px-4 py-2 border border-[#343434] text-[#A2A09A] rounded-lg text-sm hover:bg-[#1B1B1B] transition-colors"
+                            className="px-4 py-2 border border-[#343434] text-[#A2A09A] rounded-lg text-sm hover:bg-[#1B1B1B] transition-colors font-body"
                             disabled={selectedCount === 0}
                         >
                             清空选择
@@ -196,7 +214,7 @@ export default function RetrievalResultDisplay({
                 {!isSelectionMode && onReenterSelection && (
                     <button
                         onClick={onReenterSelection}
-                        className="w-full py-2 mt-3 text-center text-[#E8E6DC] text-sm hover:bg-[#C9A063] hover:text-black rounded-lg transition-colors border border-[#343434] flex items-center justify-center gap-2"
+                        className="w-full py-2 mt-3 text-center text-[#E8E6DC] text-sm hover:bg-[#C9A063] hover:text-black rounded-lg transition-colors border border-[#343434] flex items-center justify-center gap-2 font-body"
                     >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0">
                             <path d="M4 12a8 8 0 0 1 8-8V0l4 4-4 4V6a6 6 0 1 0 6 6h-2a8 8 0 1 1-8-8z" fill="currentColor" />
