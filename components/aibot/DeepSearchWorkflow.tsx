@@ -2,11 +2,22 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import DeepSearchKeywordGenerator from './DeepSearchKeywordGenerator';
 import DraftConfirmationDisplay from './DraftConfirmationDisplay';
 import DeepSearchBookList from './DeepSearchBookList';
 import ProgressLogDisplay, { useProgressLog } from './ProgressLogDisplay';
+import { messageMarkdownComponents } from '@/lib/markdownComponents';
 import type { BookInfo } from '@/src/core/aibot/types';
+
+// 清理 markdown 代码块包裹（LLM 有时会用 ```markdown 包裹整个内容）
+const cleanMarkdownCodeBlock = (content: string): string => {
+    // 匹配 ```markdown 或 ```md 开头和 ``` 结尾的包裹
+    const codeBlockPattern = /^```(?:markdown|md)?\s*\n?([\s\S]*?)\n?```\s*$/;
+    const match = content.trim().match(codeBlockPattern);
+    return match ? match[1].trim() : content;
+};
 
 interface KeywordResult {
     keyword: string;
@@ -36,6 +47,8 @@ export default function DeepSearchWorkflow({
     const [isLoading, setIsLoading] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
     const [showProgress, setShowProgress] = useState(false);
+    // 流式解读内容
+    const [interpretationContent, setInterpretationContent] = useState('');
     
     // 使用本地状态管理日志
     const [logs, setLogs] = useState<any[]>([]);
@@ -329,11 +342,12 @@ export default function DeepSearchWorkflow({
         setSelectedBooks(selectedBooks);
     };
 
-    // 生成深度解读
+    // 生成深度解读（流式输出）
     const handleGenerateInterpretation = async (selectedBooks: BookInfo[], draftMarkdown: string) => {
         setIsGenerating(true);
         setPhase('interpretation');
-        
+        setInterpretationContent(''); // 重置解读内容
+
         try {
             const response = await fetch('/api/local-aibot/deep-interpretation', {
                 method: 'POST',
@@ -347,18 +361,27 @@ export default function DeepSearchWorkflow({
                 })
             });
 
-            if (!response.ok) {
+            if (!response.ok || !response.body) {
                 throw new Error('深度解读生成失败');
             }
 
-            const data = await response.json();
-            
-            if (data.success) {
-                onInterpretationGenerated(data.interpretation);
-                setPhase('completed');
-            } else {
-                throw new Error(data.message || '深度解读生成失败');
+            // 流式读取解读内容
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                // 实时清理并更新内容
+                setInterpretationContent(cleanMarkdownCodeBlock(buffer));
             }
+
+            // 流式完成后，清理并通知父组件
+            const cleanedContent = cleanMarkdownCodeBlock(buffer);
+            onInterpretationGenerated(cleanedContent);
+            setPhase('completed');
         } catch (error) {
             console.error('深度解读生成错误:', error);
             setPhase('selection');
@@ -453,7 +476,7 @@ export default function DeepSearchWorkflow({
                 )}
             </AnimatePresence>
 
-            {/* 生成中状态 */}
+            {/* 生成中状态 - 流式显示解读内容 */}
             <AnimatePresence>
                 {phase === 'interpretation' && (
                     <motion.div
@@ -461,10 +484,36 @@ export default function DeepSearchWorkflow({
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -20 }}
                         transition={{ duration: 0.3 }}
-                        className="flex flex-col items-center justify-center p-8"
+                        className="flex flex-col p-4"
                     >
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#C9A063] mb-4"></div>
-                        <p className="text-[#E8E6DC] text-sm">正在生成深度解读...</p>
+                        {/* 生成状态指示器 */}
+                        {isGenerating && (
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#C9A063]"></div>
+                                <span className="text-[#C9A063] text-sm">正在生成深度解读...</span>
+                            </div>
+                        )}
+
+                        {/* 流式 Markdown 内容渲染 */}
+                        {interpretationContent && (
+                            <div className="bg-[#1B1B1B] border border-[#343434] rounded-xl p-4 max-h-80 overflow-y-auto aibot-scroll">
+                                <div suppressHydrationWarning>
+                                    <ReactMarkdown
+                                        remarkPlugins={[remarkGfm]}
+                                        components={messageMarkdownComponents}
+                                    >
+                                        {interpretationContent}
+                                    </ReactMarkdown>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 空内容时的加载占位 */}
+                        {!interpretationContent && isGenerating && (
+                            <div className="bg-[#1B1B1B] border border-[#343434] rounded-xl p-8 flex items-center justify-center">
+                                <p className="text-[#A2A09A] text-sm">等待内容生成...</p>
+                            </div>
+                        )}
                     </motion.div>
                 )}
             </AnimatePresence>

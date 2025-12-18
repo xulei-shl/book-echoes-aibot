@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { assertAIBotEnabled, AIBotDisabledError } from '@/src/utils/aibot-env';
 import { getLogger } from '@/src/utils/logger';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
-import { generateText } from 'ai';
+import { streamText } from 'ai';
 import { loadPrompt } from '@/src/core/aibot/promptLoader';
 import { resolveLLMConfig } from '@/src/utils/aibot-env';
 import { AIBOT_PROMPT_FILES } from '@/src/core/aibot/constants';
@@ -108,30 +108,27 @@ ${draftMarkdown}
 
 ${booksText}`;
 
-        logger.info('开始调用模型生成深度解读', { 
+        logger.info('开始调用模型生成深度解读（流式）', {
             promptLength: fullPrompt.length,
-            bookCount: selectedBooks.length 
+            bookCount: selectedBooks.length
         });
 
-        const result = await generateText({
+        // 使用流式输出
+        const result = streamText({
             model,
             system: recommendationPrompt,
             prompt: fullPrompt
         });
 
-        const interpretation = result.text.trim();
-        
-        logger.info('深度解读生成完成', { 
-            interpretationLength: interpretation.length,
-            bookCount: selectedBooks.length 
+        logger.info('深度解读流式生成已启动', {
+            bookCount: selectedBooks.length
         });
 
-        return NextResponse.json({
-            success: true,
-            interpretation,
-            selectedBooks,
-            draftMarkdown,
-            originalQuery
+        return result.toTextStreamResponse({
+            headers: {
+                'X-AIBot-Mode': 'deep-interpretation',
+                'X-AIBot-Books-Count': selectedBooks.length.toString()
+            }
         });
 
     } catch (error) {
