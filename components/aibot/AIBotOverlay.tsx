@@ -398,13 +398,7 @@ export default function AIBotOverlay() {
         }
     };
 
-    // 新增：取消选择
-    const cancelSelection = () => {
-        clearSelection();
-        // 保持检索结果，只退出选择模式，允许用户重新进入选择
-        setRetrievalPhase('completed');
-    };
-
+    
     // 新增：重新进入选择模式
     const reenterSelection = () => {
         setRetrievalPhase('selection');
@@ -511,7 +505,6 @@ export default function AIBotOverlay() {
                                         selectedBookIds={selectedBookIds}
                                         onBookSelection={handleBookSelection}
                                         onGenerateInterpretation={handleGenerateInterpretation}
-                                        onCancelSelection={cancelSelection}
                                         onReenterSelection={reenterSelection}
                                     />
                                 </div>

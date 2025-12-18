@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { BookInfo } from '@/src/core/aibot/types';
 
@@ -20,6 +20,11 @@ export default function BookItem({
     const [isExpanded, setIsExpanded] = useState(false);
     const [localSelected, setLocalSelected] = useState(isSelected);
     const [showAbstract, setShowAbstract] = useState(false);
+
+    // 同步父组件传入的选中状态
+    useEffect(() => {
+        setLocalSelected(isSelected);
+    }, [isSelected]);
 
     // 处理选择变化
     const handleSelectionChange = (checked: boolean) => {
