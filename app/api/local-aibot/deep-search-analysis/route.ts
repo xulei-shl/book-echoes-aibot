@@ -3,7 +3,7 @@ import { assertAIBotEnabled, AIBotDisabledError } from '@/src/utils/aibot-env';
 import { getLogger } from '@/src/utils/logger';
 import { researchWithDuckDuckGo } from '@/src/core/aibot/mcp/duckduckgoResearcher';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
-import { generateText } from 'ai';
+import { generateText, streamText } from 'ai';
 import { loadPrompt } from '@/src/core/aibot/promptLoader';
 import { resolveLLMConfig } from '@/src/utils/aibot-env';
 import { AIBOT_PROMPT_FILES, DEEP_SEARCH_SNIPPETS_PER_KEYWORD } from '@/src/core/aibot/constants';
@@ -181,20 +181,42 @@ export async function POST(request: Request) {
 
                 sendProgress(controller, 'search', `MCP检索完成，获取 ${allSnippets.length} 条结果`, 'completed');
 
-                // 第三步：交叉分析
+                // 第三步：交叉分析（流式输出草稿）
                 sendProgress(controller, 'cross-analysis', '正在进行交叉分析...', 'running');
-                
+
                 const crossPrompt = await loadPrompt(AIBOT_PROMPT_FILES.ARTICLE_CROSS_ANALYSIS);
                 const combinedAnalyses = allAnalyses.join('\n\n---\n\n');
-                
-                const crossAnalysisResult = await generateText({
+
+                // 发送草稿开始事件，包含元数据
+                const draftStartData = {
+                    type: 'draft-start',
+                    keywords,
+                    searchSnippets: allSnippets,
+                    userInput
+                };
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify(draftStartData)}\n\n`));
+
+                // 使用 streamText 实现草稿流式输出
+                const crossAnalysisStream = await streamText({
                     model,
                     system: crossPrompt,
                     prompt: `# 用户原始输入\n${userInput}\n\n# 检索关键词\n${keywords.map(k => `- ${k.keyword} (${k.priority})`).join('\n')}\n\n# 文章分析结果\n${combinedAnalyses}`
                 });
 
-                const draftMarkdown = crossAnalysisResult.text.trim();
-                
+                let draftMarkdown = '';
+
+                // 逐块流式输出草稿内容
+                for await (const chunk of crossAnalysisStream.textStream) {
+                    draftMarkdown += chunk;
+                    const draftChunkData = {
+                        type: 'draft-chunk',
+                        content: chunk
+                    };
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify(draftChunkData)}\n\n`));
+                }
+
+                draftMarkdown = draftMarkdown.trim();
+
                 logger.info('交叉分析完成', {
                     draftLength: draftMarkdown.length,
                     snippetsCount: allSnippets.length,
@@ -203,20 +225,15 @@ export async function POST(request: Request) {
 
                 sendProgress(controller, 'cross-analysis', '交叉分析完成', 'completed', `生成了 ${draftMarkdown.length} 字符的草稿`);
 
-                // 发送最终结果
-                const finalResult = {
-                    type: 'complete',
+                // 发送草稿完成事件
+                const draftCompleteData = {
+                    type: 'draft-complete',
                     success: true,
-                    keywords,
-                    searchSnippets: allSnippets,
-                    articleAnalysis: combinedAnalyses,
                     draftMarkdown,
-                    userInput
+                    articleAnalysis: combinedAnalyses
                 };
-                
-                const finalData = `data: ${JSON.stringify(finalResult)}\n\n`;
-                controller.enqueue(encoder.encode(finalData));
-                
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify(draftCompleteData)}\n\n`));
+
                 controller.close();
 
             } catch (error) {

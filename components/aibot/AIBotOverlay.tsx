@@ -5,17 +5,16 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import MessageStream from '@/components/aibot/MessageStream';
-import DeepSearchWorkflow from '@/components/aibot/DeepSearchWorkflow';
 import { useAIBotStore } from '@/store/aibot/useAIBotStore';
 import type { UIMessage } from 'ai';
-import type { RetrievalResultData, BookInfo } from '@/src/core/aibot/types';
+import type { BookInfo, DeepSearchLogEntry, KeywordResult, DuckDuckGoSnippet } from '@/src/core/aibot/types';
 import type { LogEntry, SearchPhase } from '@/components/aibot/ProgressLogDisplay';
 import { formatBooksForSecondarySearch } from '@/src/utils/format-book-for-search';
 
 const buildRequestMessages = (messages: UIMessage[]) =>
     messages.map((message) => ({
         role: message.role,
-        content: (message as any).content
+        content: typeof (message as any).content === 'string' ? (message as any).content : ''
     }));
 
 export default function AIBotOverlay() {
@@ -28,18 +27,15 @@ export default function AIBotOverlay() {
         setMessages,
         appendMessage,
         updateLastAssistantMessage,
+        updateMessageContent,
         isStreaming,
         setStreaming,
-        pendingDraft,
-        draftMetadata,
         setPendingDraft,
-        isDraftLoading,
-        setDraftLoading,
         error,
         setError,
         setRetrievalResult,
-        
-        // 新增状态
+
+        // 简单检索状态
         retrievalPhase,
         currentRetrievalResult,
         selectedBookIds,
@@ -47,22 +43,43 @@ export default function AIBotOverlay() {
         isGeneratingInterpretation,
         setRetrievalPhase,
         setCurrentRetrievalResult,
-        setSelectedBookIds,
         setOriginalQuery,
         setIsGeneratingInterpretation,
         addSelectedBook,
         removeSelectedBook,
         clearSelection,
+
+        // 深度检索对话式状态
+        deepSearchPhase,
+        deepSearchDraftMessageId,
+        deepSearchDraftContent,
+        isDeepSearchDraftStreaming,
+        isDeepSearchDraftComplete,
+        deepSearchSnippets,
+        deepSearchKeywords,
+        deepSearchUserInput,
+        setDeepSearchPhase,
+        setDeepSearchDraftMessageId,
+        appendDeepSearchDraftContent,
+        setDeepSearchDraftContent,
+        setDeepSearchDraftStreaming,
+        setDeepSearchDraftComplete,
+        setDeepSearchSnippets,
+        setDeepSearchKeywords,
+        setDeepSearchBooksMessageId,
+        setDeepSearchBooks,
+        setDeepSearchSelectedBooks,
+        setDeepSearchUserInput,
+        addDeepSearchLog,
+        clearDeepSearchLogs,
+        deepSearchLogs,
+        setDeepSearchProgressMessageId,
+        resetDeepSearch,
     } = useAIBotStore();
 
-    type Message = UIMessage;
-
     const [inputValue, setInputValue] = useState('');
-    const [draftEditorValue, setDraftEditorValue] = useState('');
     const [isMounted, setIsMounted] = useState(false);
-    const [showDeepSearchWorkflow, setShowDeepSearchWorkflow] = useState(false);
-    const [deepSearchInput, setDeepSearchInput] = useState('');
-    const [isSearching, setIsSearching] = useState(false); // 新增：检索中状态
+    const [isSearching, setIsSearching] = useState(false);
 
     // 简单检索进度日志状态
     const [simpleSearchLogs, setSimpleSearchLogs] = useState<LogEntry[]>([]);
@@ -104,19 +121,14 @@ export default function AIBotOverlay() {
     }, []);
 
     useEffect(() => {
-        if (pendingDraft) {
-            setDraftEditorValue(pendingDraft);
-        }
-    }, [pendingDraft]);
-
-    useEffect(() => {
         setIsMounted(true);
     }, []);
 
     const lastAssistant = useMemo(() => {
         for (let i = messages.length - 1; i >= 0; i -= 1) {
-            if (messages[i].role === 'assistant') {
-                return (messages[i] as any).content as string;
+            const content = (messages[i] as any).content;
+            if (messages[i].role === 'assistant' && typeof content === 'string') {
+                return content;
             }
         }
         return '';
@@ -125,15 +137,14 @@ export default function AIBotOverlay() {
     const closeOverlay = () => {
         console.log('[AIBotOverlay] 关闭对话框，重置所有状态', {
             currentMessages: messages.length,
-            currentDeepMode: isDeepMode,
-            hasPendingDraft: !!pendingDraft
+            currentDeepMode: isDeepMode
         });
         toggleOverlay(false);
         setInputValue('');
-        setDraftEditorValue('');
         setMessages([]);
         setPendingDraft(null, undefined);
         setError(undefined);
+        resetDeepSearch();
         console.log('[AIBotOverlay] 状态重置完成');
     };
 
@@ -164,130 +175,6 @@ export default function AIBotOverlay() {
         }
     };
 
-    const requestDraft = async (question: string) => {
-        if (!question) {
-            setError('请输入问题后再生成草稿');
-            return;
-        }
-        setDraftLoading(true);
-        setError(undefined);
-        try {
-            const response = await fetch('/api/local-aibot/draft', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ user_input: question })
-            });
-            const data = await response.json();
-            if (!response.ok) {
-                throw new Error(data?.message ?? '生成草稿失败');
-            }
-            const normalized = {
-                userInput: question,
-                draftMarkdown: data.draft_markdown,
-                searchSnippets: data.search_snippets ?? [],
-                articleAnalysis: data.article_analysis ?? '',
-                crossAnalysis: data.article_cross_analysis ?? ''
-            };
-            setPendingDraft(normalized.draftMarkdown, normalized);
-            setDraftEditorValue(normalized.draftMarkdown);
-        } catch (err) {
-            setError(err instanceof Error ? err.message : '生成草稿失败');
-        } finally {
-            setDraftLoading(false);
-        }
-    };
-
-    const streamAssistant = async (
-        mode: 'text-search' | 'deep',
-        currentMessages: Message[],
-        extraBody?: Record<string, unknown>
-    ) => {
-        setStreaming(true);
-        setError(undefined);
-        
-        const requestBody = {
-            mode,
-            messages: buildRequestMessages(currentMessages),
-            ...extraBody
-        };
-        
-        console.log('[AIBotOverlay] streamAssistant 发送请求', {
-            mode,
-            messagesCount: currentMessages.length,
-            hasExtraBody: !!extraBody,
-            extraBodyKeys: extraBody ? Object.keys(extraBody) : [],
-            requestBody: {
-                ...requestBody,
-                messages: requestBody.messages.map(msg => ({ role: msg.role }))
-            }
-        });
-        
-        try {
-            const response = await fetch('/api/local-aibot/chat', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(requestBody)
-            });
-
-            if (!response.ok || !response.body) {
-                const fallback = await response.text();
-                throw new Error(fallback || '响应异常');
-            }
-
-            // 解析检索结果
-            const retrievalResultHeader = response.headers.get('X-Retrieval-Result');
-            const retrievalResultEncoded = response.headers.get('X-Retrieval-Result-Encoded');
-            let retrievalResultData: RetrievalResultData | undefined;
-            
-            if (retrievalResultHeader) {
-                try {
-                    if (retrievalResultEncoded === 'base64') {
-                        // 解码 base64 编码的 JSON
-                        const decodedJson = Buffer.from(retrievalResultHeader, 'base64').toString('utf8');
-                        retrievalResultData = JSON.parse(decodedJson);
-                    } else {
-                        // 直接解析 JSON（向后兼容）
-                        retrievalResultData = JSON.parse(retrievalResultHeader);
-                    }
-                } catch (error) {
-                    console.error('解析检索结果失败:', error);
-                }
-            }
-
-            const assistantMessage: UIMessage = {
-                id: crypto.randomUUID(),
-                role: 'assistant',
-                content: ''
-            } as any;
-            
-            appendMessage(assistantMessage);
-            
-            // 如果有检索结果，存储到状态中
-            if (retrievalResultData) {
-                setRetrievalResult(assistantMessage.id, retrievalResultData);
-            }
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let buffer = '';
-
-            while (true) {
-                const { value, done } = await reader.read();
-                if (done) break;
-                buffer += decoder.decode(value, { stream: true });
-                updateLastAssistantMessage(buffer);
-            }
-        } catch (err) {
-            setError(err instanceof Error ? err.message : '请求失败，请稍后重试');
-        } finally {
-            setStreaming(false);
-        }
-    };
-
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         const trimmed = inputValue.trim();
@@ -295,13 +182,13 @@ export default function AIBotOverlay() {
         console.log('[AIBotOverlay] handleSubmit', {
             trimmed,
             isDeepMode,
-            hasPendingDraft: !!pendingDraft,
+            deepSearchPhase,
             currentMessagesCount: messages.length,
             currentMessages: messages.map(msg => ({ role: msg.role })),
             currentRetrievalPhase: retrievalPhase
         });
 
-        if (!trimmed && !(isDeepMode && pendingDraft)) {
+        if (!trimmed) {
             setError('请输入内容');
             return;
         }
@@ -316,35 +203,383 @@ export default function AIBotOverlay() {
         appendMessage(userMessage);
         setInputValue('');
 
-        // 处理深度模式的草稿逻辑
+        // 处理深度模式
         if (isDeepMode) {
-            if (!pendingDraft) {
-                // 深度模式下，所有检索需求都进入深度检索
-                setDeepSearchInput(trimmed);
-                setShowDeepSearchWorkflow(true);
+            // 如果草稿已完成且正在确认阶段，执行图书检索
+            if (deepSearchPhase === 'draft-confirm' && isDeepSearchDraftComplete) {
+                await performDeepSearchBookRetrieval();
                 return;
             }
 
-            const draftText = draftEditorValue.trim();
-            if (!draftText) {
-                setError('草稿为空，请先调整内容');
+            // 如果没有进行中的深度检索，开始新的深度检索流程
+            if (deepSearchPhase === 'idle') {
+                await executeDeepSearchAnalysis(trimmed);
                 return;
             }
-            const mergedMetadata = {
-                ...(draftMetadata ?? {}),
-                draftMarkdown: draftText
-            };
-            await streamAssistant('deep', messages, {
-                draft_markdown: draftText,
-                deep_metadata: mergedMetadata
-            });
-            setPendingDraft(null, mergedMetadata as any);
+
+            // 其他情况暂不处理
             return;
         }
 
         // 普通模式下，并行执行分类和简单检索
         await performSimpleSearchWithClassification(trimmed);
     };
+
+    // 执行深度检索分析（流式）
+    const executeDeepSearchAnalysis = async (userInput: string) => {
+        // 重置状态
+        resetDeepSearch();
+        clearDeepSearchLogs();
+        setDeepSearchUserInput(userInput);
+        setDeepSearchPhase('progress');
+
+        // 添加进度消息
+        const progressMessageId = crypto.randomUUID();
+        const progressMessage: UIMessage = {
+            id: progressMessageId,
+            role: 'assistant',
+            content: {
+                type: 'deep-search-progress',
+                logs: [],
+                currentPhase: ''
+            }
+        } as any;
+        appendMessage(progressMessage);
+        setDeepSearchProgressMessageId(progressMessageId);
+
+        try {
+            const response = await fetch('/api/local-aibot/deep-search-analysis', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userInput })
+            });
+
+            if (!response.ok) {
+                throw new Error('深度检索分析失败');
+            }
+
+            const reader = response.body?.getReader();
+            const decoder = new TextDecoder();
+
+            if (!reader) {
+                throw new Error('无法读取响应流');
+            }
+
+            let buffer = '';
+
+            // 添加草稿消息（用于流式显示）
+            const draftMessageId = crypto.randomUUID();
+            let draftMessageAdded = false;
+
+            // 本地变量累积草稿内容（避免闭包问题）
+            let accumulatedDraft = '';
+            // 本地变量保存元数据（避免闭包问题）
+            let localKeywords: KeywordResult[] = [];
+            let localSnippets: DuckDuckGoSnippet[] = [];
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        try {
+                            const data = JSON.parse(line.slice(6));
+
+                            if (data.type === 'progress') {
+                                // 更新进度日志
+                                const logEntry: DeepSearchLogEntry = {
+                                    id: `${data.phase}-${Date.now()}`,
+                                    timestamp: new Date().toLocaleTimeString('zh-CN'),
+                                    phase: data.phase,
+                                    status: data.status,
+                                    message: data.message,
+                                    details: data.details
+                                };
+                                addDeepSearchLog(logEntry);
+
+                                // 更新进度消息内容
+                                updateMessageContent(progressMessageId, {
+                                    type: 'deep-search-progress',
+                                    logs: [...deepSearchLogs, logEntry],
+                                    currentPhase: data.phase
+                                } as any);
+                            } else if (data.type === 'draft-start') {
+                                // 草稿开始，保存元数据到本地变量和 store
+                                localKeywords = data.keywords || [];
+                                localSnippets = data.searchSnippets || [];
+                                setDeepSearchKeywords(localKeywords);
+                                setDeepSearchSnippets(localSnippets);
+
+                                // 添加草稿消息
+                                if (!draftMessageAdded) {
+                                    const draftMessage: UIMessage = {
+                                        id: draftMessageId,
+                                        role: 'assistant',
+                                        content: {
+                                            type: 'deep-search-draft',
+                                            draftMarkdown: '',
+                                            isStreaming: true,
+                                            isComplete: false,
+                                            searchSnippets: localSnippets,
+                                            keywords: localKeywords,
+                                            userInput
+                                        }
+                                    } as any;
+                                    appendMessage(draftMessage);
+                                    setDeepSearchDraftMessageId(draftMessageId);
+                                    setDeepSearchDraftStreaming(true);
+                                    setDeepSearchPhase('draft-streaming');
+                                    draftMessageAdded = true;
+                                }
+                            } else if (data.type === 'draft-chunk') {
+                                // 草稿内容块：使用本地变量累积（复用简单检索的模式）
+                                accumulatedDraft += data.content;
+                                appendDeepSearchDraftContent(data.content);
+
+                                // 更新草稿消息内容（使用本地累积的内容）
+                                updateMessageContent(draftMessageId, {
+                                    type: 'deep-search-draft',
+                                    draftMarkdown: accumulatedDraft,
+                                    isStreaming: true,
+                                    isComplete: false,
+                                    searchSnippets: localSnippets,
+                                    keywords: localKeywords,
+                                    userInput
+                                } as any);
+                            } else if (data.type === 'draft-complete') {
+                                // 草稿完成
+                                setDeepSearchDraftContent(data.draftMarkdown);
+                                setDeepSearchDraftStreaming(false);
+                                setDeepSearchDraftComplete(true);
+                                setDeepSearchPhase('draft-confirm');
+
+                                // 更新草稿消息为完成状态
+                                updateMessageContent(draftMessageId, {
+                                    type: 'deep-search-draft',
+                                    draftMarkdown: data.draftMarkdown,
+                                    isStreaming: false,
+                                    isComplete: true,
+                                    searchSnippets: localSnippets,
+                                    keywords: localKeywords,
+                                    userInput
+                                } as any);
+                            }
+                        } catch (parseError) {
+                            console.error('解析SSE数据失败:', parseError);
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('深度检索分析错误:', error);
+            setError(error instanceof Error ? error.message : '深度检索分析失败');
+            setDeepSearchPhase('idle');
+        }
+    };
+
+    // 执行深度检索图书检索
+    const performDeepSearchBookRetrieval = async () => {
+        setDeepSearchPhase('book-search');
+
+        // 添加图书检索进度日志
+        const bookSearchLog: DeepSearchLogEntry = {
+            id: `book-search-${Date.now()}`,
+            timestamp: new Date().toLocaleTimeString('zh-CN'),
+            phase: 'book-search',
+            status: 'running',
+            message: '正在检索相关图书...'
+        };
+        addDeepSearchLog(bookSearchLog);
+
+        try {
+            const response = await fetch('/api/local-aibot/deep-search', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    draftMarkdown: deepSearchDraftContent,
+                    userInput: deepSearchUserInput
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('图书检索失败');
+            }
+
+            const data = await response.json();
+
+            if (data.success) {
+                const books = data.retrievalResult?.books || [];
+                setDeepSearchBooks(books);
+
+                // 更新图书检索进度日志为完成
+                addDeepSearchLog({
+                    id: `book-search-${Date.now()}`,
+                    timestamp: new Date().toLocaleTimeString('zh-CN'),
+                    phase: 'book-search',
+                    status: 'completed',
+                    message: `找到 ${books.length} 本相关图书`
+                });
+
+                // 添加图书列表消息
+                const booksMessageId = crypto.randomUUID();
+                const booksMessage: UIMessage = {
+                    id: booksMessageId,
+                    role: 'assistant',
+                    content: {
+                        type: 'deep-search-books',
+                        books,
+                        draftMarkdown: deepSearchDraftContent,
+                        userInput: deepSearchUserInput
+                    }
+                } as any;
+                appendMessage(booksMessage);
+                setDeepSearchBooksMessageId(booksMessageId);
+                setDeepSearchPhase('book-selection');
+            } else {
+                throw new Error(data.message || '图书检索失败');
+            }
+        } catch (error) {
+            console.error('图书检索错误:', error);
+            setError(error instanceof Error ? error.message : '图书检索失败');
+            setDeepSearchPhase('draft-confirm');
+        }
+    };
+
+    // 深度检索：草稿内容变更
+    const handleDeepSearchDraftChange = useCallback((value: string) => {
+        setDeepSearchDraftContent(value);
+        // 同步更新消息内容
+        if (deepSearchDraftMessageId) {
+            updateMessageContent(deepSearchDraftMessageId, {
+                type: 'deep-search-draft',
+                draftMarkdown: value,
+                isStreaming: false,
+                isComplete: true,
+                searchSnippets: deepSearchSnippets,
+                keywords: deepSearchKeywords,
+                userInput: deepSearchUserInput
+            } as any);
+        }
+    }, [deepSearchDraftMessageId, deepSearchSnippets, deepSearchKeywords, deepSearchUserInput, setDeepSearchDraftContent, updateMessageContent]);
+
+    // 深度检索：确认草稿
+    const handleDeepSearchDraftConfirm = useCallback(async () => {
+        await performDeepSearchBookRetrieval();
+    }, [deepSearchDraftContent, deepSearchUserInput]);
+
+    // 深度检索：重新生成
+    const handleDeepSearchDraftRegenerate = useCallback(() => {
+        resetDeepSearch();
+        // 重新开始深度检索
+        if (deepSearchUserInput) {
+            executeDeepSearchAnalysis(deepSearchUserInput);
+        }
+    }, [deepSearchUserInput, resetDeepSearch]);
+
+    // 深度检索：取消
+    const handleDeepSearchDraftCancel = useCallback(() => {
+        resetDeepSearch();
+    }, [resetDeepSearch]);
+
+    // 深度检索：生成解读
+    const handleDeepSearchGenerateInterpretation = useCallback(async (selectedBooks: BookInfo[], draftMarkdown: string) => {
+        setDeepSearchSelectedBooks(selectedBooks);
+        setDeepSearchPhase('report-streaming');
+
+        // 添加报告生成进度日志
+        addDeepSearchLog({
+            id: `report-generation-${Date.now()}`,
+            timestamp: new Date().toLocaleTimeString('zh-CN'),
+            phase: 'report-generation',
+            status: 'running',
+            message: '正在生成解读报告...'
+        });
+
+        // 添加解读消息
+        const reportMessageId = crypto.randomUUID();
+        const reportMessage: UIMessage = {
+            id: reportMessageId,
+            role: 'assistant',
+            content: {
+                type: 'deep-search-report',
+                reportMarkdown: '',
+                isStreaming: true,
+                isComplete: false,
+                selectedBooks
+            }
+        } as any;
+        appendMessage(reportMessage);
+
+        try {
+            const response = await fetch('/api/local-aibot/deep-interpretation', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    selectedBooks,
+                    draftMarkdown,
+                    originalQuery: deepSearchUserInput
+                })
+            });
+
+            if (!response.ok || !response.body) {
+                throw new Error('深度解读生成失败');
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+
+            // 本地变量累积报告内容（复用简单检索的模式，避免闭包问题）
+            let accumulatedReport = '';
+            // 本地变量保存 selectedBooks（避免闭包问题）
+            const localSelectedBooks = selectedBooks;
+
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+
+                // 使用本地变量累积内容
+                accumulatedReport += decoder.decode(value, { stream: true });
+
+                // 更新解读消息内容（使用本地累积的内容）
+                updateMessageContent(reportMessageId, {
+                    type: 'deep-search-report',
+                    reportMarkdown: accumulatedReport,
+                    isStreaming: true,
+                    isComplete: false,
+                    selectedBooks: localSelectedBooks
+                } as any);
+            }
+
+            // 完成
+            updateMessageContent(reportMessageId, {
+                type: 'deep-search-report',
+                reportMarkdown: accumulatedReport,
+                isStreaming: false,
+                isComplete: true,
+                selectedBooks: localSelectedBooks
+            } as any);
+
+            // 更新报告生成进度日志为完成
+            addDeepSearchLog({
+                id: `report-generation-${Date.now()}`,
+                timestamp: new Date().toLocaleTimeString('zh-CN'),
+                phase: 'report-generation',
+                status: 'completed',
+                message: '解读报告生成完成'
+            });
+
+            setDeepSearchPhase('completed');
+        } catch (error) {
+            console.error('深度解读生成错误:', error);
+            setError(error instanceof Error ? error.message : '深度解读生成失败');
+            setDeepSearchPhase('book-selection');
+        }
+    }, [deepSearchUserInput, appendMessage, updateMessageContent, setDeepSearchSelectedBooks, setDeepSearchPhase, setError]);
 
     // 执行简单检索（带分类）
     const performSimpleSearchWithClassification = async (query: string) => {
@@ -435,53 +670,6 @@ export default function AIBotOverlay() {
             setRetrievalPhase('search');
         } finally {
             setIsSearching(false);
-        }
-    };
-
-    // 执行简单检索（原方法保留，用于其他地方调用）
-    const performSimpleSearch = async (query: string) => {
-        setRetrievalPhase('search');
-        setOriginalQuery(query);
-
-        try {
-            const response = await fetch('/api/local-aibot/search-only', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    query,
-                    messages: buildRequestMessages(messages)
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error('检索失败');
-            }
-
-            const data = await response.json();
-            if (!data.success) {
-                throw new Error(data.message || '检索失败');
-            }
-
-            setCurrentRetrievalResult(data.retrievalResult);
-
-            // 添加检索结果消息
-            const retrievalMessage: UIMessage = {
-                id: crypto.randomUUID(),
-                role: 'assistant',
-                content: ''
-            } as any;
-
-            appendMessage(retrievalMessage);
-            setRetrievalResult(retrievalMessage.id, data.retrievalResult);
-
-            // 进入选择阶段
-            setRetrievalPhase('selection');
-
-        } catch (err) {
-            setError(err instanceof Error ? err.message : '检索失败，请稍后重试');
-            setRetrievalPhase('search');
         }
     };
 
@@ -590,16 +778,14 @@ export default function AIBotOverlay() {
             currentMessages: messages.length,
             currentDeepMode: isDeepMode
         });
-        
+
         // 清空前端状态
         setMessages([]);
         setInputValue('');
-        setDraftEditorValue('');
         setPendingDraft(null, undefined);
         setError(undefined);
-        setShowDeepSearchWorkflow(false);
-        setDeepSearchInput('');
-        
+        resetDeepSearch(); // 重置深度检索状态
+
         // 清空后端历史记录
         try {
             await fetch('/api/local-aibot/clear', {
@@ -663,7 +849,7 @@ export default function AIBotOverlay() {
                                   <div className="flex-1 min-h-0" style={{ overflow: 'hidden' }}>
                                     <MessageStream
                                         messages={messages}
-                                        isStreaming={isStreaming || isGeneratingInterpretation}
+                                        isStreaming={isStreaming || isGeneratingInterpretation || isDeepSearchDraftStreaming}
                                         isSearching={isSearching}
                                         retrievalPhase={retrievalPhase}
                                         selectedBookIds={selectedBookIds}
@@ -674,70 +860,14 @@ export default function AIBotOverlay() {
                                         originalQuery={originalQuery}
                                         simpleSearchLogs={simpleSearchLogs}
                                         simpleSearchPhase={simpleSearchPhase}
+                                        // 深度检索回调
+                                        onDeepSearchDraftChange={handleDeepSearchDraftChange}
+                                        onDeepSearchDraftConfirm={handleDeepSearchDraftConfirm}
+                                        onDeepSearchDraftRegenerate={handleDeepSearchDraftRegenerate}
+                                        onDeepSearchDraftCancel={handleDeepSearchDraftCancel}
+                                        onDeepSearchGenerateInterpretation={handleDeepSearchGenerateInterpretation}
                                     />
                                 </div>
-
-                                {/* 深度检索工作流 */}
-                                {showDeepSearchWorkflow && (
-                                    <DeepSearchWorkflow
-                                        userInput={deepSearchInput}
-                                        onInterpretationGenerated={(interpretation) => {
-                                            // 添加解读消息
-                                            const interpretationMessage: UIMessage = {
-                                                id: crypto.randomUUID(),
-                                                role: 'assistant',
-                                                content: interpretation
-                                            } as any;
-                                            
-                                            appendMessage(interpretationMessage);
-                                            setShowDeepSearchWorkflow(false);
-                                            setDeepSearchInput('');
-                                        }}
-                                        onCancel={() => {
-                                            setShowDeepSearchWorkflow(false);
-                                            setDeepSearchInput('');
-                                        }}
-                                    />
-                                )}
-
-                                {isDeepMode && (pendingDraft || isDraftLoading) && !showDeepSearchWorkflow && (
-                                    <div className="border border-[#2E2E2E] rounded-2xl p-4 space-y-3">
-                                        <div className="flex items-center justify-between text-sm text-[#C9A063]">
-                                            <span>草稿确认</span>
-                                            {isDraftLoading && <span className="animate-pulse text-xs">生成中...</span>}
-                                        </div>
-                                        <textarea
-                                            value={draftEditorValue}
-                                            onChange={(e) => {
-                                                setDraftEditorValue(e.target.value);
-                                                setPendingDraft(e.target.value, {
-                                                    userInput: e.target.value,
-                                                    searchSnippets: (draftMetadata?.searchSnippets) || [],
-                                                    articleAnalysis: (draftMetadata?.articleAnalysis) || '',
-                                                    crossAnalysis: (draftMetadata?.crossAnalysis) || '',
-                                                    draftMarkdown: e.target.value
-                                                });
-                                            }}
-                                            className="w-full h-32 rounded-xl bg-[#1B1B1B] border border-[#3A3A3A] text-sm text-[#E8E6DC] p-3 focus:outline-none focus:border-[#C9A063] font-info-content about-overlay-scroll overflow-y-auto"
-                                        />
-                                        <div className="flex items-center gap-3">
-                                            <button
-                                                type="button"
-                                                onClick={() => setPendingDraft(null, undefined)}
-                                                className="text-xs px-3 py-1 border border-[#3A3A3A] rounded-full text-[#A2A09A]"
-                                            >
-                                                丢弃草稿
-                                            </button>
-                                            <button
-                                                type="submit"
-                                                form="aibot-form"
-                                                className="text-xs px-4 py-1 rounded-full bg-[#C9A063] text-black"
-                                            >
-                                                确认发送
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
                             </div>
                         </div>
 
@@ -756,9 +886,9 @@ export default function AIBotOverlay() {
                                         handleSubmit(syntheticEvent);
                                     }
                                 }}
-                                placeholder={isDeepMode ? '输入检索主题，先生成草稿再发送' : '想了解什么图书？'}
+                                placeholder={isDeepMode ? '输入检索主题，开始深度检索' : '想了解什么图书？'}
                                 className="w-full h-24 bg-[#1B1B1B] border border-[#3A3A3A] rounded-2xl p-4 text-sm text-[#E8E6DC] focus:outline-none focus:border-[#C9A063] font-info-content about-overlay-scroll overflow-y-auto"
-                                disabled={isStreaming || isGeneratingInterpretation || isSearching || (isDeepMode && !!pendingDraft)}
+                                disabled={isStreaming || isGeneratingInterpretation || isSearching || isDeepSearchDraftStreaming}
                             />
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3 text-xs text-[#7C7A74]">
@@ -790,10 +920,15 @@ export default function AIBotOverlay() {
                                 </div>
                                 <button
                                     type="submit"
-                                    disabled={isStreaming || isSearching}
+                                    disabled={isStreaming || isSearching || isDeepSearchDraftStreaming}
                                     className="px-4 py-2 rounded-full bg-[#C9A063] text-black text-sm disabled:opacity-50"
                                 >
-                                    {isSearching ? '检索中...' : isDeepMode && !pendingDraft && !showDeepSearchWorkflow ? '开始深度检索' : showDeepSearchWorkflow ? '检索进行中...' : '发送'}
+                                    {isSearching ? '检索中...' :
+                                     isDeepSearchDraftStreaming ? '生成草稿中...' :
+                                     deepSearchPhase === 'draft-confirm' ? '确认检索' :
+                                     deepSearchPhase !== 'idle' && deepSearchPhase !== 'completed' && isDeepMode ? '深度检索进行中...' :
+                                     isDeepMode ? '开始深度检索' :
+                                     '发送'}
                                 </button>
                             </div>
                         </form>
