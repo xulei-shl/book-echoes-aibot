@@ -221,6 +221,10 @@ export default function DeepSearchWorkflow({
 
             const data = await response.json();
             
+            console.log('深度检索API响应:', data); // 添加调试日志
+            
+            console.log('深度检索API完整响应:', data); // 添加调试日志
+            
             if (data.success) {
                 const bookCount = data.retrievalResult?.books?.length || 0;
                 
@@ -232,9 +236,11 @@ export default function DeepSearchWorkflow({
                     details: bookCount > 0 ? `已按相关性排序` : '未找到匹配的图书'
                 });
 
-                setBooks(data.retrievalResult?.books || []);
+                const booksToSet = data.retrievalResult?.books || [];
+                console.log('设置的图书列表:', booksToSet); // 添加调试日志
+                setBooks(booksToSet);
                 setPhase('selection');  // 修正阶段，应该进入selection而不是search
-                
+               
                 // 隐藏进度日志，显示图书列表
                 setTimeout(() => {
                     setShowProgress(false);

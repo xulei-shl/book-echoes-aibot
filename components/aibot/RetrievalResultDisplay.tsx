@@ -64,7 +64,7 @@ export default function RetrievalResultDisplay({
                 <div className="flex items-center gap-3 flex-wrap">
                     {isSelectionMode ? (
                         <>
-                            <span className="text-[#C9A063] text-sm font-info-content font-medium">
+                            <span className="text-[#C9A063] text-sm font-medium">
                                 📚 请选择相关图书进行解读
                             </span>
                             <span className="text-[#E8E6DC] text-sm">
@@ -78,7 +78,7 @@ export default function RetrievalResultDisplay({
                         </>
                     ) : (
                         <>
-                            <span className="text-[#C9A063] text-sm font-info-content font-medium">
+                            <span className="text-[#C9A063] text-sm font-medium">
                                 {retrievalResult.searchType === 'text-search' ? '📚 简单检索' : '🔍 深度检索'}
                             </span>
                             <span className="text-[#E8E6DC] text-sm">
@@ -110,16 +110,31 @@ export default function RetrievalResultDisplay({
                         className="overflow-hidden"
                     >
                         <div className="book-list p-4 border border-[#343434] border-t-0 rounded-b-xl bg-[rgba(26,26,26,0.8)] max-h-96 overflow-y-auto">
-                            {displayBooks.map((book, index) => (
-                                <BookItem
-                                    key={`${book.id}-${index}`}
-                                    book={book}
-                                    isCompact={true}
-                                    showCheckbox={isSelectionMode}
-                                    isSelected={selectedBookIds.has(book.id)}
-                                    onSelectionChange={onSelectionChange}
-                                />
-                            ))}
+                            {displayBooks.length > 0 ? (
+                                displayBooks.map((book, index) => (
+                                    <BookItem
+                                        key={`${book.id}-${index}`}
+                                        book={book}
+                                        isCompact={true}
+                                        showCheckbox={isSelectionMode}
+                                        isSelected={selectedBookIds.has(book.id)}
+                                        onSelectionChange={onSelectionChange}
+                                    />
+                                ))
+                            ) : (
+                                <div className="text-center py-8">
+                                    <p className="text-[#A2A09A] text-sm mb-2">未找到相关图书</p>
+                                    <p className="text-[#6F6D68] text-xs">请尝试调整搜索关键词或搜索条件</p>
+                                    {/* 添加调试信息 */}
+                                    <div className="mt-4 p-2 bg-[#1B1B1B] rounded text-xs text-left">
+                                        <p className="text-[#6F6D68]">调试信息:</p>
+                                        <p className="text-[#6F6D68]">总图书数: {retrievalResult.books.length}</p>
+                                        <p className="text-[#6F6D68]">显示图书数: {displayBooks.length}</p>
+                                        <p className="text-[#6F6D68]">选择模式: {isSelectionMode ? '是' : '否'}</p>
+                                        <p className="text-[#6F6D68]">显示全部: {showAll ? '是' : '否'}</p>
+                                    </div>
+                                </div>
+                            )}
                             
                             {/* 选择模式下的操作按钮 */}
                             {isSelectionMode && (

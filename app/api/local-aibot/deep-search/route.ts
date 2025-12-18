@@ -46,20 +46,28 @@ export async function POST(request: Request) {
             enable_rerank: true
         });
 
-        if (!retrieval.contextPlainText) {
-            logger.error('图书检索结果为空');
+        console.log('检索结果:', JSON.stringify(retrieval, null, 2)); // 添加调试日志
+
+        logger.info('图书检索完成', {
+            hasContextPlainText: !!retrieval.contextPlainText,
+            contextPlainTextLength: retrieval.contextPlainText?.length || 0,
+            hasStructuredData: !!retrieval.structuredData,
+            bookCount: retrieval.structuredData?.books?.length || 0
+        });
+
+        console.log('返回给前端的图书数据:', retrieval.structuredData?.books); // 添加调试日志
+
+        // 即使没有找到图书，也返回成功，让前端显示"未找到相关图书"的提示
+        // 只有在完全没有上下文文本时才认为是错误
+        if (!retrieval.contextPlainText && (!retrieval.structuredData || !retrieval.structuredData.books || retrieval.structuredData.books.length === 0)) {
+            logger.error('图书检索结果完全为空');
             throw new Error('图书检索返回空结果');
         }
-
-        logger.info('图书检索完成', { 
-            bookCount: retrieval.structuredData?.books?.length || 0,
-            hasStructuredData: !!retrieval.structuredData
-        });
 
         return NextResponse.json({
             success: true,
             draftMarkdown,
-            retrievalResult: retrieval.structuredData,
+            retrievalResult: retrieval.structuredData || { books: [], totalCount: 0, searchQuery: userInput, searchType: 'multi-query', metadata: {}, timestamp: new Date().toISOString() },
             userInput
         });
 

@@ -19,16 +19,21 @@ function deduplicateBooks(books) {
     books.forEach((book) => {
         // 优先使用book_id作为去重键，其次是embedding_id，最后回退到书名+作者组合
         let dedupeKey;
+        const normalizedBookId = typeof book.id === 'string'
+            ? book.id
+            : (book.id !== undefined && book.id !== null ? String(book.id) : '');
         
-        if (book.id && !book.id.startsWith('book-')) {
+        if (normalizedBookId && !normalizedBookId.startsWith('book-')) {
             // 如果有真实的book_id（不是自动生成的），使用book_id
-            dedupeKey = `book_id:${book.id}`;
+            dedupeKey = `book_id:${normalizedBookId}`;
         } else if (book.embeddingId) {
             // 如果有embedding_id，使用embedding_id
             dedupeKey = `embedding:${book.embeddingId}`;
         } else {
             // 回退到书名+作者的组合
-            dedupeKey = `title_author:${book.title.toLowerCase().trim()}-${book.author.toLowerCase().trim()}`;
+            const safeTitle = (book.title || '').toLowerCase().trim();
+            const safeAuthor = (book.author || '').toLowerCase().trim();
+            dedupeKey = `title_author:${safeTitle}-${safeAuthor}`;
         }
         
         const existingBook = bookMap.get(dedupeKey);
@@ -151,6 +156,20 @@ const deduplicated7 = deduplicateBooks(books7);
 console.log('原始数量:', books7.length);
 console.log('去重后数量:', deduplicated7.length);
 console.log('去重结果:', deduplicated7.map(b => `${b.title} - ${b.author} (ID: ${b.id}, Embedding: ${b.embeddingId}, 评分: ${b.finalScore || b.similarityScore || b.rating})`).join(', '));
+console.log('');
+
+// 测试用例8：book_id 为数字类型
+console.log('测试用例8：book_id 为数字类型');
+const books8 = [
+    createMockBook(1001, '人工智能时代', '李雷', 7.5),
+    createMockBook(1001, '人工智能时代', '李雷', 8.2),
+    createMockBook(1002, '深度学习入门', '韩梅梅', 6.3)
+];
+
+const deduplicated8 = deduplicateBooks(books8);
+console.log('原始数量:', books8.length);
+console.log('去重后数量:', deduplicated8.length);
+console.log('去重结果:', deduplicated8.map(b => `${b.title} - ${b.author} (ID: ${b.id}, 评分: ${b.finalScore || b.similarityScore || b.rating})`).join(', '));
 console.log('');
 
 console.log('=== 测试完成 ===');

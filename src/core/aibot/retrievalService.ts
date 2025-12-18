@@ -25,7 +25,7 @@ const ensureFormat = <T extends { response_format?: 'json' | 'plain_text' }>(pay
     }
     return {
         ...payload,
-        response_format: 'plain_text'
+        response_format: 'json'  // 修改默认值为json，确保获取结构化数据
     };
 };
 
@@ -39,17 +39,45 @@ async function parseRetrievalResponse(
         // 尝试解析JSON响应
         const data = await response.clone().json();
         
+        logger.info('API响应数据结构', {
+            hasResults: !!data.results,
+            resultsType: Array.isArray(data.results) ? 'array' : typeof data.results,
+            resultsLength: Array.isArray(data.results) ? data.results.length : 'N/A',
+            hasContextPlainText: !!data.context_plain_text,
+            hasMetadata: !!data.metadata,
+            allKeys: Object.keys(data),
+            endpoint,
+            // 添加更详细的响应数据用于调试
+            responseDataSample: {
+                results: data.results ? (Array.isArray(data.results) ? `array[${data.results.length}]` : typeof data.results) : 'undefined',
+                context_plain_text: data.context_plain_text ? `string[${data.context_plain_text.length}]` : 'undefined',
+                metadata: data.metadata ? `object[${Object.keys(data.metadata).length}keys]` : 'undefined'
+            }
+        });
+        
         // 优先检查JSON格式的results数组，这是API的标准响应格式
         if (data.results && Array.isArray(data.results)) {
+            logger.info('使用JSON格式解析', { resultsCount: data.results.length });
             return parseJsonResultsToBooks(data.results, payload, endpoint);
         }
         
         // 只有在没有results数组时，才尝试从context_plain_text解析（纯文本格式）
         if (data.context_plain_text && !data.results) {
+            logger.info('使用纯文本格式解析');
             return parsePlainTextToBooks(data.context_plain_text, payload, endpoint);
         }
         
-        // 兜底处理
+        // 兜底处理 - 记录详细的响应结构以便调试
+        logger.error('API响应中未找到预期的数据结构', {
+            responseKeys: Object.keys(data),
+            endpoint,
+            payload,
+            hasResults: !!data.results,
+            hasContextPlainText: !!data.context_plain_text,
+            resultsType: typeof data.results,
+            contextPlainTextLength: data.context_plain_text?.length || 0
+        });
+        
         return {
             books: [],
             totalCount: 0,
@@ -77,6 +105,11 @@ function parsePlainTextToBooks(
     payload: Record<string, unknown>,
     endpoint: string
 ): RetrievalResultData {
+    logger.info('解析纯文本格式', {
+        textLength: plainText.length,
+        endpoint
+    });
+    
     // 按行分割文本
     const lines = plainText.split('\n').filter(line => line.trim());
     const books: BookInfo[] = [];
@@ -102,6 +135,17 @@ function parsePlainTextToBooks(
                 description: line.trim()
             });
         }
+    });
+    
+    logger.info('纯文本解析结果', {
+        linesCount: lines.length,
+        booksParsed: books.length,
+        sampleBooks: books.slice(0, 2).map(b => ({
+            id: b.id,
+            title: b.title,
+            author: b.author,
+            hasRating: !!b.rating
+        }))
     });
     
     // 应用去重逻辑
@@ -132,21 +176,37 @@ function parsePlainTextToBooks(
  * 优先使用book_id或embedding_id作为唯一标识，如果没有则回退到书名+作者组合
  */
 function deduplicateBooks(books: BookInfo[]): BookInfo[] {
+    logger.info('开始图书去重', {
+        originalCount: books.length,
+        sampleBooks: books.slice(0, 3).map(b => ({
+            id: b.id,
+            title: b.title,
+            author: b.author,
+            hasEmbeddingId: !!b.embeddingId
+        }))
+    });
+    
     const bookMap = new Map<string, BookInfo>();
+    let duplicateCount = 0;
     
     books.forEach(book => {
         // 优先使用book_id作为去重键，其次是embedding_id，最后回退到书名+作者组合
         let dedupeKey: string;
+        const normalizedBookId = typeof book.id === 'string'
+            ? book.id
+            : (book.id !== undefined && book.id !== null ? String(book.id) : '');
         
-        if (book.id && !book.id.startsWith('book-')) {
+        if (normalizedBookId && !normalizedBookId.startsWith('book-')) {
             // 如果有真实的book_id（不是自动生成的），使用book_id
-            dedupeKey = `book_id:${book.id}`;
+            dedupeKey = `book_id:${normalizedBookId}`;
         } else if (book.embeddingId) {
             // 如果有embedding_id，使用embedding_id
             dedupeKey = `embedding:${book.embeddingId}`;
         } else {
             // 回退到书名+作者的组合
-            dedupeKey = `title_author:${book.title.toLowerCase().trim()}-${book.author.toLowerCase().trim()}`;
+            const safeTitle = (book.title || '').toLowerCase().trim();
+            const safeAuthor = (book.author || '').toLowerCase().trim();
+            dedupeKey = `title_author:${safeTitle}-${safeAuthor}`;
         }
         
         const existingBook = bookMap.get(dedupeKey);
@@ -156,16 +216,43 @@ function deduplicateBooks(books: BookInfo[]): BookInfo[] {
             bookMap.set(dedupeKey, book);
         } else {
             // 如果已存在，比较并保留评分更高的版本
+            duplicateCount++;
             const currentScore = book.finalScore || book.similarityScore || book.rating || 0;
             const existingScore = existingBook.finalScore || existingBook.similarityScore || existingBook.rating || 0;
             
             if (currentScore > existingScore) {
                 bookMap.set(dedupeKey, book);
+                logger.debug('替换重复图书', {
+                    dedupeKey,
+                    oldScore: existingScore,
+                    newScore: currentScore,
+                    title: book.title
+                });
+            } else {
+                logger.debug('保留现有重复图书', {
+                    dedupeKey,
+                    existingScore,
+                    currentScore,
+                    title: existingBook.title
+                });
             }
         }
     });
     
-    return Array.from(bookMap.values());
+    const result = Array.from(bookMap.values());
+    
+    logger.info('图书去重完成', {
+        originalCount: books.length,
+        deduplicatedCount: result.length,
+        duplicateCount,
+        sampleDeduplicatedBooks: result.slice(0, 3).map(b => ({
+            id: b.id,
+            title: b.title,
+            author: b.author
+        }))
+    });
+    
+    return result;
 }
 
 // 解析JSON格式为结构化数据
@@ -174,34 +261,78 @@ function parseJsonResultsToBooks(
     payload: Record<string, unknown>,
     endpoint: string
 ): RetrievalResultData {
-    const books: BookInfo[] = results.map((item, index) => ({
-        id: item.book_id || item.id || `book-${index}`,
-        title: item.title || item.豆瓣书名 || '',
-        subtitle: item.subtitle || item.豆瓣副标题,
-        author: item.author || item.豆瓣作者 || '',
-        translator: item.translator || item.豆瓣译者,
-        publisher: item.publisher,
-        publishYear: item.publishYear || item.豆瓣出版年份,
-        rating: item.rating || item.豆瓣评分,
-        callNumber: item.call_no || item.callNumber || item.索书号,
-        pageCount: item.pageCount || item.豆瓣页数,
-        coverUrl: item.coverUrl,
-        description: item.summary || item.description || item.豆瓣内容简介,
-        authorIntro: item.authorIntro || item.豆瓣作者简介,
-        tableOfContents: item.tableOfContents || item.豆瓣目录,
-        highlights: item.highlights,
-        isbn: item.isbn,
-        tags: item.tags,
-        // API返回的评分相关字段
-        fusedScore: item.fused_score,
-        similarityScore: item.similarity_score,
-        rerankerScore: item.reranker_score,
-        finalScore: item.final_score,
-        // API返回的其他字段
-        matchSource: item.match_source,
-        embeddingId: item.embedding_id,
-        sourceQueryType: item.source_query_type
-    }));
+    logger.info('解析JSON结果', {
+        inputCount: results.length,
+        sampleData: results.slice(0, 2).map(item => ({
+            title: item.title,
+            author: item.author,
+            book_id: item.book_id,
+            similarity_score: item.similarity_score
+        }))
+    });
+    
+    // 检查结果是否为空
+    if (!results || results.length === 0) {
+        logger.info('API返回的results数组为空', { endpoint });
+        return {
+            books: [],
+            totalCount: 0,
+            searchQuery: payload.query as string || payload.markdown_text as string || '',
+            searchType: endpoint.includes('text-search') ? 'text-search' : 'multi-query',
+            metadata: { originalCount: 0, deduplicatedCount: 0 },
+            timestamp: new Date().toISOString()
+        };
+    }
+    
+    const books: BookInfo[] = results.map((item, index) => {
+        const rawId = item.book_id ?? item.id;
+        const normalizedId = rawId !== undefined && rawId !== null && `${rawId}`.trim() !== ''
+            ? String(rawId)
+            : `book-${index}`;
+
+        // 确保每个结果都有基本字段
+        const book: BookInfo = {
+            id: normalizedId,
+            title: item.title || item.豆瓣书名 || `未知书名-${index}`,
+            author: item.author || item.豆瓣作者 || '未知作者',
+            // 其他字段为可选
+            subtitle: item.subtitle || item.豆瓣副标题,
+            translator: item.translator || item.豆瓣译者,
+            publisher: item.publisher,
+            publishYear: item.publishYear || item.豆瓣出版年份,
+            rating: item.rating || item.豆瓣评分,
+            callNumber: item.call_no || item.callNumber || item.索书号,
+            pageCount: item.pageCount || item.豆瓣页数,
+            coverUrl: item.coverUrl,
+            description: item.summary || item.description || item.豆瓣内容简介,
+            authorIntro: item.authorIntro || item.豆瓣作者简介,
+            tableOfContents: item.tableOfContents || item.豆瓣目录,
+            highlights: item.highlights,
+            isbn: item.isbn,
+            tags: item.tags,
+            // API返回的评分相关字段
+            fusedScore: item.fused_score,
+            similarityScore: item.similarity_score,
+            rerankerScore: item.reranker_score,
+            finalScore: item.final_score,
+            // API返回的其他字段
+            matchSource: item.match_source,
+            embeddingId: item.embedding_id,
+            sourceQueryType: item.source_query_type
+        };
+        
+        return book;
+    });
+    
+    logger.info('映射后的图书信息', {
+        mappedCount: books.length,
+        sampleBooks: books.slice(0, 2).map(b => ({
+            id: b.id,
+            title: b.title,
+            author: b.author,
+            hasDescription: !!b.description
+        }))
+    });
     
     // 应用去重逻辑
     const deduplicatedBooks = deduplicateBooks(books);
@@ -231,7 +362,12 @@ async function postBookApi<T>(
     payload: Record<string, unknown>
 ): Promise<EnhancedRetrievalResult<T>> {
     const endpoint = `${getBookApiBase()}${path}`;
-    logger.debug('请求图书检索 API', { endpoint, payloadKeys: Object.keys(payload) });
+    logger.info('请求图书检索 API', {
+        endpoint,
+        payloadKeys: Object.keys(payload),
+        responseFormat: (payload as any).response_format,
+        query: (payload as any).query
+    });
 
     const response = await fetch(endpoint, {
         method: 'POST',
@@ -250,13 +386,23 @@ async function postBookApi<T>(
     const contentType = response.headers.get('content-type') ?? '';
     let contextPlainText: string = '';
     let metadata: T = {} as T;
+    let responseData: any = null;
 
     if (contentType.includes('text/plain')) {
         contextPlainText = await response.text();
+        logger.info('接收到纯文本响应', { textLength: contextPlainText.length });
     } else {
-        const data = await response.json();
-        contextPlainText = data.context_plain_text ?? data.contextPlainText ?? '';
-        metadata = (data.metadata ?? {}) as T;
+        responseData = await response.json();
+        logger.info('接收到JSON响应', {
+            hasResults: !!responseData.results,
+            resultsCount: Array.isArray(responseData.results) ? responseData.results.length : 'N/A',
+            hasContextPlainText: !!responseData.context_plain_text,
+            hasMetadata: !!responseData.metadata,
+            allKeys: Object.keys(responseData)
+        });
+        
+        contextPlainText = responseData.context_plain_text ?? responseData.contextPlainText ?? '';
+        metadata = (responseData.metadata ?? {}) as T;
     }
 
     // 使用克隆的响应解析结构化数据
@@ -270,11 +416,33 @@ async function postBookApi<T>(
         logger.info('从结构化数据生成 contextPlainText', { booksCount: structuredData.books.length });
     }
 
-    // 如果仍然没有contextPlainText且没有结构化数据，才抛出错误
+    // 如果仍然没有contextPlainText且没有结构化数据，记录详细错误信息
     if (!contextPlainText && (!structuredData.books || structuredData.books.length === 0)) {
-        logger.error('API 响应既没有 context_plain_text 也没有有效的结构化数据', { endpoint });
-        throw new Error('图书检索 API 响应异常：缺少有效数据');
+        logger.error('API 响应既没有 context_plain_text 也没有有效的结构化数据', {
+            endpoint,
+            payload,
+            responseData: responseData ? {
+                keys: Object.keys(responseData),
+                hasResults: !!responseData.results,
+                resultsType: Array.isArray(responseData.results) ? 'array' : typeof responseData.results,
+                resultsLength: Array.isArray(responseData.results) ? responseData.results.length : 'N/A',
+                hasContextPlainText: !!responseData.context_plain_text,
+                contextPlainTextLength: responseData.context_plain_text?.length || 0,
+                hasMetadata: !!responseData.metadata
+            } : '无响应数据',
+            hasStructuredData: !!structuredData,
+            booksCount: structuredData.books?.length || 0
+        });
+        // 不抛出错误，而是返回空结果，让前端能够显示"未找到相关图书"的提示
+        logger.info('返回空结果而不是抛出错误，允许前端显示未找到图书的提示');
     }
+
+    logger.info('API请求成功完成', {
+        hasContextPlainText: !!contextPlainText,
+        contextPlainTextLength: contextPlainText.length,
+        hasStructuredData: !!structuredData,
+        booksCount: structuredData.books?.length || 0
+    });
 
     return {
         contextPlainText,
@@ -287,7 +455,17 @@ async function postBookApi<T>(
  * 包装 `/api/books/text-search`。
  */
 export async function textSearch(payload: TextSearchPayload): Promise<EnhancedRetrievalResult> {
-    const enriched = ensureTemplate(ensureFormat(payload));
+    // 确保使用json格式获取结构化数据
+    const enriched = ensureTemplate({
+        ...payload,
+        response_format: 'json'  // 强制使用json格式
+    });
+    logger.debug('发送文本搜索请求', {
+        query: enriched.query,
+        top_k: enriched.top_k,
+        response_format: enriched.response_format,
+        min_rating: enriched.min_rating
+    });
     return postBookApi('/api/books/text-search', enriched as unknown as Record<string, unknown>);
 }
 
@@ -295,7 +473,18 @@ export async function textSearch(payload: TextSearchPayload): Promise<EnhancedRe
  * 包装 `/api/books/multi-query`。
  */
 export async function multiQuery(payload: MultiQueryPayload): Promise<EnhancedRetrievalResult> {
-    const enriched = ensureTemplate(ensureFormat(payload));
+    // 确保使用json格式获取结构化数据
+    const enriched = ensureTemplate({
+        ...payload,
+        response_format: 'json'  // 强制使用json格式
+    });
+    logger.info('发送多查询请求', {
+        markdownLength: enriched.markdown_text?.length || 0,
+        perQueryTopK: enriched.per_query_top_k,
+        finalTopK: enriched.final_top_k,
+        responseFormat: enriched.response_format,
+        enableRerank: enriched.enable_rerank
+    });
     return postBookApi('/api/books/multi-query', enriched as unknown as Record<string, unknown>);
 }
 
@@ -358,12 +547,25 @@ export function intelligentBookFiltering(
  * 为简单检索优化的文本搜索
  */
 export async function simpleTextSearch(query: string): Promise<EnhancedRetrievalResult> {
-    return textSearch({
+    logger.info('执行简单文本搜索', { query });
+    const result = await textSearch({
         query,
         top_k: 10, // 简单检索返回更多结果供选择
-        response_format: 'json',
+        response_format: 'json', // 修改为json格式，确保获取结构化数据
         min_rating: 6.0 // 最低评分要求
     });
+    
+    logger.info('简单文本搜索完成', {
+        query,
+        hasContextPlainText: !!result.contextPlainText,
+        hasStructuredData: !!result.structuredData,
+        booksCount: result.structuredData?.books?.length || 0,
+        // 添加更详细的调试信息
+        structuredDataKeys: result.structuredData ? Object.keys(result.structuredData) : [],
+        contextPlainTextLength: result.contextPlainText?.length || 0
+    });
+    
+    return result;
 }
 
 /**
