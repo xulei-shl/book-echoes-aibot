@@ -2,10 +2,13 @@
 
 import { useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import type { UIMessage } from 'ai';
 import RetrievalResultDisplay from './RetrievalResultDisplay';
 import ProgressLogDisplay from './ProgressLogDisplay';
 import type { LogEntry } from './ProgressLogDisplay';
+import { messageMarkdownComponents } from '@/lib/markdownComponents';
 import { useAIBotStore } from '@/store/aibot/useAIBotStore';
 import type { RetrievalPhase, BookInfo } from '@/src/core/aibot/types';
 
@@ -103,7 +106,16 @@ export default function MessageStream({
                                         : 'bg-[#1B1B1B] border border-[#343434] text-[#E8E6DC]'
                                 }`}
                             >
-                                {(message as any).content}
+                                {message.role === 'assistant' ? (
+                                    <ReactMarkdown
+                                        remarkPlugins={[remarkGfm]}
+                                        components={messageMarkdownComponents}
+                                    >
+                                        {(message as any).content}
+                                    </ReactMarkdown>
+                                ) : (
+                                    (message as any).content
+                                )}
                             </div>
                         )}
                     </motion.div>
