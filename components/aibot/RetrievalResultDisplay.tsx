@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { RetrievalResultData } from '@/src/core/aibot/types';
+import type { RetrievalResultData, BookInfo } from '@/src/core/aibot/types';
 import BookItem from './BookItem';
 
 export default function RetrievalResultDisplay({
@@ -10,7 +10,9 @@ export default function RetrievalResultDisplay({
     selectedBookIds = new Set(),
     onSelectionChange,
     onGenerateInterpretation,
-    onReenterSelection
+    onReenterSelection,
+    onSecondaryRetrieval,
+    originalQuery = ''
 }: {
     retrievalResult: RetrievalResultData;
     mode?: 'display' | 'selection';
@@ -18,6 +20,8 @@ export default function RetrievalResultDisplay({
     onSelectionChange?: (bookId: string, isSelected: boolean) => void;
     onGenerateInterpretation?: (selectedBookIds: Set<string>) => void;
     onReenterSelection?: () => void;
+    onSecondaryRetrieval?: (selectedBooks: BookInfo[], originalQuery: string) => void;
+    originalQuery?: string;
 }) {
     // 简化：默认只显示前3本书
     const [showAll, setShowAll] = useState(false);
@@ -62,6 +66,18 @@ export default function RetrievalResultDisplay({
         selectedBookIds.forEach(bookId => {
             onSelectionChange?.(bookId, false);
         });
+    };
+
+    // 二次检索功能
+    const handleSecondaryRetrieval = () => {
+        if (selectedCount === 0) return;
+
+        // 获取选中的图书信息
+        const selectedBooks = retrievalResult.books.filter(book =>
+            selectedBookIds.has(book.id)
+        );
+
+        onSecondaryRetrieval?.(selectedBooks, originalQuery);
     };
 
     return (
@@ -152,6 +168,13 @@ export default function RetrievalResultDisplay({
                             disabled={selectedCount === 0 && retrievalResult.books.filter(book => (book.similarityScore || 0) > 0.42).length === 0}
                         >
                             生成解读 {selectedCount > 0 && `(${selectedCount}本)`}
+                        </button>
+                        <button
+                            onClick={handleSecondaryRetrieval}
+                            className="px-4 py-2 border border-[#C9A063] text-[#C9A063] rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[rgba(201,160,99,0.1)] transition-colors"
+                            disabled={selectedCount === 0}
+                        >
+                            二次检索 {selectedCount > 0 && `(${selectedCount}本)`}
                         </button>
                         <button
                             onClick={handleAutoSelect}

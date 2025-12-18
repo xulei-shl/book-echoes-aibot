@@ -8,8 +8,9 @@ import MessageStream from '@/components/aibot/MessageStream';
 import DeepSearchWorkflow from '@/components/aibot/DeepSearchWorkflow';
 import { useAIBotStore } from '@/store/aibot/useAIBotStore';
 import type { UIMessage } from 'ai';
-import type { RetrievalResultData } from '@/src/core/aibot/types';
+import type { RetrievalResultData, BookInfo } from '@/src/core/aibot/types';
 import type { LogEntry, SearchPhase } from '@/components/aibot/ProgressLogDisplay';
+import { formatBooksForSecondarySearch } from '@/src/utils/format-book-for-search';
 
 const buildRequestMessages = (messages: UIMessage[]) =>
     messages.map((message) => ({
@@ -562,6 +563,17 @@ export default function AIBotOverlay() {
         setRetrievalPhase('selection');
     };
 
+    // 新增：处理二次检索
+    const handleSecondaryRetrieval = useCallback((selectedBooks: BookInfo[], query: string) => {
+        // 格式化图书信息并填充输入框
+        const formattedText = formatBooksForSecondarySearch(selectedBooks, query);
+        setInputValue(formattedText);
+
+        // 清空选择状态，回到检索模式
+        clearSelection();
+        setRetrievalPhase('search');
+    }, [clearSelection, setRetrievalPhase]);
+
 
     const handleCopy = async () => {
         if (!lastAssistant) {
@@ -658,6 +670,8 @@ export default function AIBotOverlay() {
                                         onBookSelection={handleBookSelection}
                                         onGenerateInterpretation={handleGenerateInterpretation}
                                         onReenterSelection={reenterSelection}
+                                        onSecondaryRetrieval={handleSecondaryRetrieval}
+                                        originalQuery={originalQuery}
                                         simpleSearchLogs={simpleSearchLogs}
                                         simpleSearchPhase={simpleSearchPhase}
                                     />

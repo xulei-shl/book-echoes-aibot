@@ -7,7 +7,7 @@ import RetrievalResultDisplay from './RetrievalResultDisplay';
 import ProgressLogDisplay from './ProgressLogDisplay';
 import type { LogEntry } from './ProgressLogDisplay';
 import { useAIBotStore } from '@/store/aibot/useAIBotStore';
-import type { RetrievalPhase } from '@/src/core/aibot/types';
+import type { RetrievalPhase, BookInfo } from '@/src/core/aibot/types';
 
 interface MessageStreamProps {
     messages: UIMessage[];
@@ -18,6 +18,8 @@ interface MessageStreamProps {
     onBookSelection?: (bookId: string, isSelected: boolean) => void;
     onGenerateInterpretation?: (selectedBookIds: Set<string>) => void;
     onReenterSelection?: () => void;
+    onSecondaryRetrieval?: (selectedBooks: BookInfo[], originalQuery: string) => void;
+    originalQuery?: string;
     // 简单检索进度相关
     simpleSearchLogs?: LogEntry[];
     simpleSearchPhase?: string;
@@ -32,6 +34,8 @@ export default function MessageStream({
     onBookSelection,
     onGenerateInterpretation,
     onReenterSelection,
+    onSecondaryRetrieval,
+    originalQuery = '',
     simpleSearchLogs = [],
     simpleSearchPhase = ''
 }: MessageStreamProps) {
@@ -83,6 +87,8 @@ export default function MessageStream({
                                         onSelectionChange={onBookSelection}
                                         onGenerateInterpretation={onGenerateInterpretation}
                                         onReenterSelection={onReenterSelection}
+                                        onSecondaryRetrieval={onSecondaryRetrieval}
+                                        originalQuery={originalQuery}
                                     />
                                 )}
                             </>
