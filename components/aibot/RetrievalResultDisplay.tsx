@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import type { RetrievalResultData, BookInfo } from '@/src/core/aibot/types';
 import BookItem from './BookItem';
 
@@ -25,6 +26,9 @@ export default function RetrievalResultDisplay({
 }) {
     // 简化：默认只显示前3本书
     const [showAll, setShowAll] = useState(false);
+    
+    // 折叠状态管理
+    const [isCollapsed, setIsCollapsed] = useState(false);
 
     const isSelectionMode = mode === 'selection';
     const selectedCount = selectedBookIds.size;
@@ -82,13 +86,20 @@ export default function RetrievalResultDisplay({
 
     return (
         <div className="retrieval-result-container mb-3">
-            {/* 头部 */}
-            <div
-                className={`retrieval-header flex items-center justify-between p-3 rounded-t-xl border border-[#343434] border-b-0 ${
+            {/* 头部 - 可点击折叠 */}
+            <motion.div
+                className={`retrieval-header flex items-center justify-between p-3 rounded-t-xl border border-[#343434] cursor-pointer ${
                     isSelectionMode
                         ? 'bg-[rgba(201,160,99,0.2)]'
                         : 'bg-[rgba(201,160,99,0.1)]'
                 }`}
+                onClick={() => setIsCollapsed(!isCollapsed)}
+                whileHover={{
+                    backgroundColor: isSelectionMode
+                        ? 'rgba(201, 160, 99, 0.25)'
+                        : 'rgba(201, 160, 99, 0.15)'
+                }}
+                transition={{ duration: 0.2 }}
             >
                 <div className="flex items-center gap-3 flex-wrap">
                     {isSelectionMode ? (
@@ -116,10 +127,28 @@ export default function RetrievalResultDisplay({
                         </>
                     )}
                 </div>
-            </div>
+                {/* 折叠指示器 */}
+                <motion.div
+                    animate={{ rotate: isCollapsed ? 180 : 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="text-[#A2A09A] text-lg"
+                >
+                    ▼
+                </motion.div>
+            </motion.div>
 
-            {/* 内容 */}
-            <div className="book-list p-4 border border-[#343434] border-t-0 rounded-b-xl bg-[rgba(26,26,26,0.8)] max-h-96 overflow-y-auto">
+            {/* 内容 - 可折叠 */}
+            <AnimatePresence>
+                {!isCollapsed && (
+                    <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="overflow-hidden"
+                    >
+                        <div className="book-list border border-[#343434] border-t-0 rounded-b-xl bg-[rgba(26,26,26,0.8)]">
+                            <div className="p-4 max-h-96 overflow-y-auto">
                 {displayBooks.length > 0 ? (
                     displayBooks.map((book, index) => (
                         <BookItem
@@ -221,8 +250,12 @@ export default function RetrievalResultDisplay({
                         </svg>
                         重新选择图书进行解读
                     </button>
+                                )}
+                            </div>
+                        </div>
+                    </motion.div>
                 )}
-            </div>
+            </AnimatePresence>
         </div>
     );
 }
