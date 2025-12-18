@@ -302,10 +302,24 @@ export default function AIBotOverlay() {
                                 };
                                 addDeepSearchLog(logEntry);
 
+                                // 获取当前的日志列表（在添加新日志后）
+                                const getCurrentLogs = () => {
+                                    // 直接获取当前状态中最新的日志
+                                    return deepSearchLogs.map(log =>
+                                        log.phase === data.phase ? logEntry : log
+                                    );
+                                };
+
+                                // 确保日志中包含当前阶段
+                                const updatedLogs = getCurrentLogs();
+                                if (!updatedLogs.some(log => log.phase === data.phase)) {
+                                    updatedLogs.push(logEntry);
+                                }
+
                                 // 更新进度消息内容
                                 updateMessageContent(progressMessageId, {
                                     type: 'deep-search-progress',
-                                    logs: [...deepSearchLogs, logEntry],
+                                    logs: updatedLogs,
                                     currentPhase: data.phase
                                 } as any);
                             } else if (data.type === 'draft-start') {

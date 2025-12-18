@@ -117,7 +117,7 @@ export default function MessageStream({
     onDeepSearchDraftCancel,
     onDeepSearchGenerateInterpretation
 }: MessageStreamProps) {
-    const { retrievalResults, deepSearchPhase } = useAIBotStore(); // 获取检索结果状态和深度检索阶段
+    const { retrievalResults, deepSearchPhase, deepSearchLogs } = useAIBotStore(); // 获取检索结果状态、深度检索阶段和日志
 
     // 判断报告是否正在生成或已完成（用于自动折叠图书列表）
     const isReportStartedOrCompleted = deepSearchPhase === 'report-streaming' || deepSearchPhase === 'completed';
@@ -162,7 +162,7 @@ export default function MessageStream({
                                 {/* 深度检索进度消息 */}
                                 {isDeepSearchProgress((message as any).content) && (
                                     <DeepSearchProgressMessage
-                                        logs={(message as any).content.logs}
+                                        logs={deepSearchLogs}
                                         currentPhase={(message as any).content.currentPhase}
                                     />
                                 )}

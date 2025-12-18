@@ -141,45 +141,70 @@ export async function POST(request: Request) {
                 sendProgress(controller, 'keyword', `成功生成 ${keywords.length} 个关键词`, 'completed',
                     keywords.map(k => k.keyword).join(', '));
 
-                // 第二步：对每个关键词进行检索
+                // 第二步：对每个关键词进行检索和分析
                 const allSnippets: DuckDuckGoSnippet[] = [];
                 const allAnalyses: string[] = [];
-                
-                sendProgress(controller, 'search', '正在执行MCP检索...', 'running');
 
-                for (const keywordItem of keywords) {
+                // 初始化进度计数
+                let searchCompleted = 0;
+                let analysisCompleted = 0;
+                const totalKeywords = keywords.length;
+
+                sendProgress(controller, 'search', '正在执行MCP检索...', 'running');
+                sendProgress(controller, 'analysis', '准备分析检索结果...', 'running');
+
+                // 并行处理所有关键词的检索和分析
+                const searchAndAnalysisPromises = keywords.map(async (keywordItem, index) => {
                     logger.info('检索关键词', { keyword: keywordItem.keyword });
-                    
+
                     // 使用DuckDuckGo检索
                     const snippets = await researchWithDuckDuckGo(keywordItem.keyword, { topK: DEEP_SEARCH_SNIPPETS_PER_KEYWORD });
-                    allSnippets.push(...snippets);
+
+                    // 更新检索进度
+                    searchCompleted++;
+                    sendProgress(controller, 'search', `正在检索关键词... (${searchCompleted}/${totalKeywords})`,
+                        searchCompleted === totalKeywords ? 'completed' : 'running',
+                        `已检索 ${searchCompleted}/${totalKeywords} 个关键词`);
 
                     if (snippets.length > 0) {
                         // 单篇分析
                         sendProgress(controller, 'analysis', `正在分析关键词: ${keywordItem.keyword}`, 'running');
-                        
+
                         const articlePrompt = await loadPrompt(AIBOT_PROMPT_FILES.ARTICLE_ANALYSIS);
                         const duckduckgoText = joinSnippets(snippets);
-                        
+
                         const analysisResult = await generateText({
                             model,
                             system: articlePrompt,
                             prompt: `# 关键词\n${keywordItem.keyword}\n\n# 用户原始输入\n${userInput}\n\n# DuckDuckGo 摘要\n${duckduckgoText}`
                         });
 
-                        allAnalyses.push(analysisResult.text.trim());
-                        logger.info('关键词分析完成', {
-                            keyword: keywordItem.keyword,
-                            analysisLength: analysisResult.text.length
-                        });
-                        
-                        // 发送分析完成的进度更新
-                        sendProgress(controller, 'analysis', `关键词分析完成: ${keywordItem.keyword}`, 'completed',
-                            `生成了 ${analysisResult.text.length} 字符的分析`);
-                    }
-                }
+                        // 更新分析进度
+                        analysisCompleted++;
+                        sendProgress(controller, 'analysis', `关键词分析完成: ${keywordItem.keyword} (${analysisCompleted}/${totalKeywords})`,
+                            analysisCompleted === totalKeywords ? 'completed' : 'running',
+                            `已完成 ${analysisCompleted}/${totalKeywords} 个关键词分析`);
 
+                        return { snippets: [...snippets], analysis: analysisResult.text.trim(), keyword: keywordItem.keyword };
+                    }
+
+                    return { snippets: [], analysis: '', keyword: keywordItem.keyword };
+                });
+
+                // 等待所有检索和分析完成
+                const results = await Promise.all(searchAndAnalysisPromises);
+
+                // 整合结果
+                results.forEach(result => {
+                    allSnippets.push(...result.snippets);
+                    if (result.analysis) {
+                        allAnalyses.push(result.analysis);
+                    }
+                });
+
+                // 最终进度确认
                 sendProgress(controller, 'search', `MCP检索完成，获取 ${allSnippets.length} 条结果`, 'completed');
+                sendProgress(controller, 'analysis', `所有关键词分析完成，共生成 ${allAnalyses.length} 篇分析`, 'completed');
 
                 // 第三步：交叉分析（流式输出草稿）
                 sendProgress(controller, 'cross-analysis', '正在进行交叉分析...', 'running');

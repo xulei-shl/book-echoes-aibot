@@ -51,12 +51,9 @@ export default function DeepSearchProgressMessage({
 }: DeepSearchProgressMessageProps) {
     const [isExpanded, setIsExpanded] = useState(true);
 
-    // 计算已完成的阶段数（基于预定义阶段列表）
-    const completedPhases = new Set(
-        logs.filter(l => l.status === 'completed').map(l => l.phase)
-    );
-    const completedCount = DEEP_SEARCH_PHASES_ORDER.filter(phase => completedPhases.has(phase)).length;
-    const totalCount = DEEP_SEARCH_PHASES_ORDER.length;
+    // 计算已完成的阶段数（基于实际日志）
+    const completedCount = logs.filter(l => l.status === 'completed').length;
+    const totalCount = logs.length > 0 ? logs.length : 1;
     const progressPercent = (completedCount / totalCount) * 100;
 
     return (
@@ -113,7 +110,7 @@ export default function DeepSearchProgressMessage({
 
                             {/* 日志列表 */}
                             <div className="px-4 pb-4">
-                                <div className="space-y-2 max-h-48 overflow-y-auto aibot-scroll">
+                                <div className="space-y-2 max-h-24 overflow-y-auto aibot-scroll">
                                     {logs.map((log) => (
                                         <motion.div
                                             key={log.id}
