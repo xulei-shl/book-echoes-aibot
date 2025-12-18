@@ -116,15 +116,16 @@ const fetchViaStdio = async (query: string, topK: number): Promise<DuckDuckGoSni
 
     try {
         await client.connect(transport);
-        const toolName = process.env.DDG_MCP_TOOL_NAME ?? 'duckduckgo-search';
-        
-        logger.info('调用MCP工具', { toolName, query, topK });
-        
+        // uvx duckduckgo-mcp-server 使用 'search' 工具名，参数为 count
+        const toolName = process.env.DDG_MCP_TOOL_NAME ?? 'search';
+
+        logger.info('调用MCP工具', { toolName, query, count: topK });
+
         const result = await client.callTool({
             name: toolName,
             arguments: {
                 query,
-                max_results: topK  // 注意：DuckDuckGo MCP工具可能使用max_results而不是top_k
+                count: topK  // duckduckgo-mcp-server 使用 count 参数 (1-20)
             }
         });
 
@@ -166,12 +167,13 @@ const fetchViaWebSocket = async (query: string, topK: number): Promise<DuckDuckG
 
     try {
         await client.connect(transport);
-        const toolName = process.env.DDG_MCP_TOOL_NAME ?? 'duckduckgo-search';
+        // WebSocket 方式同样使用 'search' 工具名和 count 参数
+        const toolName = process.env.DDG_MCP_TOOL_NAME ?? 'search';
         const result = await client.callTool({
             name: toolName,
             arguments: {
                 query,
-                top_k: topK
+                count: topK  // duckduckgo-mcp-server 使用 count 参数 (1-20)
             }
         });
 

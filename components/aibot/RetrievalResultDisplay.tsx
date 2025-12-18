@@ -105,7 +105,7 @@ export default function RetrievalResultDisplay({
                     {isSelectionMode ? (
                         <>
                             <span className="text-[#C9A063] text-sm font-medium font-body">
-                                📚 请选择相关图书进行解读
+                                📚 请选择相关图书生成解读或二次检索
                             </span>
                             <span className="text-[#E8E6DC] text-sm font-body">
                                 已选择 {selectedCount} 本图书
