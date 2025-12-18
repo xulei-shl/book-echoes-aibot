@@ -639,7 +639,7 @@ export default function AIBotOverlay() {
                         style={{ minHeight: '0' }} // 确保flex容器可以正确计算高度
                     >
                     <header className="flex items-center justify-between pb-4 border-b border-[#2E2E2E]">
-                        <div className="font-info-content">
+                        <div>
                             <p className="text-sm text-[#A2A09A]">AIBot 本地对话</p>
                             <p className="text-xs text-[#6F6D68]">仅限本地调试，云端默认关闭</p>
                         </div>
@@ -702,7 +702,7 @@ export default function AIBotOverlay() {
 
                                 {isDeepMode && (pendingDraft || isDraftLoading) && !showDeepSearchWorkflow && (
                                     <div className="border border-[#2E2E2E] rounded-2xl p-4 space-y-3">
-                                        <div className="flex items-center justify-between text-sm text-[#C9A063] font-info-content">
+                                        <div className="flex items-center justify-between text-sm text-[#C9A063]">
                                             <span>草稿确认</span>
                                             {isDraftLoading && <span className="animate-pulse text-xs">生成中...</span>}
                                         </div>
@@ -724,14 +724,14 @@ export default function AIBotOverlay() {
                                             <button
                                                 type="button"
                                                 onClick={() => setPendingDraft(null, undefined)}
-                                                className="text-xs px-3 py-1 border border-[#3A3A3A] rounded-full text-[#A2A09A] font-info-content"
+                                                className="text-xs px-3 py-1 border border-[#3A3A3A] rounded-full text-[#A2A09A]"
                                             >
                                                 丢弃草稿
                                             </button>
                                             <button
                                                 type="submit"
                                                 form="aibot-form"
-                                                className="text-xs px-4 py-1 rounded-full bg-[#C9A063] text-black font-info-content"
+                                                className="text-xs px-4 py-1 rounded-full bg-[#C9A063] text-black"
                                             >
                                                 确认发送
                                             </button>
@@ -754,7 +754,7 @@ export default function AIBotOverlay() {
                                     <button
                                         type="button"
                                         className={clsx(
-                                            'px-3 py-1 rounded-full border font-info-content',
+                                            'px-3 py-1 rounded-full border',
                                             isDeepMode ? 'border-[#C9A063] text-[#C9A063]' : 'border-[#3A3A3A] text-[#A2A09A]'
                                         )}
                                         onClick={() => setDeepMode(!isDeepMode)}
@@ -765,14 +765,14 @@ export default function AIBotOverlay() {
                                         type="button"
                                         onClick={handleClear}
                                         disabled={isStreaming}
-                                        className="hover:text-white transition-colors disabled:cursor-not-allowed disabled:text-[#555] font-info-content"
+                                        className="hover:text-white transition-colors disabled:cursor-not-allowed disabled:text-[#555]"
                                     >
                                         清空
                                     </button>
                                     <button
                                         type="button"
                                         onClick={handleCopy}
-                                        className="hover:text-white transition-colors font-info-content"
+                                        className="hover:text-white transition-colors"
                                     >
                                         复制
                                     </button>
@@ -780,7 +780,7 @@ export default function AIBotOverlay() {
                                 <button
                                     type="submit"
                                     disabled={isStreaming || isSearching}
-                                    className="px-4 py-2 rounded-full bg-[#C9A063] text-black text-sm disabled:opacity-50 font-info-content"
+                                    className="px-4 py-2 rounded-full bg-[#C9A063] text-black text-sm disabled:opacity-50"
                                 >
                                     {isSearching ? '检索中...' : isDeepMode && !pendingDraft && !showDeepSearchWorkflow ? '开始深度检索' : showDeepSearchWorkflow ? '检索进行中...' : '发送'}
                                 </button>
@@ -788,7 +788,7 @@ export default function AIBotOverlay() {
                         </form>
 
                         {error && (
-                            <p className="text-xs text-[#C76B6B] font-info-content">
+                            <p className="text-xs text-[#C76B6B]">
                                 {error}
                             </p>
                         )}
