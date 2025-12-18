@@ -214,7 +214,11 @@ export default function DeepSearchDraftMessage({
                                     // 预览模式
                                     <div className="max-h-80 overflow-y-auto aibot-scroll">
                                         {cleanedDraft ? (
-                                            <div className="prose prose-invert prose-sm max-w-none" suppressHydrationWarning>
+                                            <div
+                                                className="prose prose-invert prose-sm max-w-none font-info-content"
+                                                suppressHydrationWarning
+                                                key={`draft-markdown-${Date.now()}`}
+                                            >
                                                 <ReactMarkdown
                                                     remarkPlugins={[remarkGfm]}
                                                     components={messageMarkdownComponents}
@@ -229,8 +233,8 @@ export default function DeepSearchDraftMessage({
                                         )}
 
                                         {/* 流式输出时的光标指示 */}
-                                        {isStreaming && (
-                                            <span className="inline-block w-2 h-4 bg-[#C9A063] animate-pulse ml-1"></span>
+                                        {isStreaming && cleanedDraft && (
+                                            <span className="inline-block w-2 h-4 bg-[#C9A063] animate-pulse ml-1 align-middle"></span>
                                         )}
                                     </div>
                                 )}

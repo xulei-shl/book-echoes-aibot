@@ -75,6 +75,13 @@ const isDeepSearchMessage = (content: unknown): content is DeepSearchMessageCont
     return isDeepSearchProgress(content) || isDeepSearchDraft(content) || isDeepSearchBooks(content) || isDeepSearchReport(content);
 };
 
+// 清理 markdown 代码块包裹（LLM 可能返回 ```markdown ... ``` 格式）
+const cleanMarkdownCodeBlock = (content: string): string => {
+    const codeBlockPattern = /^```(?:markdown|md)?\s*\n?([\s\S]*?)\n?```\s*$/;
+    const match = content.trim().match(codeBlockPattern);
+    return match ? match[1].trim() : content;
+};
+
 interface MessageStreamProps {
     messages: UIMessage[];
     isStreaming: boolean;
@@ -169,18 +176,20 @@ export default function MessageStream({
 
                                 {/* 深度检索草稿消息 */}
                                 {isDeepSearchDraft((message as any).content) && (
-                                    <DeepSearchDraftMessage
-                                        draftMarkdown={(message as any).content.draftMarkdown}
-                                        isStreaming={(message as any).content.isStreaming}
-                                        isComplete={(message as any).content.isComplete}
-                                        searchSnippets={(message as any).content.searchSnippets}
-                                        keywords={(message as any).content.keywords}
-                                        userInput={(message as any).content.userInput}
-                                        onDraftChange={onDeepSearchDraftChange}
-                                        onConfirm={onDeepSearchDraftConfirm}
-                                        onRegenerate={onDeepSearchDraftRegenerate}
-                                        onCancel={onDeepSearchDraftCancel}
-                                    />
+                                    <div key={`draft-container-${message.id}`}>
+                                        <DeepSearchDraftMessage
+                                            draftMarkdown={(message as any).content.draftMarkdown}
+                                            isStreaming={(message as any).content.isStreaming}
+                                            isComplete={(message as any).content.isComplete}
+                                            searchSnippets={(message as any).content.searchSnippets}
+                                            keywords={(message as any).content.keywords}
+                                            userInput={(message as any).content.userInput}
+                                            onDraftChange={onDeepSearchDraftChange}
+                                            onConfirm={onDeepSearchDraftConfirm}
+                                            onRegenerate={onDeepSearchDraftRegenerate}
+                                            onCancel={onDeepSearchDraftCancel}
+                                        />
+                                    </div>
                                 )}
 
                                 {/* 深度检索图书列表消息 */}
@@ -195,15 +204,20 @@ export default function MessageStream({
                                 )}
 
                                 {/* 深度检索解读报告消息 */}
-                                {/* 使用 key 强制隔离流式更新，防止 AnimatePresence 与 ReactMarkdown 的 DOM 冲突 */}
-                                {isDeepSearchReport((message as any).content) && (
+                                {/* 支持两种方式：对象结构（旧）和字符串内容（新，与简单检索一致） */}
+                                {/* 修复：在 report-streaming 和 completed 阶段都渲染报告样式 */}
+                                {(isDeepSearchReport((message as any).content) ||
+                                  ((deepSearchPhase === 'report-streaming' || deepSearchPhase === 'completed') &&
+                                   typeof (message as any).content === 'string' && (message as any).content &&
+                                   // 确保是最后一条助手消息（报告消息）
+                                   messages.filter(m => m.role === 'assistant').slice(-1)[0]?.id === message.id)) && (
                                     <div
                                         className="bg-[#1B1B1B] border border-[#343434] rounded-xl p-4"
                                         key={`report-container-${message.id}`}
                                     >
                                         {/* 稳定容器：阻止 AnimatePresence 追踪 ReactMarkdown 内部 DOM 变化 */}
                                         <div
-                                            className="prose prose-invert prose-sm max-w-none"
+                                            className="prose prose-invert prose-sm max-w-none font-info-content"
                                             suppressHydrationWarning
                                             key={`report-markdown-${message.id}`}
                                         >
@@ -211,10 +225,15 @@ export default function MessageStream({
                                                 remarkPlugins={[remarkGfm]}
                                                 components={messageMarkdownComponents}
                                             >
-                                                {(message as any).content.reportMarkdown || ''}
+                                                {/* 新方式：直接使用字符串内容（与简单检索一致），清理可能的代码块包裹 */}
+                                                {typeof (message as any).content === 'string'
+                                                    ? cleanMarkdownCodeBlock((message as any).content)
+                                                    : cleanMarkdownCodeBlock((message as any).content.reportMarkdown || '')}
                                             </ReactMarkdown>
                                         </div>
-                                        {(message as any).content.isStreaming && (
+                                        {/* 显示流式输出的光标 */}
+                                        {((typeof (message as any).content === 'object' && (message as any).content.isStreaming) ||
+                                          (deepSearchPhase === 'report-streaming' && typeof (message as any).content === 'string')) && (
                                             <span className="inline-block w-2 h-4 bg-[#C9A063] animate-pulse ml-1"></span>
                                         )}
                                     </div>
@@ -238,7 +257,13 @@ export default function MessageStream({
                         
                         {/* 只有当消息内容不为空且不是深度检索类型时才显示气泡 */}
                         {/* 使用 suppressHydrationWarning 和稳定容器防止 AnimatePresence 与 ReactMarkdown 的 DOM 冲突 */}
-                        {(message as any).content && !isDeepSearchMessage((message as any).content) && (
+                        {/* 修复：排除深度检索报告阶段的最后一条助手消息，避免重复渲染 */}
+                        {(message as any).content && !isDeepSearchMessage((message as any).content) &&
+                         // 排除深度检索报告消息（在 report-streaming 或 completed 阶段的最后一条助手消息）
+                         !((deepSearchPhase === 'report-streaming' || deepSearchPhase === 'completed') &&
+                           message.role === 'assistant' &&
+                           typeof (message as any).content === 'string' &&
+                           messages.filter(m => m.role === 'assistant').slice(-1)[0]?.id === message.id) && (
                             <div
                                 className={`inline-block rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap font-info-content ${
                                     message.role === 'user'

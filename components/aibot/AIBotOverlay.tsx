@@ -514,18 +514,11 @@ export default function AIBotOverlay() {
             message: '正在生成解读报告...'
         });
 
-        // 添加解读消息
-        const reportMessageId = crypto.randomUUID();
+        // 添加解读消息 - 使用简单检索的方式（字符串内容）
         const reportMessage: UIMessage = {
-            id: reportMessageId,
+            id: crypto.randomUUID(),
             role: 'assistant',
-            content: {
-                type: 'deep-search-report',
-                reportMarkdown: '',
-                isStreaming: true,
-                isComplete: false,
-                selectedBooks
-            }
+            content: ''  // 使用空字符串初始化，后续用 updateLastAssistantMessage 更新
         } as any;
         appendMessage(reportMessage);
 
@@ -544,39 +537,17 @@ export default function AIBotOverlay() {
                 throw new Error('深度解读生成失败');
             }
 
+            // 流式读取解读内容（使用简单检索的方式）
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
-
-            // 本地变量累积报告内容（复用简单检索的模式，避免闭包问题）
-            let accumulatedReport = '';
-            // 本地变量保存 selectedBooks（避免闭包问题）
-            const localSelectedBooks = selectedBooks;
+            let buffer = '';
 
             while (true) {
                 const { value, done } = await reader.read();
                 if (done) break;
-
-                // 使用本地变量累积内容
-                accumulatedReport += decoder.decode(value, { stream: true });
-
-                // 更新解读消息内容（使用本地累积的内容）
-                updateMessageContent(reportMessageId, {
-                    type: 'deep-search-report',
-                    reportMarkdown: accumulatedReport,
-                    isStreaming: true,
-                    isComplete: false,
-                    selectedBooks: localSelectedBooks
-                } as any);
+                buffer += decoder.decode(value, { stream: true });
+                updateLastAssistantMessage(buffer);
             }
-
-            // 完成
-            updateMessageContent(reportMessageId, {
-                type: 'deep-search-report',
-                reportMarkdown: accumulatedReport,
-                isStreaming: false,
-                isComplete: true,
-                selectedBooks: localSelectedBooks
-            } as any);
 
             // 更新报告生成进度日志为完成
             addDeepSearchLog({
