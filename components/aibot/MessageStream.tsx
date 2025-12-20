@@ -10,10 +10,22 @@ import ProgressLogDisplay from './ProgressLogDisplay';
 import DeepSearchProgressMessage from './DeepSearchProgressMessage';
 import DeepSearchDraftMessage from './DeepSearchDraftMessage';
 import DeepSearchBookListMessage from './DeepSearchBookListMessage';
+import DocumentAnalysisProgressMessage from './DocumentAnalysisProgressMessage';
+import DocumentAnalysisDraftMessage from './DocumentAnalysisDraftMessage';
 import type { LogEntry } from './ProgressLogDisplay';
 import { messageMarkdownComponents } from '@/lib/markdownComponents';
 import { useAIBotStore } from '@/store/aibot/useAIBotStore';
-import type { RetrievalPhase, BookInfo, DeepSearchLogEntry, KeywordResult, DuckDuckGoSnippet } from '@/src/core/aibot/types';
+import type {
+    RetrievalPhase,
+    BookInfo,
+    DeepSearchLogEntry,
+    KeywordResult,
+    DuckDuckGoSnippet,
+    DocumentAnalysisMessageContent,
+    DocumentAnalysisProgressContent,
+    DocumentAnalysisDraftContent,
+    DocumentAnalysisBooksContent
+} from '@/src/core/aibot/types';
 
 // 深度检索消息内容类型定义
 interface DeepSearchProgressMessageContent {
@@ -70,9 +82,27 @@ const isDeepSearchReport = (content: unknown): content is DeepSearchReportMessag
     return typeof content === 'object' && content !== null && (content as any).type === 'deep-search-report';
 };
 
+// 文档分析消息类型守卫函数
+const isDocumentAnalysisProgress = (content: unknown): content is DocumentAnalysisProgressContent => {
+    return typeof content === 'object' && content !== null && (content as any).type === 'document-analysis-progress';
+};
+
+const isDocumentAnalysisDraft = (content: unknown): content is DocumentAnalysisDraftContent => {
+    return typeof content === 'object' && content !== null && (content as any).type === 'document-analysis-draft';
+};
+
+const isDocumentAnalysisBooks = (content: unknown): content is DocumentAnalysisBooksContent => {
+    return typeof content === 'object' && content !== null && (content as any).type === 'document-analysis-books';
+};
+
 // 判断消息内容是否为深度检索类型
 const isDeepSearchMessage = (content: unknown): content is DeepSearchMessageContent => {
     return isDeepSearchProgress(content) || isDeepSearchDraft(content) || isDeepSearchBooks(content) || isDeepSearchReport(content);
+};
+
+// 判断消息内容是否为文档分析类型
+const isDocumentAnalysisMessage = (content: unknown): content is DocumentAnalysisMessageContent => {
+    return isDocumentAnalysisProgress(content) || isDocumentAnalysisDraft(content) || isDocumentAnalysisBooks(content);
 };
 
 // 清理 markdown 代码块包裹（LLM 可能返回 ```markdown ... ``` 格式）
@@ -102,6 +132,12 @@ interface MessageStreamProps {
     onDeepSearchDraftRegenerate?: () => void;
     onDeepSearchDraftCancel?: () => void;
     onDeepSearchGenerateInterpretation?: (selectedBooks: BookInfo[], draftMarkdown: string) => void;
+    // 文档分析回调
+    onDocumentAnalysisDraftChange?: (value: string) => void;
+    onDocumentAnalysisDraftConfirm?: () => void;
+    onDocumentAnalysisDraftRegenerate?: () => void;
+    onDocumentAnalysisDraftCancel?: () => void;
+    onDocumentAnalysisGenerateInterpretation?: (selectedBooks: BookInfo[], draftMarkdown: string) => void;
 }
 
 export default function MessageStream({
@@ -122,7 +158,13 @@ export default function MessageStream({
     onDeepSearchDraftConfirm,
     onDeepSearchDraftRegenerate,
     onDeepSearchDraftCancel,
-    onDeepSearchGenerateInterpretation
+    onDeepSearchGenerateInterpretation,
+    // 文档分析回调
+    onDocumentAnalysisDraftChange,
+    onDocumentAnalysisDraftConfirm,
+    onDocumentAnalysisDraftRegenerate,
+    onDocumentAnalysisDraftCancel,
+    onDocumentAnalysisGenerateInterpretation
 }: MessageStreamProps) {
     const { retrievalResults, deepSearchPhase, deepSearchLogs } = useAIBotStore(); // 获取检索结果状态、深度检索阶段和日志
 
@@ -204,6 +246,38 @@ export default function MessageStream({
                                     />
                                 )}
 
+                                {/* 文档分析进度消息 */}
+                                {isDocumentAnalysisProgress((message as any).content) && (
+                                    <DocumentAnalysisProgressMessage
+                                        content={(message as any).content}
+                                    />
+                                )}
+
+                                {/* 文档分析草稿消息 */}
+                                {isDocumentAnalysisDraft((message as any).content) && (
+                                    <div key={`document-draft-container-${message.id}`}>
+                                        <DocumentAnalysisDraftMessage
+                                            content={(message as any).content}
+                                            onDraftChange={onDocumentAnalysisDraftChange || (() => {})}
+                                            onDraftConfirm={onDocumentAnalysisDraftConfirm || (() => {})}
+                                            onDraftRegenerate={onDocumentAnalysisDraftRegenerate || (() => {})}
+                                            onDraftCancel={onDocumentAnalysisDraftCancel || (() => {})}
+                                        />
+                                    </div>
+                                )}
+
+                                {/* 文档分析图书列表消息 - 复用深度检索的图书列表组件 */}
+                                {isDocumentAnalysisBooks((message as any).content) && (
+                                    <DeepSearchBookListMessage
+                                        books={(message as any).content.books}
+                                        draftMarkdown={(message as any).content.draftMarkdown}
+                                        userInput={(message as any).content.userInput}
+                                        onGenerateInterpretation={onDocumentAnalysisGenerateInterpretation}
+                                        onSecondaryRetrieval={onSecondaryRetrieval}
+                                        autoCollapseOnReportStart={false} // 文档分析暂不使用自动折叠
+                                    />
+                                )}
+
                                 {/* 深度检索解读报告消息 */}
                                 {/* 支持两种方式：对象结构（旧）和字符串内容（新，与简单检索一致） */}
                                 {/* 修复：在 report-streaming 和 completed 阶段都渲染报告样式 */}
@@ -256,10 +330,11 @@ export default function MessageStream({
                             </>
                         )}
                         
-                        {/* 只有当消息内容不为空且不是深度检索类型时才显示气泡 */}
+                        {/* 只有当消息内容不为空且不是深度检索类型和文档分析类型时才显示气泡 */}
                         {/* 使用 suppressHydrationWarning 和稳定容器防止 AnimatePresence 与 ReactMarkdown 的 DOM 冲突 */}
                         {/* 修复：排除深度检索报告阶段的最后一条助手消息，避免重复渲染 */}
-                        {(message as any).content && !isDeepSearchMessage((message as any).content) &&
+                        {/* 修复：排除文档分析消息，其内容为对象而非字符串 */}
+                        {(message as any).content && !isDeepSearchMessage((message as any).content) && !isDocumentAnalysisMessage((message as any).content) &&
                          // 排除深度检索报告消息（在 report-streaming 或 completed 阶段的最后一条助手消息）
                          !((deepSearchPhase === 'report-streaming' || deepSearchPhase === 'completed') &&
                            message.role === 'assistant' &&

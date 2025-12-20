@@ -9,7 +9,8 @@ export const AIBOT_PROMPT_FILES = {
 
 export const AIBOT_MODES = {
     TEXT: 'text-search',
-    DEEP: 'deep'
+    DEEP: 'deep',
+    DOCUMENT: 'document'
 } as const;
 
 export type AIBotMode = (typeof AIBOT_MODES)[keyof typeof AIBOT_MODES];

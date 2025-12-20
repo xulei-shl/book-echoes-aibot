@@ -325,3 +325,122 @@ export interface DeepSearchState {
     // 原始输入
     userInput: string;
 }
+
+// ========== 文档上传相关类型 ==========
+
+// 上传文档信息接口
+export interface UploadedDocument {
+    id: string;                    // 唯一标识
+    name: string;                  // 文件名
+    content: string;               // 文件内容
+    size: number;                  // 文件大小（字节）
+    uploadTime: Date;             // 上传时间
+    status: 'uploading' | 'ready' | 'error';  // 文档状态
+}
+
+// 文档上传阶段
+export type DocumentUploadPhase =
+    | 'idle'                       // 空闲
+    | 'uploading'                  // 上传中
+    | 'ready'                      // 准备就绪
+    | 'analyzing'                  // 分析中
+    | 'error';                     // 错误
+
+// 文档分析请求
+export interface DocumentAnalysisRequest {
+    documents: {
+        id: string;
+        name: string;
+        content: string;
+    }[];
+}
+
+// 文档分析进度日志条目（复用深度检索的日志结构）
+export type DocumentAnalysisLogEntry = DeepSearchLogEntry;
+
+// 文档分析消息类型标识
+export type DocumentAnalysisMessageType =
+    | 'document-analysis-progress'    // 进度日志
+    | 'document-analysis-draft'       // 草稿文档（流式）
+    | 'document-analysis-books'       // 图书列表
+    | 'document-analysis-report';     // 解读报告（流式）
+
+// 文档分析进度消息内容
+export interface DocumentAnalysisProgressContent {
+    type: 'document-analysis-progress';
+    logs: DocumentAnalysisLogEntry[];
+    currentPhase: string;
+}
+
+// 文档分析草稿消息内容
+export interface DocumentAnalysisDraftContent {
+    type: 'document-analysis-draft';
+    draftMarkdown: string;          // 流式累积内容
+    isStreaming: boolean;           // 是否正在流式输出
+    isComplete: boolean;            // 是否流式完成
+    documentAnalyses: string[];     // 文档分析结果
+    userInput: string;              // 用户输入（文档名称）
+}
+
+// 文档分析图书列表消息内容
+export interface DocumentAnalysisBooksContent {
+    type: 'document-analysis-books';
+    books: BookInfo[];
+    draftMarkdown: string;          // 用于生成解读的草稿
+    userInput: string;              // 用户输入（文档名称）
+}
+
+// 文档分析解读报告消息内容
+export interface DocumentAnalysisReportContent {
+    type: 'document-analysis-report';
+    reportMarkdown: string;         // 流式累积内容
+    isStreaming: boolean;           // 是否正在流式输出
+    isComplete: boolean;            // 是否流式完成
+    selectedBooks: BookInfo[];
+}
+
+// 文档分析消息内容联合类型
+export type DocumentAnalysisMessageContent =
+    | DocumentAnalysisProgressContent
+    | DocumentAnalysisDraftContent
+    | DocumentAnalysisBooksContent
+    | DocumentAnalysisReportContent;
+
+// 文档分析流程阶段
+export type DocumentAnalysisPhase =
+    | 'idle'              // 空闲
+    | 'progress'          // 进度显示中
+    | 'draft-streaming'   // 草稿流式输出中
+    | 'draft-confirm'     // 草稿确认中
+    | 'book-search'       // 图书检索中
+    | 'book-selection'    // 图书选择中
+    | 'report-streaming'  // 报告流式输出中
+    | 'completed';        // 完成
+
+// 文档分析状态
+export interface DocumentAnalysisState {
+    phase: DocumentAnalysisPhase;
+    // 进度相关
+    progressMessageId: string | null;
+    logs: DocumentAnalysisLogEntry[];
+    currentLogPhase: string;
+    // 草稿相关
+    draftMessageId: string | null;
+    draftContent: string;
+    isDraftStreaming: boolean;
+    isDraftComplete: boolean;
+    documentAnalyses: string[];     // 文档分析结果
+    // 图书相关
+    booksMessageId: string | null;
+    books: BookInfo[];
+    selectedBooks: BookInfo[];
+    // 报告相关
+    reportMessageId: string | null;
+    reportContent: string;
+    isReportStreaming: boolean;
+    // 原始输入
+    userInput: string;
+}
+
+// AIBot 工作模式 - 使用constants.ts中的定义
+// export type AIBotMode 已从 @/src/core/aibot/constants 导入

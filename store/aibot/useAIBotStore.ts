@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { AIBOT_MODES } from '@/src/core/aibot/constants';
 import type { UIMessage } from 'ai';
 import type {
     DraftPayload,
@@ -9,11 +10,20 @@ import type {
     DeepSearchLogEntry,
     KeywordResult,
     DuckDuckGoSnippet,
-    BookInfo
+    BookInfo,
+    UploadedDocument,
+    DocumentUploadPhase,
+    DocumentAnalysisState,
+    DocumentAnalysisLogEntry,
+    DocumentAnalysisPhase
 } from '@/src/core/aibot/types';
+import type { AIBotMode } from '@/src/core/aibot/constants';
 
 interface AIBotState {
     isOverlayOpen: boolean;
+    // 新的模式系统：simple（简单检索）、deep（深度检索）、document（文档上传）
+    mode: AIBotMode;
+    // 保持向后兼容的isDeepMode属性
     isDeepMode: boolean;
     isStreaming: boolean;
     isDraftLoading: boolean;
@@ -54,8 +64,32 @@ interface AIBotState {
     // 原始输入
     deepSearchUserInput: string;
 
+    // ========== 文档上传相关状态 ==========
+    uploadedDocuments: UploadedDocument[];
+    documentUploadPhase: DocumentUploadPhase;
+    documentUploadError?: string;
+    // 文档分析状态（复用深度检索的状态结构）
+    documentAnalysisPhase: DocumentAnalysisPhase;
+    documentAnalysisProgressMessageId: string | null;
+    documentAnalysisLogs: DocumentAnalysisLogEntry[];
+    documentAnalysisCurrentLogPhase: string;
+    documentAnalysisDraftMessageId: string | null;
+    documentAnalysisDraftContent: string;
+    isDocumentAnalysisDraftStreaming: boolean;
+    isDocumentAnalysisDraftComplete: boolean;
+    documentAnalysisDocumentAnalyses: string[];
+    documentAnalysisBooksMessageId: string | null;
+    documentAnalysisBooks: BookInfo[];
+    documentAnalysisSelectedBooks: BookInfo[];
+    documentAnalysisReportMessageId: string | null;
+    documentAnalysisReportContent: string;
+    isDocumentAnalysisReportStreaming: boolean;
+    documentAnalysisUserInput: string;
+
     // 原有actions
     toggleOverlay: (force?: boolean) => void;
+    setMode: (mode: AIBotMode) => void;
+    // 保持向后兼容的setDeepMode
     setDeepMode: (value: boolean) => void;
     setMessages: (messages: UIMessage[]) => void;
     appendMessage: (message: UIMessage) => void;
@@ -108,6 +142,37 @@ interface AIBotState {
     resetDeepSearch: () => void;
     // 更新指定消息内容（用于流式更新）
     updateMessageContent: (messageId: string, content: string) => void;
+
+    // ========== 文档上传相关 actions ==========
+    // 文档管理
+    setUploadedDocuments: (documents: UploadedDocument[]) => void;
+    addUploadedDocument: (document: UploadedDocument) => void;
+    removeUploadedDocument: (documentId: string) => void;
+    clearUploadedDocuments: () => void;
+    setDocumentUploadPhase: (phase: DocumentUploadPhase) => void;
+    setDocumentUploadError: (error?: string) => void;
+
+    // 文档分析状态管理（复用深度检索的模式）
+    setDocumentAnalysisPhase: (phase: DocumentAnalysisPhase) => void;
+    setDocumentAnalysisProgressMessageId: (id: string | null) => void;
+    addDocumentAnalysisLog: (log: DocumentAnalysisLogEntry) => void;
+    updateDocumentAnalysisLog: (phase: string, updates: Partial<DocumentAnalysisLogEntry>) => void;
+    clearDocumentAnalysisLogs: () => void;
+    setDocumentAnalysisDraftMessageId: (id: string | null) => void;
+    appendDocumentAnalysisDraftContent: (chunk: string) => void;
+    setDocumentAnalysisDraftContent: (content: string) => void;
+    setDocumentAnalysisDraftStreaming: (streaming: boolean) => void;
+    setDocumentAnalysisDraftComplete: (complete: boolean) => void;
+    setDocumentAnalysisDocumentAnalyses: (analyses: string[]) => void;
+    setDocumentAnalysisBooksMessageId: (id: string | null) => void;
+    setDocumentAnalysisBooks: (books: BookInfo[]) => void;
+    setDocumentAnalysisSelectedBooks: (books: BookInfo[]) => void;
+    setDocumentAnalysisReportMessageId: (id: string | null) => void;
+    appendDocumentAnalysisReportContent: (chunk: string) => void;
+    setDocumentAnalysisReportContent: (content: string) => void;
+    setDocumentAnalysisReportStreaming: (streaming: boolean) => void;
+    setDocumentAnalysisUserInput: (input: string) => void;
+    resetDocumentAnalysis: () => void;
 }
 
 // 深度检索初始状态
@@ -131,8 +196,29 @@ const deepSearchInitialState = {
     deepSearchUserInput: ''
 };
 
+// 文档分析初始状态
+const documentAnalysisInitialState = {
+    documentAnalysisPhase: 'idle' as DocumentAnalysisPhase,
+    documentAnalysisProgressMessageId: null as string | null,
+    documentAnalysisLogs: [] as DocumentAnalysisLogEntry[],
+    documentAnalysisCurrentLogPhase: '',
+    documentAnalysisDraftMessageId: null as string | null,
+    documentAnalysisDraftContent: '',
+    isDocumentAnalysisDraftStreaming: false,
+    isDocumentAnalysisDraftComplete: false,
+    documentAnalysisDocumentAnalyses: [] as string[],
+    documentAnalysisBooksMessageId: null as string | null,
+    documentAnalysisBooks: [] as BookInfo[],
+    documentAnalysisSelectedBooks: [] as BookInfo[],
+    documentAnalysisReportMessageId: null as string | null,
+    documentAnalysisReportContent: '',
+    isDocumentAnalysisReportStreaming: false,
+    documentAnalysisUserInput: ''
+};
+
 const initialState = {
     isOverlayOpen: false,
+    mode: AIBOT_MODES.TEXT as AIBotMode,
     isDeepMode: false,
     isStreaming: false,
     isDraftLoading: false,
@@ -150,11 +236,25 @@ const initialState = {
     isGeneratingInterpretation: false,
 
     // 深度检索对话式状态
-    ...deepSearchInitialState
+    ...deepSearchInitialState,
+
+    // 文档上传相关状态
+    uploadedDocuments: [] as UploadedDocument[],
+    documentUploadPhase: 'idle' as DocumentUploadPhase,
+    documentUploadError: undefined as string | undefined,
+
+    // 文档分析状态
+    ...documentAnalysisInitialState
 };
 
 export const useAIBotStore = create<AIBotState>((set) => ({
     ...initialState,
+    setMode: (mode) => set((state) => {
+        // 同时更新isDeepMode以保持向后兼容
+        const isDeepMode = mode === AIBOT_MODES.DEEP;
+        console.log('[useAIBotStore] setMode', { mode, isDeepMode });
+        return { mode, isDeepMode };
+    }),
     toggleOverlay: (force) =>
         set((state) => {
             const next = typeof force === 'boolean' ? force : !state.isOverlayOpen;
@@ -172,11 +272,14 @@ export const useAIBotStore = create<AIBotState>((set) => ({
             return next ? { ...state, isOverlayOpen: true } : { ...initialState };
         }),
     setDeepMode: (value) => set((state) => {
+        // 更新模式，向后兼容
+        const mode = value ? AIBOT_MODES.DEEP : AIBOT_MODES.TEXT;
         console.log('[useAIBotStore] setDeepMode', {
             from: state.isDeepMode,
-            to: value
+            to: value,
+            mode
         });
-        return { isDeepMode: value };
+        return { mode, isDeepMode: value };
     }),
     setMessages: (messages) => set((state) => {
         console.log('[useAIBotStore] setMessages', {
@@ -306,5 +409,78 @@ export const useAIBotStore = create<AIBotState>((set) => ({
             msg.id === messageId ? { ...msg, content } as UIMessage : msg
         );
         return { messages: newMessages };
-    })
+    }),
+
+    // ========== 文档上传相关 actions ==========
+    // 文档管理
+    setUploadedDocuments: (documents) => set((state) => {
+        console.log('[useAIBotStore] setUploadedDocuments', {
+            oldCount: state.uploadedDocuments.length,
+            newCount: documents.length,
+            documents: documents.map(doc => ({
+                id: doc.id,
+                name: doc.name,
+                status: doc.status
+            }))
+        });
+        return { uploadedDocuments: documents };
+    }),
+    addUploadedDocument: (document) => set((state) => {
+        console.log('[useAIBotStore] addUploadedDocument', {
+            documentId: document.id,
+            documentName: document.name,
+            documentStatus: document.status,
+            oldCount: state.uploadedDocuments.length,
+            newCount: state.uploadedDocuments.length + 1
+        });
+        return {
+            uploadedDocuments: [...state.uploadedDocuments, document]
+        };
+    }),
+    removeUploadedDocument: (documentId) => set((state) => ({
+        uploadedDocuments: state.uploadedDocuments.filter(doc => doc.id !== documentId)
+    })),
+    clearUploadedDocuments: () => set({ uploadedDocuments: [] }),
+    setDocumentUploadPhase: (phase) => set({ documentUploadPhase: phase }),
+    setDocumentUploadError: (error) => set({ documentUploadError: error }),
+
+    // 文档分析状态管理（复用深度检索的模式）
+    setDocumentAnalysisPhase: (phase) => set({ documentAnalysisPhase: phase }),
+    setDocumentAnalysisProgressMessageId: (id) => set({ documentAnalysisProgressMessageId: id }),
+    addDocumentAnalysisLog: (log) => set((state) => {
+        const newLogs = [...state.documentAnalysisLogs];
+        const existingIndex = newLogs.findIndex(l => l.phase === log.phase);
+        if (existingIndex >= 0) {
+            newLogs[existingIndex] = log;
+        } else {
+            newLogs.push(log);
+        }
+        return { documentAnalysisLogs: newLogs };
+    }),
+    updateDocumentAnalysisLog: (phase, updates) => set((state) => {
+        const newLogs = state.documentAnalysisLogs.map(log =>
+            log.phase === phase ? { ...log, ...updates } : log
+        );
+        return { documentAnalysisLogs: newLogs };
+    }),
+    clearDocumentAnalysisLogs: () => set({ documentAnalysisLogs: [], documentAnalysisCurrentLogPhase: '' }),
+    setDocumentAnalysisDraftMessageId: (id) => set({ documentAnalysisDraftMessageId: id }),
+    appendDocumentAnalysisDraftContent: (chunk) => set((state) => ({
+        documentAnalysisDraftContent: state.documentAnalysisDraftContent + chunk
+    })),
+    setDocumentAnalysisDraftContent: (content) => set({ documentAnalysisDraftContent: content }),
+    setDocumentAnalysisDraftStreaming: (streaming) => set({ isDocumentAnalysisDraftStreaming: streaming }),
+    setDocumentAnalysisDraftComplete: (complete) => set({ isDocumentAnalysisDraftComplete: complete }),
+    setDocumentAnalysisDocumentAnalyses: (analyses) => set({ documentAnalysisDocumentAnalyses: analyses }),
+    setDocumentAnalysisBooksMessageId: (id) => set({ documentAnalysisBooksMessageId: id }),
+    setDocumentAnalysisBooks: (books) => set({ documentAnalysisBooks: books }),
+    setDocumentAnalysisSelectedBooks: (books) => set({ documentAnalysisSelectedBooks: books }),
+    setDocumentAnalysisReportMessageId: (id) => set({ documentAnalysisReportMessageId: id }),
+    appendDocumentAnalysisReportContent: (chunk) => set((state) => ({
+        documentAnalysisReportContent: state.documentAnalysisReportContent + chunk
+    })),
+    setDocumentAnalysisReportContent: (content) => set({ documentAnalysisReportContent: content }),
+    setDocumentAnalysisReportStreaming: (streaming) => set({ isDocumentAnalysisReportStreaming: streaming }),
+    setDocumentAnalysisUserInput: (input) => set({ documentAnalysisUserInput: input }),
+    resetDocumentAnalysis: () => set({ ...documentAnalysisInitialState })
 }));

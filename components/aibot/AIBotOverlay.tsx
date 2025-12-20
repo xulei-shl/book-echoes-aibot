@@ -5,9 +5,21 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import MessageStream from '@/components/aibot/MessageStream';
+import DocumentUploadWorkflow from '@/components/aibot/DocumentUploadWorkflow';
+import DocumentAnalysisProgressMessage from '@/components/aibot/DocumentAnalysisProgressMessage';
+import DocumentAnalysisDraftMessage from '@/components/aibot/DocumentAnalysisDraftMessage';
 import { useAIBotStore } from '@/store/aibot/useAIBotStore';
 import type { UIMessage } from 'ai';
-import type { BookInfo, DeepSearchLogEntry, KeywordResult, DuckDuckGoSnippet } from '@/src/core/aibot/types';
+import type {
+    BookInfo,
+    DeepSearchLogEntry,
+    KeywordResult,
+    DuckDuckGoSnippet,
+    UploadedDocument,
+    DocumentAnalysisMessageContent,
+    DocumentAnalysisPhase
+} from '@/src/core/aibot/types';
+import { AIBOT_MODES, type AIBotMode } from '@/src/core/aibot/constants';
 import type { LogEntry, SearchPhase } from '@/components/aibot/ProgressLogDisplay';
 import { formatBooksForSecondarySearch } from '@/src/utils/format-book-for-search';
 
@@ -21,6 +33,8 @@ export default function AIBotOverlay() {
     const {
         isOverlayOpen,
         toggleOverlay,
+        mode,
+        setMode,
         isDeepMode,
         setDeepMode,
         messages,
@@ -75,6 +89,42 @@ export default function AIBotOverlay() {
         deepSearchLogs,
         setDeepSearchProgressMessageId,
         resetDeepSearch,
+
+        // 文档上传相关状态
+        uploadedDocuments,
+        documentUploadPhase,
+        documentUploadError,
+        setDocumentUploadPhase,
+        setDocumentUploadError,
+        addUploadedDocument,
+        removeUploadedDocument,
+        setUploadedDocuments,
+        clearUploadedDocuments,
+
+        // 文档分析状态
+        documentAnalysisPhase,
+        documentAnalysisProgressMessageId,
+        documentAnalysisLogs,
+        documentAnalysisDraftMessageId,
+        documentAnalysisDraftContent,
+        isDocumentAnalysisDraftStreaming,
+        isDocumentAnalysisDraftComplete,
+        documentAnalysisBooksMessageId,
+        documentAnalysisBooks,
+        documentAnalysisSelectedBooks,
+        documentAnalysisUserInput,
+        setDocumentAnalysisPhase,
+        setDocumentAnalysisProgressMessageId,
+        addDocumentAnalysisLog,
+        setDocumentAnalysisDraftMessageId,
+        setDocumentAnalysisDraftContent,
+        setDocumentAnalysisDraftStreaming,
+        setDocumentAnalysisDraftComplete,
+        setDocumentAnalysisBooksMessageId,
+        setDocumentAnalysisBooks,
+        setDocumentAnalysisSelectedBooks,
+        setDocumentAnalysisUserInput,
+        resetDocumentAnalysis,
     } = useAIBotStore();
 
     const [inputValue, setInputValue] = useState('');
@@ -137,6 +187,7 @@ export default function AIBotOverlay() {
     const closeOverlay = () => {
         console.log('[AIBotOverlay] 关闭对话框，重置所有状态', {
             currentMessages: messages.length,
+            currentMode: mode,
             currentDeepMode: isDeepMode
         });
         toggleOverlay(false);
@@ -145,6 +196,9 @@ export default function AIBotOverlay() {
         setPendingDraft(null, undefined);
         setError(undefined);
         resetDeepSearch();
+        resetDocumentAnalysis();
+        clearUploadedDocuments();
+        setMode(AIBOT_MODES.TEXT); // 重置到简单模式
         console.log('[AIBotOverlay] 状态重置完成');
     };
 
@@ -181,12 +235,19 @@ export default function AIBotOverlay() {
 
         console.log('[AIBotOverlay] handleSubmit', {
             trimmed,
+            mode,
             isDeepMode,
             deepSearchPhase,
             currentMessagesCount: messages.length,
             currentMessages: messages.map(msg => ({ role: msg.role })),
             currentRetrievalPhase: retrievalPhase
         });
+
+        // 在文档模式下，不允许通过表单提交
+        if (mode === AIBOT_MODES.DOCUMENT) {
+            setError('文档分析模式下请使用上传功能');
+            return;
+        }
 
         if (!trimmed) {
             setError('请输入内容');
@@ -223,6 +284,179 @@ export default function AIBotOverlay() {
 
         // 普通模式下，并行执行分类和简单检索
         await performSimpleSearchWithClassification(trimmed);
+    };
+
+    // 执行文档分析（流式）
+    const executeDocumentAnalysis = async (documents: UploadedDocument[]) => {
+        // 重置文档分析状态
+        resetDocumentAnalysis();
+        setDocumentAnalysisPhase('progress');
+
+        // 添加进度消息
+        const progressMessageId = crypto.randomUUID();
+        const progressMessage: UIMessage = {
+            id: progressMessageId,
+            role: 'assistant',
+            content: {
+                type: 'document-analysis-progress',
+                logs: [],
+                currentPhase: ''
+            }
+        } as any;
+        appendMessage(progressMessage);
+        setDocumentAnalysisProgressMessageId(progressMessageId);
+
+        try {
+            const documentNames = documents.map(doc => doc.name).join(', ');
+            console.log('[AIBotOverlay] 开始文档分析', {
+                documentCount: documents.length,
+                documentNames
+            });
+
+            const response = await fetch('/api/local-aibot/document-analysis', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    documents: documents.map(doc => ({
+                        id: doc.id,
+                        name: doc.name,
+                        content: doc.content
+                    }))
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('文档分析失败');
+            }
+
+            const reader = response.body?.getReader();
+            const decoder = new TextDecoder();
+
+            if (!reader) {
+                throw new Error('无法读取响应流');
+            }
+
+            let buffer = '';
+
+            // 添加草稿消息（用于流式显示）
+            const draftMessageId = crypto.randomUUID();
+            let draftMessageAdded = false;
+
+            // 本地变量累积草稿内容
+            let accumulatedDraft = '';
+            // 本地变量保存文档分析结果
+            let documentAnalyses: string[] = [];
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        try {
+                            const data = JSON.parse(line.slice(6));
+
+                            if (data.type === 'progress') {
+                                // 更新进度日志
+                                const logEntry = {
+                                    id: `${data.phase}-${Date.now()}`,
+                                    timestamp: new Date().toLocaleTimeString('zh-CN'),
+                                    phase: data.phase,
+                                    status: data.status,
+                                    message: data.message,
+                                    details: data.details
+                                };
+                                addDocumentAnalysisLog(logEntry);
+
+                                // 获取当前的日志列表
+                                const getCurrentLogs = () => {
+                                    return documentAnalysisLogs.map(log =>
+                                        log.phase === data.phase ? logEntry : log
+                                    );
+                                };
+
+                                // 确保日志中包含当前阶段
+                                const updatedLogs = getCurrentLogs();
+                                if (!updatedLogs.some(log => log.phase === data.phase)) {
+                                    updatedLogs.push(logEntry);
+                                }
+
+                                // 更新进度消息内容
+                                updateMessageContent(progressMessageId, {
+                                    type: 'document-analysis-progress',
+                                    logs: updatedLogs,
+                                    currentPhase: data.phase
+                                } as any);
+                            } else if (data.type === 'draft-start') {
+                                // 草稿开始，保存文档分析结果
+                                documentAnalyses = data.documentAnalyses || [];
+
+                                // 添加草稿消息
+                                if (!draftMessageAdded) {
+                                    const draftMessage: UIMessage = {
+                                        id: draftMessageId,
+                                        role: 'assistant',
+                                        content: {
+                                            type: 'document-analysis-draft',
+                                            draftMarkdown: '',
+                                            isStreaming: true,
+                                            isComplete: false,
+                                            documentAnalyses,
+                                            userInput: `文档分析：${documentNames}`
+                                        }
+                                    } as any;
+                                    appendMessage(draftMessage);
+                                    setDocumentAnalysisDraftMessageId(draftMessageId);
+                                    setDocumentAnalysisDraftStreaming(true);
+                                    setDocumentAnalysisPhase('draft-streaming');
+                                    draftMessageAdded = true;
+                                }
+                            } else if (data.type === 'draft-chunk') {
+                                // 草稿内容块：使用本地变量累积
+                                accumulatedDraft += data.content;
+                                setDocumentAnalysisDraftContent(accumulatedDraft);
+
+                                // 更新草稿消息内容（使用本地累积的内容）
+                                updateMessageContent(draftMessageId, {
+                                    type: 'document-analysis-draft',
+                                    draftMarkdown: accumulatedDraft,
+                                    isStreaming: true,
+                                    isComplete: false,
+                                    documentAnalyses,
+                                    userInput: `文档分析：${documentNames}`
+                                } as any);
+                            } else if (data.type === 'draft-complete') {
+                                // 草稿完成
+                                setDocumentAnalysisDraftContent(data.draftMarkdown);
+                                setDocumentAnalysisDraftStreaming(false);
+                                setDocumentAnalysisDraftComplete(true);
+                                setDocumentAnalysisPhase('draft-confirm');
+
+                                // 更新草稿消息为完成状态
+                                updateMessageContent(draftMessageId, {
+                                    type: 'document-analysis-draft',
+                                    draftMarkdown: data.draftMarkdown,
+                                    isStreaming: false,
+                                    isComplete: true,
+                                    documentAnalyses,
+                                    userInput: `文档分析：${documentNames}`
+                                } as any);
+                            }
+                        } catch (parseError) {
+                            console.error('解析SSE数据失败:', parseError);
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('文档分析错误:', error);
+            setError(error instanceof Error ? error.message : '文档分析失败');
+            setDocumentAnalysisPhase('idle');
+        }
     };
 
     // 执行深度检索分析（流式）
@@ -566,6 +800,161 @@ export default function AIBotOverlay() {
         }
     }, [deepSearchUserInput, appendMessage, updateMessageContent, setDeepSearchSelectedBooks, setDeepSearchPhase, setError]);
 
+    // ========== 文档分析相关回调函数 ==========
+
+    // 文档上传工作流：开始分析
+    const handleDocumentAnalysisStart = useCallback(async (documents: UploadedDocument[]) => {
+        // 切换到文档上传模式
+        setMode('document');
+
+        // 添加用户消息显示正在分析的文档
+        const documentNames = documents.map(doc => doc.name).join(', ');
+        const userMessage: UIMessage = {
+            id: crypto.randomUUID(),
+            role: 'user',
+            content: `分析以下文档：${documentNames}`
+        } as any;
+
+        appendMessage(userMessage);
+
+        // 开始文档分析
+        await executeDocumentAnalysis(documents);
+    }, [setMode, appendMessage, executeDocumentAnalysis]);
+
+    // 文档分析：草稿内容变更
+    const handleDocumentAnalysisDraftChange = useCallback((value: string) => {
+        setDocumentAnalysisDraftContent(value);
+        // 同步更新消息内容
+        if (documentAnalysisDraftMessageId) {
+            updateMessageContent(documentAnalysisDraftMessageId, {
+                type: 'document-analysis-draft',
+                draftMarkdown: value,
+                isStreaming: false,
+                isComplete: true,
+                documentAnalyses: [], // 这些值在实际使用中应该从状态获取
+                userInput: documentAnalysisUserInput
+            } as any);
+        }
+    }, [documentAnalysisDraftMessageId, documentAnalysisUserInput, setDocumentAnalysisDraftContent, updateMessageContent]);
+
+    // 文档分析：确认草稿
+    const handleDocumentAnalysisDraftConfirm = useCallback(async () => {
+        // 复用深度检索的图书检索逻辑
+        // 将文档分析的草稿作为查询内容
+        if (documentAnalysisDraftContent) {
+            // 复用深度检索的图书检索流程
+            setDocumentAnalysisPhase('book-search');
+
+            try {
+                const response = await fetch('/api/local-aibot/document-analysis/book-search', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        draftMarkdown: documentAnalysisDraftContent,
+                        userInput: documentAnalysisUserInput
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('文档分析图书检索失败');
+                }
+
+                const data = await response.json();
+
+                if (data.success) {
+                    const books = data.retrievalResult?.books || [];
+                    setDocumentAnalysisBooks(books);
+
+                    // 添加图书列表消息
+                    const booksMessageId = crypto.randomUUID();
+                    const booksMessage: UIMessage = {
+                        id: booksMessageId,
+                        role: 'assistant',
+                        content: {
+                            type: 'document-analysis-books',
+                            books,
+                            draftMarkdown: documentAnalysisDraftContent,
+                            userInput: documentAnalysisUserInput
+                        }
+                    } as any;
+                    appendMessage(booksMessage);
+                    setDocumentAnalysisBooksMessageId(booksMessageId);
+                    setDocumentAnalysisPhase('book-selection');
+                } else {
+                    throw new Error(data.message || '图书检索失败');
+                }
+            } catch (error) {
+                console.error('图书检索错误:', error);
+                setError(error instanceof Error ? error.message : '图书检索失败');
+                setDocumentAnalysisPhase('draft-confirm');
+            }
+        }
+    }, [documentAnalysisDraftContent, documentAnalysisUserInput, appendMessage, setError]);
+
+    // 文档分析：重新生成
+    const handleDocumentAnalysisDraftRegenerate = useCallback(() => {
+        resetDocumentAnalysis();
+        // 重新开始文档分析
+        const readyDocuments = uploadedDocuments.filter(doc => doc.status === 'ready');
+        if (readyDocuments.length > 0) {
+            executeDocumentAnalysis(readyDocuments);
+        }
+    }, [uploadedDocuments, resetDocumentAnalysis, executeDocumentAnalysis]);
+
+    // 文档分析：取消
+    const handleDocumentAnalysisDraftCancel = useCallback(() => {
+        resetDocumentAnalysis();
+        setMode(AIBOT_MODES.TEXT); // 回到简单模式
+    }, [resetDocumentAnalysis, setMode]);
+
+    // 文档分析：生成解读
+    const handleDocumentAnalysisGenerateInterpretation = useCallback(async (selectedBooks: BookInfo[], draftMarkdown: string) => {
+        setDocumentAnalysisSelectedBooks(selectedBooks);
+        setDocumentAnalysisPhase('report-streaming');
+
+        // 添加解读消息
+        const reportMessage: UIMessage = {
+            id: crypto.randomUUID(),
+            role: 'assistant',
+            content: ''  // 使用空字符串初始化，后续用 updateLastAssistantMessage 更新
+        } as any;
+        appendMessage(reportMessage);
+
+        try {
+            const response = await fetch('/api/local-aibot/deep-interpretation', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    selectedBooks,
+                    draftMarkdown,
+                    originalQuery: documentAnalysisUserInput
+                })
+            });
+
+            if (!response.ok || !response.body) {
+                throw new Error('文档解读生成失败');
+            }
+
+            // 流式读取解读内容
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                updateLastAssistantMessage(buffer);
+            }
+
+            setDocumentAnalysisPhase('completed');
+        } catch (error) {
+            console.error('文档解读生成错误:', error);
+            setError(error instanceof Error ? error.message : '文档解读生成失败');
+            setDocumentAnalysisPhase('book-selection');
+        }
+    }, [documentAnalysisUserInput, appendMessage, updateMessageContent, setDocumentAnalysisSelectedBooks, setDocumentAnalysisPhase, setError]);
+
     // 执行简单检索（带分类）
     const performSimpleSearchWithClassification = async (query: string) => {
         setRetrievalPhase('search');
@@ -845,7 +1234,7 @@ export default function AIBotOverlay() {
                                   <div className="flex-1 min-h-0" style={{ overflow: 'hidden' }}>
                                     <MessageStream
                                         messages={messages}
-                                        isStreaming={isStreaming || isGeneratingInterpretation || isDeepSearchDraftStreaming}
+                                        isStreaming={isStreaming || isGeneratingInterpretation || isDeepSearchDraftStreaming || isDocumentAnalysisDraftStreaming}
                                         isSearching={isSearching}
                                         retrievalPhase={retrievalPhase}
                                         selectedBookIds={selectedBookIds}
@@ -862,13 +1251,21 @@ export default function AIBotOverlay() {
                                         onDeepSearchDraftRegenerate={handleDeepSearchDraftRegenerate}
                                         onDeepSearchDraftCancel={handleDeepSearchDraftCancel}
                                         onDeepSearchGenerateInterpretation={handleDeepSearchGenerateInterpretation}
+                                        // 文档分析回调
+                                        onDocumentAnalysisDraftChange={handleDocumentAnalysisDraftChange}
+                                        onDocumentAnalysisDraftConfirm={handleDocumentAnalysisDraftConfirm}
+                                        onDocumentAnalysisDraftRegenerate={handleDocumentAnalysisDraftRegenerate}
+                                        onDocumentAnalysisDraftCancel={handleDocumentAnalysisDraftCancel}
+                                        onDocumentAnalysisGenerateInterpretation={handleDocumentAnalysisGenerateInterpretation}
                                     />
                                 </div>
                             </div>
                         </div>
 
                         <form id="aibot-form" className="space-y-3 pt-4 border-t border-[#2E2E2E]" onSubmit={handleSubmit}>
-                            <textarea
+                            {/* 文档上传工作流 */}
+                            <div className="relative" style={{ minHeight: '150px' }}>
+                                <textarea
                                 value={inputValue}
                                 onChange={(e) => setInputValue(e.target.value)}
                                 onKeyDown={(e) => {
@@ -882,22 +1279,49 @@ export default function AIBotOverlay() {
                                         handleSubmit(syntheticEvent);
                                     }
                                 }}
-                                placeholder={isDeepMode ? '输入检索主题，开始深度检索' : '想了解什么图书？'}
+                                placeholder={
+                                    mode === AIBOT_MODES.DEEP ? '输入检索主题，开始深度检索' :
+                                    mode === AIBOT_MODES.DOCUMENT ? '文档分析模式中，请等待分析完成...' :
+                                    '想了解什么图书？或点击左下角上传文档分析'
+                                }
                                 className="w-full h-24 bg-[#1B1B1B] border border-[#3A3A3A] rounded-2xl p-4 text-sm text-[#E8E6DC] focus:outline-none focus:border-[#C9A063] font-info-content about-overlay-scroll overflow-y-auto"
-                                disabled={isStreaming || isGeneratingInterpretation || isSearching || isDeepSearchDraftStreaming}
+                                disabled={isStreaming || isGeneratingInterpretation || isSearching || isDeepSearchDraftStreaming || isDocumentAnalysisDraftStreaming || mode === AIBOT_MODES.DOCUMENT}
                             />
+
+                            {/* 文档上传工作流组件 - 在简单模式和文档模式下显示 */}
+                            {(mode === AIBOT_MODES.TEXT || mode === AIBOT_MODES.DOCUMENT) && (
+                                <DocumentUploadWorkflow
+                                    onDocumentAnalysisStart={handleDocumentAnalysisStart}
+                                    disabled={isStreaming || isGeneratingInterpretation || isSearching || isDeepSearchDraftStreaming || isDocumentAnalysisDraftStreaming}
+                                    isAnalyzing={mode === AIBOT_MODES.DOCUMENT}
+                                />
+                            )}
+                            </div>
+
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3 text-xs text-[#7C7A74]">
                                     <button
                                         type="button"
                                         className={clsx(
                                             'px-3 py-1 rounded-full border',
-                                            isDeepMode ? 'border-[#C9A063] text-[#C9A063]' : 'border-[#3A3A3A] text-[#A2A09A]'
+                                            mode === AIBOT_MODES.DEEP ? 'border-[#C9A063] text-[#C9A063]' : 'border-[#3A3A3A] text-[#A2A09A]'
                                         )}
-                                        onClick={() => setDeepMode(!isDeepMode)}
+                                        onClick={() => setMode(mode === AIBOT_MODES.DEEP ? AIBOT_MODES.TEXT : AIBOT_MODES.DEEP)}
                                     >
-                                        {isDeepMode ? '深度检索已开启' : '深度检索关闭'}
+                                        {mode === AIBOT_MODES.DEEP ? '深度检索已开启' : '深度检索关闭'}
                                     </button>
+                                    {/* 模式指示器 */}
+                                    <div className="flex items-center gap-1 text-xs">
+                                        <span className={clsx(
+                                            'w-2 h-2 rounded-full',
+                                            mode === AIBOT_MODES.TEXT ? 'bg-blue-500' : mode === AIBOT_MODES.DEEP ? 'bg-[#C9A063]' : 'bg-purple-500'
+                                        )}></span>
+                                        <span className={clsx(
+                                            mode === AIBOT_MODES.TEXT ? 'text-blue-400' : mode === AIBOT_MODES.DEEP ? 'text-[#C9A063]' : 'text-purple-400'
+                                        )}>
+                                            {mode === AIBOT_MODES.TEXT ? '简单' : mode === AIBOT_MODES.DEEP ? '深度' : '文档'}
+                                        </span>
+                                    </div>
                                     <button
                                         type="button"
                                         onClick={handleClear}
@@ -916,11 +1340,12 @@ export default function AIBotOverlay() {
                                 </div>
                                 <button
                                     type="submit"
-                                    disabled={isStreaming || isSearching || isDeepSearchDraftStreaming}
+                                    disabled={isStreaming || isSearching || isDeepSearchDraftStreaming || isDocumentAnalysisDraftStreaming || mode === AIBOT_MODES.DOCUMENT}
                                     className="px-4 py-2 rounded-full bg-[#C9A063] text-black text-sm disabled:opacity-50"
                                 >
-                                    {isSearching ? '检索中...' :
-                                     isDeepSearchDraftStreaming ? '生成草稿中...' :
+                                    {mode === AIBOT_MODES.DOCUMENT ? '文档分析模式' :
+                                     isSearching ? '检索中...' :
+                                     isDeepSearchDraftStreaming || isDocumentAnalysisDraftStreaming ? '生成草稿中...' :
                                      deepSearchPhase === 'draft-confirm' ? '确认检索' :
                                      deepSearchPhase !== 'idle' && deepSearchPhase !== 'completed' && isDeepMode ? '深度检索进行中...' :
                                      isDeepMode ? '开始深度检索' :
