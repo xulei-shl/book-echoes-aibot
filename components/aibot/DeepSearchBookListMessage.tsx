@@ -11,6 +11,7 @@ interface DeepSearchBookListMessageProps {
     userInput: string;
     onBookSelection?: (selectedBooks: BookInfo[]) => void;
     onGenerateInterpretation?: (selectedBooks: BookInfo[], draftMarkdown: string) => void;
+    onSecondaryRetrieval?: (selectedBooks: BookInfo[], query: string) => void; // 新增：二次检索回调
     isLoading?: boolean;
     // 新增：当报告开始生成时自动折叠
     autoCollapseOnReportStart?: boolean;
@@ -22,6 +23,7 @@ export default function DeepSearchBookListMessage({
     userInput,
     onBookSelection,
     onGenerateInterpretation,
+    onSecondaryRetrieval,
     isLoading = false,
     autoCollapseOnReportStart = false
 }: DeepSearchBookListMessageProps) {
@@ -85,6 +87,17 @@ export default function DeepSearchBookListMessage({
         } else {
             const selectedBooks = books.filter(book => selectedBookIds.has(book.id));
             onGenerateInterpretation?.(selectedBooks, draftMarkdown);
+        }
+    };
+
+    // 新增：二次检索
+    const handleSecondaryRetrieval = () => {
+        const selectedBooks = selectedCount > 0
+            ? books.filter(book => selectedBookIds.has(book.id))
+            : books; // 如果没有选择，使用所有图书
+
+        if (selectedBooks.length > 0 && onSecondaryRetrieval) {
+            onSecondaryRetrieval(selectedBooks, userInput);
         }
     };
 
@@ -177,6 +190,20 @@ export default function DeepSearchBookListMessage({
                                         </button>
                                         <div className="absolute bottom-full left-0 mb-2 px-3 py-2 bg-[#1B1B1B] text-[#E8E6DC] text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 border border-[#343434] shadow-lg max-w-xs min-w-48 font-body pointer-events-none">
                                             生成选中图书的AI解读，如未选择则自动筛选相似度{'>'}0.42的图书
+                                        </div>
+                                    </div>
+
+                                    {/* 新增：二次检索按钮 */}
+                                    <div className="relative group">
+                                        <button
+                                            onClick={handleSecondaryRetrieval}
+                                            disabled={isLoading || books.length === 0 || !onSecondaryRetrieval}
+                                            className="px-4 py-2 border border-[#343434] text-[#E8E6DC] rounded-lg text-sm hover:bg-[#1B1B1B] transition-colors font-body disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            二次检索 {selectedCount > 0 ? `(${selectedCount}本)` : `(${books.length}本)`}
+                                        </button>
+                                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-[#1B1B1B] text-[#E8E6DC] text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 border border-[#343434] shadow-lg max-w-xs min-w-48 font-body pointer-events-none">
+                                            基于选中图书进行二次检索，切换到简单检索模式
                                         </div>
                                     </div>
 

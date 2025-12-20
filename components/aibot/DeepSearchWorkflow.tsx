@@ -31,12 +31,14 @@ interface DeepSearchWorkflowProps {
     userInput: string;
     onInterpretationGenerated: (interpretation: string) => void;
     onCancel: () => void;
+    onSecondaryRetrieval?: (selectedBooks: BookInfo[], query: string) => void; // 新增：二次检索回调
 }
 
 export default function DeepSearchWorkflow({
     userInput,
     onInterpretationGenerated,
-    onCancel
+    onCancel,
+    onSecondaryRetrieval
 }: DeepSearchWorkflowProps) {
     const [phase, setPhase] = useState<DeepSearchPhase>('analysis');
     const [keywords, setKeywords] = useState<KeywordResult[]>([]);
@@ -468,8 +470,10 @@ export default function DeepSearchWorkflow({
                         <DeepSearchBookList
                             books={books}
                             draftMarkdown={draftMarkdown}
+                            userInput={userInput}
                             onBookSelection={handleBookSelection}
                             onGenerateInterpretation={handleGenerateInterpretation}
+                            onSecondaryRetrieval={onSecondaryRetrieval}
                             isLoading={isGenerating}
                         />
                     </motion.div>

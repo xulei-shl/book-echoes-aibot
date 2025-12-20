@@ -199,6 +199,7 @@ export default function MessageStream({
                                         draftMarkdown={(message as any).content.draftMarkdown}
                                         userInput={(message as any).content.userInput}
                                         onGenerateInterpretation={onDeepSearchGenerateInterpretation}
+                                        onSecondaryRetrieval={onSecondaryRetrieval}
                                         autoCollapseOnReportStart={isReportStartedOrCompleted}
                                     />
                                 )}

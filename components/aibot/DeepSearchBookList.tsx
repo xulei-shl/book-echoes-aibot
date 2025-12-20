@@ -8,16 +8,20 @@ import type { BookInfo } from '@/src/core/aibot/types';
 interface DeepSearchBookListProps {
     books: BookInfo[];
     draftMarkdown: string;
+    userInput: string; // 新增：用户原始输入
     onBookSelection: (selectedBooks: BookInfo[]) => void;
     onGenerateInterpretation: (selectedBooks: BookInfo[], draftMarkdown: string) => void;
+    onSecondaryRetrieval?: (selectedBooks: BookInfo[], query: string) => void; // 新增：二次检索回调
     isLoading?: boolean;
 }
 
 export default function DeepSearchBookList({
     books,
     draftMarkdown,
+    userInput,
     onBookSelection,
     onGenerateInterpretation,
+    onSecondaryRetrieval,
     isLoading = false
 }: DeepSearchBookListProps) {
     const [selectedBookIds, setSelectedBookIds] = useState<Set<string>>(new Set());
@@ -48,12 +52,19 @@ export default function DeepSearchBookList({
 
     const handleAutoSelect = () => {
         // 自动筛选相似度>0.4的图书
-        const autoSelectedBooks = books.filter(book => 
+        const autoSelectedBooks = books.filter(book =>
             (book.similarityScore || book.finalScore || 0) > 0.4
         );
         const autoSelectedIds = new Set(autoSelectedBooks.map(book => book.id));
         setSelectedBookIds(autoSelectedIds);
         onBookSelection(autoSelectedBooks);
+    };
+
+    // 新增：处理二次检索
+    const handleSecondaryRetrieval = () => {
+        if (selectedBooks.length > 0 && onSecondaryRetrieval) {
+            onSecondaryRetrieval(selectedBooks, userInput);
+        }
     };
 
     return (
@@ -167,7 +178,22 @@ export default function DeepSearchBookList({
                                             <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-[#343434]"></div>
                                         </div>
                                     </div>
-                                    
+
+                                    {/* 新增：二次检索按钮 */}
+                                    <div className="relative group">
+                                        <button
+                                            onClick={handleSecondaryRetrieval}
+                                            disabled={selectedBooks.length === 0 || !onSecondaryRetrieval || isLoading}
+                                            className="px-4 py-2 border border-[#343434] text-[#E8E6DC] rounded-lg text-sm hover:bg-[#1B1B1B] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            二次检索 {selectedBooks.length > 0 && `(${selectedBooks.length}本)`}
+                                        </button>
+                                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-[#1B1B1B] text-[#E8E6DC] text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 border border-[#343434] shadow-lg max-w-xs min-w-48">
+                                            基于选中图书进行二次检索，切换到简单检索模式
+                                            <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-[#343434]"></div>
+                                        </div>
+                                    </div>
+
                                     <div className="relative group">
                                         <button
                                             onClick={handleAutoSelect}
@@ -181,7 +207,7 @@ export default function DeepSearchBookList({
                                             <div className="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-[#343434]"></div>
                                         </div>
                                     </div>
-                                    
+
                                     <button
                                         onClick={() => {
                                             setSelectedBookIds(new Set());

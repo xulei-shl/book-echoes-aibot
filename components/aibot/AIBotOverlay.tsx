@@ -745,7 +745,18 @@ export default function AIBotOverlay() {
         // 清空选择状态，回到检索模式
         clearSelection();
         setRetrievalPhase('search');
-    }, [clearSelection, setRetrievalPhase]);
+
+        // 如果当前是深度检索模式，切换到简单检索模式
+        if (isDeepMode) {
+            setDeepMode(false);
+        }
+
+        console.log('[AIBotOverlay] 二次检索：切换到简单检索模式，填充输入框', {
+            selectedBooksCount: selectedBooks.length,
+            isDeepMode,
+            formattedTextLength: formattedText.length
+        });
+    }, [clearSelection, setRetrievalPhase, isDeepMode, setDeepMode]);
 
 
     const handleCopy = async () => {
