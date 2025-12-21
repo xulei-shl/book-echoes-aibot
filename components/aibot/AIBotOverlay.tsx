@@ -308,6 +308,9 @@ export default function AIBotOverlay() {
 
         try {
             const documentNames = documents.map(doc => doc.name).join(', ');
+            const defaultUserInput = `文档分析：${documentNames}`;
+            setDocumentAnalysisUserInput(defaultUserInput);
+            let analysisUserInput = defaultUserInput;
             console.log('[AIBotOverlay] 开始文档分析', {
                 documentCount: documents.length,
                 documentNames
@@ -394,6 +397,10 @@ export default function AIBotOverlay() {
                             } else if (data.type === 'draft-start') {
                                 // 草稿开始，保存文档分析结果
                                 documentAnalyses = data.documentAnalyses || [];
+                                if (typeof data.userInput === 'string' && data.userInput.trim()) {
+                                    analysisUserInput = data.userInput;
+                                    setDocumentAnalysisUserInput(data.userInput);
+                                }
 
                                 // 添加草稿消息
                                 if (!draftMessageAdded) {
@@ -406,7 +413,7 @@ export default function AIBotOverlay() {
                                             isStreaming: true,
                                             isComplete: false,
                                             documentAnalyses,
-                                            userInput: `文档分析：${documentNames}`
+                                            userInput: analysisUserInput
                                         }
                                     } as any;
                                     appendMessage(draftMessage);
@@ -427,7 +434,7 @@ export default function AIBotOverlay() {
                                     isStreaming: true,
                                     isComplete: false,
                                     documentAnalyses,
-                                    userInput: `文档分析：${documentNames}`
+                                    userInput: analysisUserInput
                                 } as any);
                             } else if (data.type === 'draft-complete') {
                                 // 草稿完成
@@ -443,7 +450,7 @@ export default function AIBotOverlay() {
                                     isStreaming: false,
                                     isComplete: true,
                                     documentAnalyses,
-                                    userInput: `文档分析：${documentNames}`
+                                    userInput: analysisUserInput
                                 } as any);
                             }
                         } catch (parseError) {
