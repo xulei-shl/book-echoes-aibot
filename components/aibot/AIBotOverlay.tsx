@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
@@ -18,7 +18,8 @@ import type {
     DuckDuckGoSnippet,
     UploadedDocument,
     DocumentAnalysisMessageContent,
-    DocumentAnalysisPhase
+    DocumentAnalysisPhase,
+    DocumentAnalysisLogEntry
 } from '@/src/core/aibot/types';
 import { AIBOT_MODES, type AIBotMode } from '@/src/core/aibot/constants';
 import type { LogEntry, SearchPhase } from '@/components/aibot/ProgressLogDisplay';
@@ -131,6 +132,7 @@ export default function AIBotOverlay() {
     const [inputValue, setInputValue] = useState('');
     const [isMounted, setIsMounted] = useState(false);
     const [isSearching, setIsSearching] = useState(false);
+    const documentAnalysisLogsRef = useRef<DocumentAnalysisLogEntry[]>(documentAnalysisLogs);
 
     // 简单检索进度日志状态
     const [simpleSearchLogs, setSimpleSearchLogs] = useState<LogEntry[]>([]);
@@ -171,9 +173,31 @@ export default function AIBotOverlay() {
         setSimpleSearchPhase('');
     }, []);
 
+    const pushDocumentAnalysisLog = useCallback((entry: DocumentAnalysisLogEntry, targetMessageId?: string) => {
+        documentAnalysisLogsRef.current = [
+            ...documentAnalysisLogsRef.current.filter(log => log.phase !== entry.phase),
+            entry
+        ];
+
+        addDocumentAnalysisLog(entry);
+
+        const messageId = targetMessageId ?? documentAnalysisProgressMessageId;
+        if (messageId) {
+            updateMessageContent(messageId, {
+                type: 'document-analysis-progress',
+                logs: documentAnalysisLogsRef.current,
+                currentPhase: entry.phase
+            } as any);
+        }
+    }, [addDocumentAnalysisLog, documentAnalysisProgressMessageId, updateMessageContent]);
+
     useEffect(() => {
         setIsMounted(true);
     }, []);
+
+    useEffect(() => {
+        documentAnalysisLogsRef.current = documentAnalysisLogs;
+    }, [documentAnalysisLogs]);
 
     const lastAssistant = useMemo(() => {
         for (let i = messages.length - 1; i >= 0; i -= 1) {
@@ -291,6 +315,7 @@ export default function AIBotOverlay() {
     const executeDocumentAnalysis = async (documents: UploadedDocument[]) => {
         // 重置文档分析状态
         resetDocumentAnalysis();
+        documentAnalysisLogsRef.current = [];
         setDocumentAnalysisPhase('progress');
 
         // 添加进度消息
@@ -365,8 +390,7 @@ export default function AIBotOverlay() {
                             const data = JSON.parse(line.slice(6));
 
                             if (data.type === 'progress') {
-                                // 更新进度日志
-                                const logEntry = {
+                                const logEntry: DocumentAnalysisLogEntry = {
                                     id: `${data.phase}-${Date.now()}`,
                                     timestamp: new Date().toLocaleTimeString('zh-CN'),
                                     phase: data.phase,
@@ -374,27 +398,7 @@ export default function AIBotOverlay() {
                                     message: data.message,
                                     details: data.details
                                 };
-                                addDocumentAnalysisLog(logEntry);
-
-                                // 获取当前的日志列表
-                                const getCurrentLogs = () => {
-                                    return documentAnalysisLogs.map(log =>
-                                        log.phase === data.phase ? logEntry : log
-                                    );
-                                };
-
-                                // 确保日志中包含当前阶段
-                                const updatedLogs = getCurrentLogs();
-                                if (!updatedLogs.some(log => log.phase === data.phase)) {
-                                    updatedLogs.push(logEntry);
-                                }
-
-                                // 更新进度消息内容
-                                updateMessageContent(progressMessageId, {
-                                    type: 'document-analysis-progress',
-                                    logs: updatedLogs,
-                                    currentPhase: data.phase
-                                } as any);
+                                pushDocumentAnalysisLog(logEntry, progressMessageId);
                             } else if (data.type === 'draft-start') {
                                 // 草稿开始，保存文档分析结果
                                 documentAnalyses = data.documentAnalyses || [];
@@ -854,6 +858,13 @@ export default function AIBotOverlay() {
         if (documentAnalysisDraftContent) {
             // 复用深度检索的图书检索流程
             setDocumentAnalysisPhase('book-search');
+            pushDocumentAnalysisLog({
+                id: `book-search-${Date.now()}`,
+                timestamp: new Date().toLocaleTimeString('zh-CN'),
+                phase: 'book-search',
+                status: 'running',
+                message: '正在检索相关图书...'
+            }, documentAnalysisProgressMessageId || undefined);
 
             try {
                 const response = await fetch('/api/local-aibot/document-analysis/book-search', {
@@ -874,6 +885,13 @@ export default function AIBotOverlay() {
                 if (data.success) {
                     const books = data.retrievalResult?.books || [];
                     setDocumentAnalysisBooks(books);
+                    pushDocumentAnalysisLog({
+                        id: `book-search-${Date.now()}`,
+                        timestamp: new Date().toLocaleTimeString('zh-CN'),
+                        phase: 'book-search',
+                        status: 'completed',
+                        message: `找到 ${books.length} 本相关图书`
+                    }, documentAnalysisProgressMessageId || undefined);
 
                     // 添加图书列表消息
                     const booksMessageId = crypto.randomUUID();
@@ -895,11 +913,18 @@ export default function AIBotOverlay() {
                 }
             } catch (error) {
                 console.error('图书检索错误:', error);
+                pushDocumentAnalysisLog({
+                    id: `book-search-${Date.now()}`,
+                    timestamp: new Date().toLocaleTimeString('zh-CN'),
+                    phase: 'book-search',
+                    status: 'error',
+                    message: error instanceof Error ? error.message : '图书检索失败'
+                }, documentAnalysisProgressMessageId || undefined);
                 setError(error instanceof Error ? error.message : '图书检索失败');
                 setDocumentAnalysisPhase('draft-confirm');
             }
         }
-    }, [documentAnalysisDraftContent, documentAnalysisUserInput, appendMessage, setError]);
+    }, [appendMessage, documentAnalysisDraftContent, documentAnalysisProgressMessageId, documentAnalysisUserInput, pushDocumentAnalysisLog, setDocumentAnalysisBooks, setDocumentAnalysisBooksMessageId, setDocumentAnalysisPhase, setError]);
 
     // 文档分析：重新生成
     const handleDocumentAnalysisDraftRegenerate = useCallback(() => {
@@ -921,6 +946,13 @@ export default function AIBotOverlay() {
     const handleDocumentAnalysisGenerateInterpretation = useCallback(async (selectedBooks: BookInfo[], draftMarkdown: string) => {
         setDocumentAnalysisSelectedBooks(selectedBooks);
         setDocumentAnalysisPhase('report-streaming');
+        pushDocumentAnalysisLog({
+            id: `report-generation-${Date.now()}`,
+            timestamp: new Date().toLocaleTimeString('zh-CN'),
+            phase: 'report-generation',
+            status: 'running',
+            message: '正在生成解读报告...'
+        }, documentAnalysisProgressMessageId || undefined);
 
         // 添加解读消息
         const reportMessage: UIMessage = {
@@ -958,12 +990,26 @@ export default function AIBotOverlay() {
             }
 
             setDocumentAnalysisPhase('completed');
+            pushDocumentAnalysisLog({
+                id: `report-generation-${Date.now()}`,
+                timestamp: new Date().toLocaleTimeString('zh-CN'),
+                phase: 'report-generation',
+                status: 'completed',
+                message: '解读报告生成完成'
+            }, documentAnalysisProgressMessageId || undefined);
         } catch (error) {
             console.error('文档解读生成错误:', error);
+            pushDocumentAnalysisLog({
+                id: `report-generation-${Date.now()}`,
+                timestamp: new Date().toLocaleTimeString('zh-CN'),
+                phase: 'report-generation',
+                status: 'error',
+                message: error instanceof Error ? error.message : '文档解读生成失败'
+            }, documentAnalysisProgressMessageId || undefined);
             setError(error instanceof Error ? error.message : '文档解读生成失败');
             setDocumentAnalysisPhase('book-selection');
         }
-    }, [documentAnalysisUserInput, appendMessage, updateMessageContent, setDocumentAnalysisSelectedBooks, setDocumentAnalysisPhase, setError]);
+    }, [appendMessage, documentAnalysisProgressMessageId, documentAnalysisUserInput, pushDocumentAnalysisLog, setDocumentAnalysisPhase, setDocumentAnalysisSelectedBooks, setError, updateLastAssistantMessage]);
 
     // 执行简单检索（带分类）
     const performSimpleSearchWithClassification = async (query: string) => {

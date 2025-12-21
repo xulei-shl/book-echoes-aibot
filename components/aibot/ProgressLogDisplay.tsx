@@ -7,10 +7,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 type DeepSearchPhase = 'keyword' | 'search' | 'analysis' | 'cross-analysis' | 'book-search';
 // 简单检索阶段
 type SimpleSearchPhase = 'classify' | 'expand' | 'parallel-search' | 'merge';
+// 文档分析阶段
+type DocumentAnalysisPhaseType = 'document-analysis' | 'report-generation';
 // 通用阶段
 type CommonPhase = 'completed' | 'error';
 // 所有阶段类型
-export type SearchPhase = DeepSearchPhase | SimpleSearchPhase | CommonPhase;
+export type SearchPhase = DeepSearchPhase | SimpleSearchPhase | DocumentAnalysisPhaseType | CommonPhase;
 
 export interface LogEntry {
     id: string;
@@ -36,6 +38,9 @@ const PHASE_LABELS: Record<SearchPhase, string> = {
     'analysis': '文章分析',
     'cross-analysis': '交叉分析',
     'book-search': '图书检索',
+    // 文档分析阶段
+    'document-analysis': '文档分析',
+    'report-generation': '报告生成',
     // 简单检索阶段
     'classify': '问题分类',
     'expand': '检索扩展',
@@ -53,6 +58,9 @@ const PHASE_ICONS: Record<SearchPhase, string> = {
     'analysis': '📄',
     'cross-analysis': '🔗',
     'book-search': '📚',
+    // 文档分析阶段
+    'document-analysis': '📄',
+    'report-generation': '📝',
     // 简单检索阶段
     'classify': '🏷️',
     'expand': '🔀',
