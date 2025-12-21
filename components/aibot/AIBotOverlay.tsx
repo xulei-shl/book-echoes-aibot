@@ -1226,7 +1226,10 @@ export default function AIBotOverlay() {
         setPendingDraft(null, undefined);
         setError(undefined);
         resetDeepSearch(); // 重置深度检索状态
-
+        resetDocumentAnalysis(); // 重置文档分析状态
+        clearUploadedDocuments(); // 清空已上传文档
+        setMode(AIBOT_MODES.TEXT); // 回到简单模式，恢复上传能力
+        
         // 清空后端历史记录
         try {
             await fetch('/api/local-aibot/clear', {
