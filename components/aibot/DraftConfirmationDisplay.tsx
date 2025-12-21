@@ -1,7 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { messageMarkdownComponents } from '@/lib/markdownComponents';
+
+// 兼容 LLM 输出时整体包裹 ```markdown ... ``` 的情况
+const cleanMarkdownCodeBlock = (content: string): string => {
+    const codeBlockPattern = /^```(?:markdown|md)?\s*\n?([\s\S]*?)\n?```\s*$/;
+    const match = content.trim().match(codeBlockPattern);
+    return match ? match[1].trim() : content;
+};
 
 interface DraftConfirmationDisplayProps {
     draftMarkdown: string;
@@ -28,13 +38,37 @@ export default function DraftConfirmationDisplay({
 }: DraftConfirmationDisplayProps) {
     const [isExpanded, setIsExpanded] = useState(true);
     const [showMetadata, setShowMetadata] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
+    const [editValue, setEditValue] = useState('');
+    const cleanedDraft = cleanMarkdownCodeBlock(draftMarkdown || '');
+
+    useEffect(() => {
+        if (!isEditing) {
+            setEditValue(cleanedDraft);
+        }
+    }, [cleanedDraft, isEditing]);
+
+    const handleStartEdit = () => {
+        setEditValue(cleanedDraft);
+        setIsEditing(true);
+    };
+
+    const handleSaveEdit = () => {
+        onDraftChange(editValue);
+        setIsEditing(false);
+    };
+
+    const handleCancelEdit = () => {
+        setEditValue(cleanedDraft);
+        setIsEditing(false);
+    };
 
     return (
         <div className="mb-4">
             {/* 草稿确认头部 */}
             <motion.div
                 className="flex items-center justify-between p-3 rounded-t-xl border border-[#343434] bg-[rgba(201,160,99,0.1)] cursor-pointer"
-                onClick={() => setIsExpanded(!isExpanded)}
+                onClick={() => !isEditing && setIsExpanded(!isExpanded)}
                 whileHover={{ backgroundColor: 'rgba(201, 160, 99, 0.2)' }}
                 transition={{ duration: 0.2 }}
             >
@@ -121,22 +155,76 @@ export default function DraftConfirmationDisplay({
                                 )}
                             </AnimatePresence>
 
-                            {/* Markdown编辑器 */}
+                            {/* Markdown 实时渲染与编辑 */}
                             <div className="p-4">
                                 <div className="mb-3 flex items-center justify-between">
-                                    <h4 className="text-[#C9A063] text-sm font-medium">检索草稿</h4>
-                                    <div className="text-xs text-[#6F6D68]">
-                                        可编辑调整，确认后将用于深度检索
+                                    <div>
+                                        <h4 className="text-[#C9A063] text-sm font-medium">交叉分析草稿</h4>
+                                        <div className="text-xs text-[#6F6D68] mt-1">
+                                            {isEditing ? '纯文本编辑模式' : '确认后将用于深度检索'}
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {isGenerating && cleanedDraft && !isEditing && (
+                                            <span className="text-xs text-[#A2A09A]">流式更新中...</span>
+                                        )}
+                                        {!isGenerating && (
+                                            isEditing ? (
+                                                <>
+                                                    <button
+                                                        onClick={handleSaveEdit}
+                                                        className="px-3 py-1 bg-[#C9A063] text-black rounded text-xs font-medium hover:bg-[#D4A863] transition-colors"
+                                                    >
+                                                        保存
+                                                    </button>
+                                                    <button
+                                                        onClick={handleCancelEdit}
+                                                        className="px-3 py-1 border border-[#343434] text-[#A2A09A] rounded text-xs hover:bg-[#1B1B1B] transition-colors"
+                                                    >
+                                                        取消
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <button
+                                                    onClick={handleStartEdit}
+                                                    className="px-3 py-1 border border-[#343434] text-[#E8E6DC] rounded text-xs hover:bg-[#1B1B1B] transition-colors"
+                                                >
+                                                    编辑
+                                                </button>
+                                            )
+                                        )}
                                     </div>
                                 </div>
-                                
-                                <textarea
-                                    value={draftMarkdown}
-                                    onChange={(e) => onDraftChange(e.target.value)}
-                                    className="w-full h-64 rounded-lg bg-[#1B1B1B] border border-[#343434] text-sm text-[#E8E6DC] p-3 focus:outline-none focus:border-[#C9A063] font-info-content resize-none"
-                                    placeholder="检索草稿将在此显示..."
-                                    disabled={isGenerating}
-                                />
+
+                                {isEditing ? (
+                                    <textarea
+                                        value={editValue}
+                                        onChange={(e) => setEditValue(e.target.value)}
+                                        className="w-full h-64 rounded-lg bg-[#1B1B1B] border border-[#343434] text-sm text-[#E8E6DC] p-3 focus:outline-none focus:border-[#C9A063] font-info-content resize-none"
+                                        placeholder="检索草稿将在此显示..."
+                                    />
+                                ) : (
+                                    <div className="rounded-lg border border-[#343434] bg-[#1B1B1B] p-3 max-h-80 overflow-y-auto about-overlay-scroll">
+                                        {cleanedDraft ? (
+                                            <div
+                                                className="prose prose-invert prose-sm max-w-none font-info-content"
+                                                suppressHydrationWarning
+                                            >
+                                                <ReactMarkdown
+                                                    remarkPlugins={[remarkGfm]}
+                                                    components={messageMarkdownComponents}
+                                                >
+                                                    {cleanedDraft}
+                                                </ReactMarkdown>
+                                            </div>
+                                        ) : (
+                                            <p className="text-xs text-[#6F6D68]">等待内容生成...</p>
+                                        )}
+                                        {isGenerating && cleanedDraft && (
+                                            <span className="inline-block w-2 h-4 bg-[#C9A063] animate-pulse ml-1 align-middle" />
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
                             {/* 操作按钮 */}
