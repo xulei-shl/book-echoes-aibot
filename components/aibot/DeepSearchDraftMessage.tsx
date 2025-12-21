@@ -6,6 +6,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { messageMarkdownComponents } from '@/lib/markdownComponents';
 import type { DuckDuckGoSnippet, KeywordResult } from '@/src/core/aibot/types';
+import { useAIBotStore } from '@/store/aibot/useAIBotStore';
 
 // 清理 markdown 代码块包裹
 const cleanMarkdownCodeBlock = (content: string): string => {
@@ -43,6 +44,7 @@ export default function DeepSearchDraftMessage({
     const [showMetadata, setShowMetadata] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [editValue, setEditValue] = useState('');
+    const { deepSearchPhase } = useAIBotStore();
 
     // 当草稿完成时，初始化编辑值
     useEffect(() => {
@@ -283,6 +285,23 @@ export default function DeepSearchDraftMessage({
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            {/* 图书检索进度提示 - 放在交叉分析模块底部 */}
+            {(deepSearchPhase === 'book-search' || deepSearchPhase === 'book-selection') && (
+                <div className="flex items-center gap-2 text-sm font-medium text-[#E8E6DC]">
+                    {deepSearchPhase === 'book-search' ? (
+                        <>
+                            <div className="w-3 h-3 border-2 border-[#C9A063] border-t-transparent rounded-full animate-spin"></div>
+                            正在检索相关图书...
+                        </>
+                    ) : (
+                        <>
+                            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                            图书检索完成
+                        </>
+                    )}
+                </div>
+            )}
         </div>
     );
 }
