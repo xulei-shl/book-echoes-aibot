@@ -126,6 +126,9 @@ export default function AIBotOverlay() {
         setDocumentAnalysisBooks,
         setDocumentAnalysisSelectedBooks,
         setDocumentAnalysisUserInput,
+        setDocumentAnalysisReportMessageId,
+        setDocumentAnalysisReportContent,
+        setDocumentAnalysisReportStreaming,
         resetDocumentAnalysis,
     } = useAIBotStore();
 
@@ -946,6 +949,8 @@ export default function AIBotOverlay() {
     const handleDocumentAnalysisGenerateInterpretation = useCallback(async (selectedBooks: BookInfo[], draftMarkdown: string) => {
         setDocumentAnalysisSelectedBooks(selectedBooks);
         setDocumentAnalysisPhase('report-streaming');
+        setDocumentAnalysisReportContent('');
+        setDocumentAnalysisReportStreaming(true);
         pushDocumentAnalysisLog({
             id: `report-generation-${Date.now()}`,
             timestamp: new Date().toLocaleTimeString('zh-CN'),
@@ -954,13 +959,23 @@ export default function AIBotOverlay() {
             message: '正在生成解读报告...'
         }, documentAnalysisProgressMessageId || undefined);
 
-        // 添加解读消息
+        // 预先添加解读消息，方便流式实时渲染
+        const reportMessageId = crypto.randomUUID();
         const reportMessage: UIMessage = {
-            id: crypto.randomUUID(),
+            id: reportMessageId,
             role: 'assistant',
-            content: ''  // 使用空字符串初始化，后续用 updateLastAssistantMessage 更新
+            content: {
+                type: 'document-analysis-report',
+                reportMarkdown: '',
+                isStreaming: true,
+                isComplete: false,
+                selectedBooks
+            }
         } as any;
         appendMessage(reportMessage);
+        setDocumentAnalysisReportMessageId(reportMessageId);
+
+        let buffer = '';
 
         try {
             const response = await fetch('/api/local-aibot/deep-interpretation', {
@@ -977,19 +992,32 @@ export default function AIBotOverlay() {
                 throw new Error('文档解读生成失败');
             }
 
-            // 流式读取解读内容
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
-            let buffer = '';
 
             while (true) {
                 const { value, done } = await reader.read();
                 if (done) break;
                 buffer += decoder.decode(value, { stream: true });
-                updateLastAssistantMessage(buffer);
+                setDocumentAnalysisReportContent(buffer);
+                updateMessageContent(reportMessageId, {
+                    type: 'document-analysis-report',
+                    reportMarkdown: buffer,
+                    isStreaming: true,
+                    isComplete: false,
+                    selectedBooks
+                } as any);
             }
 
             setDocumentAnalysisPhase('completed');
+            setDocumentAnalysisReportStreaming(false);
+            updateMessageContent(reportMessageId, {
+                type: 'document-analysis-report',
+                reportMarkdown: buffer,
+                isStreaming: false,
+                isComplete: true,
+                selectedBooks
+            } as any);
             pushDocumentAnalysisLog({
                 id: `report-generation-${Date.now()}`,
                 timestamp: new Date().toLocaleTimeString('zh-CN'),
@@ -1008,8 +1036,30 @@ export default function AIBotOverlay() {
             }, documentAnalysisProgressMessageId || undefined);
             setError(error instanceof Error ? error.message : '文档解读生成失败');
             setDocumentAnalysisPhase('book-selection');
+            updateMessageContent(reportMessageId, {
+                type: 'document-analysis-report',
+                reportMarkdown: buffer || '文档解读生成失败，请重试。',
+                isStreaming: false,
+                isComplete: false,
+                selectedBooks
+            } as any);
+        } finally {
+            setDocumentAnalysisReportStreaming(false);
+            setDocumentAnalysisReportContent(buffer);
         }
-    }, [appendMessage, documentAnalysisProgressMessageId, documentAnalysisUserInput, pushDocumentAnalysisLog, setDocumentAnalysisPhase, setDocumentAnalysisSelectedBooks, setError, updateLastAssistantMessage]);
+    }, [
+        appendMessage,
+        documentAnalysisProgressMessageId,
+        documentAnalysisUserInput,
+        pushDocumentAnalysisLog,
+        setDocumentAnalysisPhase,
+        setDocumentAnalysisReportContent,
+        setDocumentAnalysisReportMessageId,
+        setDocumentAnalysisReportStreaming,
+        setDocumentAnalysisSelectedBooks,
+        setError,
+        updateMessageContent
+    ]);
 
     // 执行简单检索（带分类）
     const performSimpleSearchWithClassification = async (query: string) => {

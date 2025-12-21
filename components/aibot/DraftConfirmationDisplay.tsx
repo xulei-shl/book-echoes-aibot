@@ -159,7 +159,7 @@ export default function DraftConfirmationDisplay({
                             <div className="p-4">
                                 <div className="mb-3 flex items-center justify-between">
                                     <div>
-                                        <h4 className="text-[#C9A063] text-sm font-medium">交叉分析草稿</h4>
+                                        {/* <h4 className="text-[#C9A063] text-sm font-medium">交叉分析草稿</h4> */}
                                         <div className="text-xs text-[#6F6D68] mt-1">
                                             {isEditing ? '纯文本编辑模式' : '确认后将用于深度检索'}
                                         </div>

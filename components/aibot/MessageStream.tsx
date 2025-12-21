@@ -24,7 +24,8 @@ import type {
     DocumentAnalysisMessageContent,
     DocumentAnalysisProgressContent,
     DocumentAnalysisDraftContent,
-    DocumentAnalysisBooksContent
+    DocumentAnalysisBooksContent,
+    DocumentAnalysisReportContent
 } from '@/src/core/aibot/types';
 
 // 深度检索消息内容类型定义
@@ -95,6 +96,10 @@ const isDocumentAnalysisBooks = (content: unknown): content is DocumentAnalysisB
     return typeof content === 'object' && content !== null && (content as any).type === 'document-analysis-books';
 };
 
+const isDocumentAnalysisReport = (content: unknown): content is DocumentAnalysisReportContent => {
+    return typeof content === 'object' && content !== null && (content as any).type === 'document-analysis-report';
+};
+
 // 判断消息内容是否为深度检索类型
 const isDeepSearchMessage = (content: unknown): content is DeepSearchMessageContent => {
     return isDeepSearchProgress(content) || isDeepSearchDraft(content) || isDeepSearchBooks(content) || isDeepSearchReport(content);
@@ -102,7 +107,7 @@ const isDeepSearchMessage = (content: unknown): content is DeepSearchMessageCont
 
 // 判断消息内容是否为文档分析类型
 const isDocumentAnalysisMessage = (content: unknown): content is DocumentAnalysisMessageContent => {
-    return isDocumentAnalysisProgress(content) || isDocumentAnalysisDraft(content) || isDocumentAnalysisBooks(content);
+    return isDocumentAnalysisProgress(content) || isDocumentAnalysisDraft(content) || isDocumentAnalysisBooks(content) || isDocumentAnalysisReport(content);
 };
 
 // 清理 markdown 代码块包裹（LLM 可能返回 ```markdown ... ``` 格式）
@@ -276,6 +281,30 @@ export default function MessageStream({
                                         onSecondaryRetrieval={onSecondaryRetrieval}
                                         autoCollapseOnReportStart={false} // 文档分析暂不使用自动折叠
                                     />
+                                )}
+
+                                {/* 文档分析解读报告消息 */}
+                                {isDocumentAnalysisReport((message as any).content) && (
+                                    <div
+                                        className="bg-[#1B1B1B] border border-[#343434] rounded-xl p-4"
+                                        key={`document-report-container-${message.id}`}
+                                    >
+                                        <div
+                                            className="prose prose-invert prose-sm max-w-none font-info-content"
+                                            suppressHydrationWarning
+                                            key={`document-report-markdown-${message.id}`}
+                                        >
+                                            <ReactMarkdown
+                                                remarkPlugins={[remarkGfm]}
+                                                components={messageMarkdownComponents}
+                                            >
+                                                {cleanMarkdownCodeBlock((message as any).content.reportMarkdown || '')}
+                                            </ReactMarkdown>
+                                        </div>
+                                        {(message as any).content.isStreaming && (
+                                            <span className="inline-block w-2 h-4 bg-[#C9A063] animate-pulse ml-1"></span>
+                                        )}
+                                    </div>
                                 )}
 
                                 {/* 深度检索解读报告消息 */}
