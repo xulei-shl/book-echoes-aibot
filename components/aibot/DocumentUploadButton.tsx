@@ -76,6 +76,7 @@ export default function DocumentUploadButton({
 
     const isNearLimit = uploadedCount >= maxFiles - 1;
     const buttonDisabled = disabled || uploadedCount >= maxFiles;
+    const hasUploadedDocuments = uploadedCount > 0;
 
     return (
         <div className="relative flex items-center">
@@ -88,7 +89,9 @@ export default function DocumentUploadButton({
                     flex items-center gap-2
                     ${buttonDisabled
                         ? 'border-[#3A3A3A] text-[#555] cursor-not-allowed opacity-60'
-                        : 'border-[#C9A063] text-[#C9A063] hover:bg-[#C9A063] hover:text-black'
+                        : hasUploadedDocuments
+                            ? 'border-[#C9A063] text-[#C9A063] hover:border-[#E4B56F] hover:text-[#E4B56F]'
+                            : 'border-[#3A3A3A] text-[#A2A09A] hover:border-[#C9A063] hover:text-[#C9A063]'
                     }
                 `}
                 title={buttonDisabled

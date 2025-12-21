@@ -136,6 +136,16 @@ export default function AIBotOverlay() {
     const [isMounted, setIsMounted] = useState(false);
     const [isSearching, setIsSearching] = useState(false);
     const documentAnalysisLogsRef = useRef<DocumentAnalysisLogEntry[]>(documentAnalysisLogs);
+    const hasReadyDocuments = useMemo(
+        () => uploadedDocuments.some(doc => doc.status === 'ready'),
+        [uploadedDocuments]
+    );
+    const displayMode = useMemo(() => {
+        if (mode === AIBOT_MODES.DOCUMENT) {
+            return AIBOT_MODES.DOCUMENT;
+        }
+        return hasReadyDocuments ? AIBOT_MODES.DOCUMENT : mode;
+    }, [mode, hasReadyDocuments]);
 
     // 简单检索进度日志状态
     const [simpleSearchLogs, setSimpleSearchLogs] = useState<LogEntry[]>([]);
@@ -1436,12 +1446,12 @@ export default function AIBotOverlay() {
                                     <div className="flex items-center gap-1 text-xs">
                                         <span className={clsx(
                                             'w-2 h-2 rounded-full',
-                                            mode === AIBOT_MODES.TEXT ? 'bg-blue-500' : mode === AIBOT_MODES.DEEP ? 'bg-[#C9A063]' : 'bg-purple-500'
+                                            displayMode === AIBOT_MODES.TEXT ? 'bg-blue-500' : displayMode === AIBOT_MODES.DEEP ? 'bg-[#C9A063]' : 'bg-purple-500'
                                         )}></span>
                                         <span className={clsx(
-                                            mode === AIBOT_MODES.TEXT ? 'text-blue-400' : mode === AIBOT_MODES.DEEP ? 'text-[#C9A063]' : 'text-purple-400'
+                                            displayMode === AIBOT_MODES.TEXT ? 'text-blue-400' : displayMode === AIBOT_MODES.DEEP ? 'text-[#C9A063]' : 'text-purple-400'
                                         )}>
-                                            {mode === AIBOT_MODES.TEXT ? '简单' : mode === AIBOT_MODES.DEEP ? '深度' : '文档'}
+                                            {displayMode === AIBOT_MODES.TEXT ? '简单' : displayMode === AIBOT_MODES.DEEP ? '深度' : '文档'}
                                         </span>
                                     </div>
                                     <button
