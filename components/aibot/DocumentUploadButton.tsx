@@ -4,7 +4,7 @@ import React, { useRef } from 'react';
 import type { UploadedDocument } from '@/src/core/aibot/types';
 
 interface DocumentUploadButtonProps {
-    onFilesSelected: (files: File[]) => void;
+    onFilesSelected: (files: File[]) => void | Promise<void>;
     disabled?: boolean;
     uploadedCount?: number;
     maxFiles?: number;
@@ -78,17 +78,17 @@ export default function DocumentUploadButton({
     const buttonDisabled = disabled || uploadedCount >= maxFiles;
 
     return (
-        <div className="relative">
+        <div className="relative flex items-center">
             <button
                 type="button"
                 onClick={handleClick}
                 disabled={buttonDisabled}
                 className={`
-                    relative w-8 h-8 rounded-full border-2 border-dashed transition-all duration-200
-                    flex items-center justify-center text-lg
+                    px-3 py-1 rounded-full border text-xs font-medium transition-colors duration-200
+                    flex items-center gap-2
                     ${buttonDisabled
-                        ? 'border-gray-600 text-gray-600 cursor-not-allowed opacity-50'
-                        : 'border-[#C9A063] text-[#C9A063] hover:border-[#B8935A] hover:text-[#B8935A] hover:scale-105 cursor-pointer'
+                        ? 'border-[#3A3A3A] text-[#555] cursor-not-allowed opacity-60'
+                        : 'border-[#C9A063] text-[#C9A063] hover:bg-[#C9A063] hover:text-black'
                     }
                 `}
                 title={buttonDisabled
@@ -96,7 +96,7 @@ export default function DocumentUploadButton({
                     : `上传Markdown文档（${uploadedCount}/${maxFiles}）`
                 }
             >
-                +
+                上传文档
             </button>
 
             <input
@@ -111,16 +111,15 @@ export default function DocumentUploadButton({
 
             {/* 数量提示 */}
             {uploadedCount > 0 && (
-                <div className={`
-                    absolute -bottom-1 -right-1 w-4 h-4 rounded-full text-xs text-center
-                    flex items-center justify-center font-medium
+                <span className={`
+                    ml-2 px-2 py-0.5 rounded-full text-[10px] font-medium
                     ${isNearLimit
                         ? 'bg-orange-500 text-white'
-                        : 'bg-[#C9A063] text-black'
+                        : 'bg-[#2A2A2A] text-[#C9A063]'
                     }
                 `}>
-                    {uploadedCount}
-                </div>
+                    {uploadedCount}/{maxFiles}
+                </span>
             )}
         </div>
     );

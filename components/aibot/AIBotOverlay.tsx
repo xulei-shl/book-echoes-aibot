@@ -5,7 +5,8 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import MessageStream from '@/components/aibot/MessageStream';
-import DocumentUploadWorkflow from '@/components/aibot/DocumentUploadWorkflow';
+import DocumentUploadButton from '@/components/aibot/DocumentUploadButton';
+import DocumentUploadWorkflow, { useDocumentUploadController, MAX_DOCUMENTS } from '@/components/aibot/DocumentUploadWorkflow';
 import DocumentAnalysisProgressMessage from '@/components/aibot/DocumentAnalysisProgressMessage';
 import DocumentAnalysisDraftMessage from '@/components/aibot/DocumentAnalysisDraftMessage';
 import { useAIBotStore } from '@/store/aibot/useAIBotStore';
@@ -828,6 +829,8 @@ export default function AIBotOverlay() {
         await executeDocumentAnalysis(documents);
     }, [setMode, appendMessage, executeDocumentAnalysis]);
 
+    const documentUploadController = useDocumentUploadController(handleDocumentAnalysisStart);
+
     // 文档分析：草稿内容变更
     const handleDocumentAnalysisDraftChange = useCallback((value: string) => {
         setDocumentAnalysisDraftContent(value);
@@ -1298,7 +1301,7 @@ export default function AIBotOverlay() {
                             {/* 文档上传工作流组件 - 在简单模式和文档模式下显示 */}
                             {(mode === AIBOT_MODES.TEXT || mode === AIBOT_MODES.DOCUMENT) && (
                                 <DocumentUploadWorkflow
-                                    onDocumentAnalysisStart={handleDocumentAnalysisStart}
+                                    controller={documentUploadController}
                                     disabled={isStreaming || isGeneratingInterpretation || isSearching || isDeepSearchDraftStreaming || isDocumentAnalysisDraftStreaming}
                                     isAnalyzing={mode === AIBOT_MODES.DOCUMENT}
                                 />
@@ -1307,6 +1310,19 @@ export default function AIBotOverlay() {
 
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3 text-xs text-[#7C7A74]">
+                                    <DocumentUploadButton
+                                        onFilesSelected={documentUploadController.handleFilesSelected}
+                                        disabled={
+                                            isStreaming ||
+                                            isGeneratingInterpretation ||
+                                            isSearching ||
+                                            isDeepSearchDraftStreaming ||
+                                            isDocumentAnalysisDraftStreaming ||
+                                            mode === AIBOT_MODES.DOCUMENT
+                                        }
+                                        uploadedCount={documentUploadController.uploadedDocuments.length}
+                                        maxFiles={MAX_DOCUMENTS}
+                                    />
                                     <button
                                         type="button"
                                         className={clsx(
