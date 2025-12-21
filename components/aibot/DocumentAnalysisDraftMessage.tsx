@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import DraftConfirmationDisplay from './DraftConfirmationDisplay';
 import type { DocumentAnalysisDraftContent } from '@/src/core/aibot/types';
+import { useAIBotStore } from '@/store/aibot/useAIBotStore';
 
 interface DocumentAnalysisDraftMessageProps {
     content: DocumentAnalysisDraftContent;
@@ -20,6 +21,7 @@ export default function DocumentAnalysisDraftMessage({
     onDraftCancel
 }: DocumentAnalysisDraftMessageProps) {
     const [isEditing, setIsEditing] = useState(false);
+    const { documentAnalysisPhase } = useAIBotStore();
 
     const handleEdit = () => {
         setIsEditing(true);
@@ -77,6 +79,23 @@ export default function DocumentAnalysisDraftMessage({
                 onRegenerate={onDraftRegenerate}
                 isGenerating={content.isStreaming}
             />
+
+            {/* 图书检索进度提示 - 放在交叉分析模块底部 */}
+            {(documentAnalysisPhase === 'book-search' || documentAnalysisPhase === 'book-selection') && (
+                <div className="flex items-center gap-2 text-sm font-medium text-[#E8E6DC]">
+                    {documentAnalysisPhase === 'book-search' ? (
+                        <>
+                            <div className="w-3 h-3 border-2 border-[#C9A063] border-t-transparent rounded-full animate-spin"></div>
+                            正在检索相关图书...
+                        </>
+                    ) : (
+                        <>
+                            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                            图书检索完成
+                        </>
+                    )}
+                </div>
+            )}
         </div>
     );
 }
