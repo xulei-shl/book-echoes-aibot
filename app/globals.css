@@ -1,0 +1,226 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: 'ShangTuDongGuan';
+  src: url('https://book-echoes.xulei-shl.asia/data/fonts/上图东观体.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'YouYouYiSong';
+  src: url('https://book-echoes.xulei-shl.asia/data/fonts/又又意宋.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'HuiWenMingChao';
+  src: url('https://book-echoes.xulei-shl.asia/data/fonts/汇文明朝体.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'RunZhiJiaRuYinZouZhangKai';
+  src: url('https://book-echoes.xulei-shl.asia/data/fonts/润植家如印奏章楷.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'ChillHuoSong';
+  src: url('https://book-echoes.xulei-shl.asia/data/fonts/ChillHuoSong.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'MiSansRegular';
+  src: url('https://book-echoes.xulei-shl.asia/data/fonts/MiSans-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'QingLiuLiShu';
+  src: url('https://book-echoes.xulei-shl.asia/data/fonts/青柳隶书.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+
+:root {
+  --background: #F2F0E9;
+  --foreground: #2C2C2C;
+
+  /* 品牌主色 - 用于结构性元素 */
+  --accent: #8B3A3A;
+  --accent-primary: #8B3A3A;
+  /* Rust Red */
+
+  /* 交互辅助色 - 用于悬停、链接等交互元素 */
+  --accent-interactive: #C9A063;
+  --accent-interactive-light: #D4A574;
+
+  /* 信息辅助色 */
+  --accent-info: #7B9DAE;
+
+  /* Font Families - 添加系统字体作为回退 */
+
+  /*   --font-display: 上图东观体（展示用）
+--font-body: 又又意宋（正文）
+--font-accent: 润植家如印奏章楷（强调）
+--font-dock: 汇文明朝体（Dock 组件）
+--font-catalog: ChillHuoSong（目录）
+--font-hero-title: 首页标题
+--font-hero-title-alt: 备选标题 */
+  --font-display: "上图东观体", "ShangTuDongGuan", "Playfair Display", "Noto Serif SC", "Source Han Serif SC", serif;
+  --font-body: "又又意宋", "YouYouYiSong", "EB Garamond", "Noto Serif SC", "Source Han Serif SC", serif;
+  --font-accent: "润植家如印奏章楷", "RunZhiJiaRuYinZouZhangKai", "Cormorant Garamond", "KaiTi", "STKaiti", serif;
+  --font-dock: "汇文明朝体", "Noto Serif SC", "Source Han Serif SC", serif;
+  --font-catalog: "ChillHuoSong", "Noto Serif SC", "Source Han Serif SC", serif;
+  --font-info-content: "MiSansRegular", "Noto Sans SC", "Source Han Sans SC", sans-serif;
+
+  /* 专用标题字体 */
+  --font-hero-title: "QingLiuLiShu", "润植家如印奏章楷", "Noto Serif SC", serif;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-accent: var(--accent);
+  --color-accent-primary: var(--accent-primary);
+  --color-accent-interactive: var(--accent-interactive);
+  --color-accent-interactive-light: var(--accent-interactive-light);
+  --color-accent-info: var(--accent-info);
+
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+  --font-accent: var(--font-accent);
+  --font-dock: var(--font-dock);
+  --font-catalog: var(--font-catalog);
+  --font-hero-title: var(--font-hero-title);
+  --font-hero-title-alt: var(--font-hero-title-alt);
+  --font-info-content: var(--font-info-content);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body);
+  overflow-x: hidden;
+}
+
+/* Noise Texture */
+.noise-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}
+
+.font-dock {
+  font-family: var(--font-dock);
+}
+
+.font-catalog {
+  font-family: var(--font-catalog);
+}
+
+.font-info-content {
+  font-family: var(--font-info-content);
+}
+
+.about-overlay-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-interactive) transparent;
+}
+
+.about-overlay-scroll::-webkit-scrollbar {
+  width: 0.45rem;
+}
+
+.about-overlay-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.about-overlay-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.35), var(--accent-interactive));
+  border-radius: 999px;
+}
+
+.about-overlay-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-interactive);
+}
+
+/* 首页封面区统一容器,避免卡片无限拉伸 */
+.magazine-cover-wrapper {
+  max-width: min(1040px, 92vw);
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: clamp(0.75rem, 4vw, 1.5rem);
+  padding-right: clamp(0.75rem, 4vw, 1.5rem);
+}
+
+@media (max-width: 768px) {
+
+  /* 移动端进一步压缩封面高度与间距 */
+  .magazine-cover-wrapper {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+}
+
+@layer components {
+  /* 统一的随机漫步按钮样式，便于跨页面复用 */
+  .btn-random {
+    @apply inline-flex items-center gap-2 rounded-full border border-[#D4CFC3]/60 bg-[#F2F0E9]/90 text-[var(--foreground)] font-display shadow-[0_10px_30px_rgba(0,0,0,0.08)] backdrop-blur transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C9A063]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent;
+    transform-origin: center;
+  }
+
+  .btn-random:hover,
+  .btn-random:focus-visible {
+    color: #1a1a1a;
+    background-color: #C9A063;
+    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.18);
+    transform: translateY(-1px);
+  }
+
+  .btn-random--dark {
+    @apply border-[#E8E6DC]/15 bg-[#1a1a1a]/90 text-[#E8E6DC] focus-visible:ring-offset-[#1a1a1a];
+  }
+
+  .btn-random--circle {
+    width: 3.25rem;
+    height: 3.25rem;
+    padding: 0;
+    border-radius: 999px;
+    justify-content: center;
+  }
+
+  .btn-random--circle-lg {
+    width: 4rem;
+    height: 4rem;
+  }
+
+  .btn-random svg {
+    transition: transform 0.35s ease;
+  }
+
+  .btn-random:hover svg {
+    transform: scale(1.05);
+  }
+}
