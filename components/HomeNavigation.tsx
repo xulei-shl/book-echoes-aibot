@@ -4,6 +4,8 @@ import { useState } from 'react';
 import Link from 'next/link';
 import AboutOverlay from './AboutOverlay';
 import { motion } from 'framer-motion';
+import AIBotLauncher from '@/components/aibot/AIBotLauncher';
+import AIBotOverlay from '@/components/aibot/AIBotOverlay';
 
 interface HomeNavigationProps {
     aboutContent: string;
@@ -11,6 +13,7 @@ interface HomeNavigationProps {
 
 export default function HomeNavigation({ aboutContent }: HomeNavigationProps) {
     const [isAboutOpen, setIsAboutOpen] = useState(false);
+    const enableLocalAIBot = process.env.NEXT_PUBLIC_ENABLE_AIBOT_LOCAL === '1';
 
     return (
         <>
@@ -39,6 +42,8 @@ export default function HomeNavigation({ aboutContent }: HomeNavigationProps) {
                     关于
                 </button>
 
+                {enableLocalAIBot && <AIBotLauncher />}
+
                 <div className="mt-4 text-right">
                     <p className="font-body text-xs text-[#E8E6DC]/80">
                         书海回响 — 那些被悄悄归还的一本好书
@@ -54,6 +59,9 @@ export default function HomeNavigation({ aboutContent }: HomeNavigationProps) {
                 isOpen={isAboutOpen}
                 onClose={() => setIsAboutOpen(false)}
             />
+
+            {/* AIBotOverlay 放在最外层，避免受到 motion.div 的 transform 影响 */}
+            {enableLocalAIBot && <AIBotOverlay />}
         </>
     );
 }
