@@ -36,6 +36,15 @@ export interface YearArchiveData {
   literatures: ArchiveItem[];
 }
 
+export interface RandomIndexItem {
+  id: string;
+  title: string;
+  sourceId: string;
+  month: string;
+  thumbnailUrl: string;
+  imageUrl: string;
+}
+
 // Keep MonthData for backward compatibility, alias to ArchiveItem (or subset)
 export type MonthData = ArchiveItem;
 
@@ -317,4 +326,77 @@ export async function getAllBooksRandomized(): Promise<Book[]> {
 
   // Shuffle the books
   return allBooks.sort(() => Math.random() - 0.5);
+}
+
+let randomIndexCache: { loadedAt: number; items: RandomIndexItem[] } | null = null;
+const RANDOM_INDEX_TTL = 60 * 1000;
+
+async function loadRandomIndex(): Promise<RandomIndexItem[]> {
+  if (randomIndexCache && Date.now() - randomIndexCache.loadedAt < RANDOM_INDEX_TTL) {
+    return randomIndexCache.items;
+  }
+  const indexPath = path.join(process.cwd(), 'public', 'content', 'random_index.json');
+  try {
+    const content = await fs.readFile(indexPath, 'utf8');
+    const data = JSON.parse(content);
+    const items = Array.isArray(data)
+      ? data.map((item) => ({
+        id: String(item?.id ?? ''),
+        title: String(item?.title ?? ''),
+        sourceId: String(item?.sourceId ?? ''),
+        month: String(item?.month ?? ''),
+        thumbnailUrl: String(item?.thumbnailUrl ?? ''),
+        imageUrl: String(item?.imageUrl ?? '')
+      })).filter(item => item.id)
+      : [];
+    randomIndexCache = { loadedAt: Date.now(), items };
+    return items;
+  } catch (error) {
+    console.warn('随机索引读取失败:', error);
+    return [];
+  }
+}
+
+function mulberry32(seed: number) {
+  let t = seed >>> 0;
+  return () => {
+    t += 0x6D2B79F5;
+    let r = Math.imul(t ^ (t >>> 15), 1 | t);
+    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function shuffleWithSeed<T>(items: T[], seed: number): T[] {
+  const result = [...items];
+  const random = mulberry32(seed);
+  for (let i = result.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
+function getDefaultSeed() {
+  return Math.floor(Date.now() / 3600000);
+}
+
+export function getRandomBooksFromIndex(
+  items: RandomIndexItem[],
+  limit: number,
+  cursor?: string,
+  seed?: number
+) {
+  const safeLimit = Math.max(1, Math.min(100, Number(limit) || 0));
+  const offset = Math.max(0, Number(cursor) || 0);
+  const usedSeed = Number.isFinite(seed) ? Number(seed) : getDefaultSeed();
+  const shuffled = shuffleWithSeed(items, usedSeed);
+  const slice = shuffled.slice(offset, offset + safeLimit);
+  const nextCursor = offset + safeLimit < shuffled.length ? String(offset + safeLimit) : undefined;
+  return { items: slice, nextCursor, seed: usedSeed };
+}
+
+export async function getRandomBooks(limit: number, cursor?: string, seed?: number) {
+  const items = await loadRandomIndex();
+  return getRandomBooksFromIndex(items, limit, cursor, seed);
 }

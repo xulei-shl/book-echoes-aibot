@@ -2,7 +2,24 @@
 
 **这是项目的宪法。所有角色（架构师、开发者、调试者、审查员）必须无条件遵守本文件中的规范。**
 
-## 代码哲学 (Code Philosophy)
+## 1. 项目结构规范 (Project Structure)
+所有代码输出必须遵循以下目录结构：
+- `src/core/`: 核心业务逻辑。
+- `src/utils/`: 通用工具函数（日志、辅助类），严禁包含业务逻辑。
+- `tests/`: 测试代码（注意是复数 **tests**）。
+- `docs/`: 文档中心。
+    - `docs/design/`: 架构设计文档 (由架构师产出)。
+    - `docs/changelog/`: 开发变更记录 (由开发专家产出)。
+    - `docs/troubleshooting/`: 故障复盘记录 (由调试专家产出)。
+    - `docs/reviews/`: 代码审查报告 (由审查员产出)。
+- `runtime/logs/`: 运行时日志输出目录。
+- `runtime/outputs/`: 运行时结果输出目录。
+- `data/`: 待处理的原始数据目录，如果有。
+
+## 1.1 文档留痕原则 (Documentation Trail)
+**所有核心流程必须留痕。** 任何代码的变更、Bug 的修复或 Code Review 的结束，都必须在 `docs/` 下生成对应的 Markdown 文件。严禁只修改代码而不更新文档。
+
+## 2. 代码哲学 (Code Philosophy)
 - **KISS原则**: 简洁至上，拒绝过度设计。
 - **DRY原则**: 拒绝重复代码，积极模块化。
 - **单一职责**: 一个函数只做一件事。

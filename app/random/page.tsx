@@ -1,5 +1,4 @@
-import { getAllBooksRandomized } from '@/lib/content';
-import { transformMetadataToBook } from '@/lib/utils';
+import { getRandomBooks } from '@/lib/content';
 import RandomMasonry from '@/components/RandomMasonry';
 import { Metadata } from 'next';
 
@@ -11,11 +10,6 @@ export const metadata: Metadata = {
 };
 
 export default async function RandomPage() {
-    const rawBooks = await getAllBooksRandomized();
-
-    // Transform raw books to frontend Book type
-    // Note: rawBook.sourceId is injected by getAllBooksRandomized
-    const books = rawBooks.map(rawBook => transformMetadataToBook(rawBook, rawBook.sourceId));
-
-    return <RandomMasonry initialBooks={books} />;
+    const { items, nextCursor, seed } = await getRandomBooks(18);
+    return <RandomMasonry initialBooks={items} initialCursor={nextCursor} seed={seed} />;
 }

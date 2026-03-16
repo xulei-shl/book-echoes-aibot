@@ -1,13 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Book } from '@/types';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useRef } from 'react';
 
 interface RandomMasonryProps {
-    initialBooks: Book[];
+    initialBooks: RandomBook[];
+    initialCursor?: string;
+    seed: number;
 }
 
 interface LineParticle {
@@ -18,6 +20,15 @@ interface LineParticle {
     length: string;
     duration: number;
     delay: number;
+}
+
+interface RandomBook {
+    id: string;
+    title: string;
+    sourceId: string;
+    month: string;
+    thumbnailUrl: string;
+    imageUrl: string;
 }
 
 // 固定的线条配置 - 使用质数分布模拟随机感，避免每次重新计算
@@ -31,16 +42,24 @@ const FIXED_LINES: LineParticle[] = [...Array(80)].map((_, i) => ({
     delay: (i % 20) * 0.5  // 延迟: 0-9.5秒
 }));
 
-export default function RandomMasonry({ initialBooks }: RandomMasonryProps) {
+export default function RandomMasonry({ initialBooks, initialCursor, seed }: RandomMasonryProps) {
     const [books, setBooks] = useState(initialBooks);
+    const [nextCursor, setNextCursor] = useState<string | undefined>(initialCursor);
+    const [currentSeed, setCurrentSeed] = useState(seed);
+    const [isLoading, setIsLoading] = useState(false);
+    const [animationStartIndex, setAnimationStartIndex] = useState(0);
     const router = useRouter();
     const baseCardHeight = 360;
     const heightVariants = [1.05, 1.3, 1.55, 1.2];
+    const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
         // 只需要随机排序书籍，线条使用固定配置
         setBooks([...initialBooks].sort(() => Math.random() - 0.5));
-    }, [initialBooks]);
+        setNextCursor(initialCursor);
+        setCurrentSeed(seed);
+        setAnimationStartIndex(0);
+    }, [initialBooks, initialCursor, seed]);
 
     const shuffle = () => {
         setBooks(prev => [...prev].sort(() => Math.random() - 0.5));
@@ -60,6 +79,51 @@ export default function RandomMasonry({ initialBooks }: RandomMasonryProps) {
     };
 
     const getCardHeight = (index: number) => baseCardHeight * heightVariants[index % heightVariants.length];
+
+    const loadMore = useCallback(async () => {
+        if (!nextCursor || isLoading) {
+            return;
+        }
+        setIsLoading(true);
+        try {
+            const params = new URLSearchParams({
+                limit: '18',
+                cursor: nextCursor,
+                seed: String(currentSeed)
+            });
+            const response = await fetch(`/api/random?${params.toString()}`);
+            if (!response.ok) {
+                throw new Error('加载失败');
+            }
+            const data = await response.json();
+            const newItems: RandomBook[] = Array.isArray(data?.items) ? data.items : [];
+            setBooks(prev => {
+                setAnimationStartIndex(prev.length);
+                return [...prev, ...newItems];
+            });
+            setNextCursor(data?.nextCursor || undefined);
+            if (Number.isFinite(data?.seed)) {
+                setCurrentSeed(Number(data.seed));
+            }
+        } catch (error) {
+            console.error('随机漫步加载失败:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [nextCursor, isLoading, currentSeed]);
+
+    useEffect(() => {
+        if (!loadMoreRef.current || !nextCursor) {
+            return;
+        }
+        const observer = new IntersectionObserver((entries) => {
+            if (entries.some(entry => entry.isIntersecting)) {
+                loadMore();
+            }
+        }, { rootMargin: '200px' });
+        observer.observe(loadMoreRef.current);
+        return () => observer.disconnect();
+    }, [nextCursor, loadMore]);
 
     return (
         <div className="relative min-h-screen overflow-hidden bg-[#0b0b0b] text-[#F2F0E9]">
@@ -142,20 +206,25 @@ export default function RandomMasonry({ initialBooks }: RandomMasonryProps) {
                 <div className="columns-1 md:columns-2 xl:columns-3 gap-8 space-y-8">
                     {books.map((book, index) => {
                         const cardHeight = getCardHeight(index);
+                        const shouldAnimate = index >= animationStartIndex;
                         return (
                             <motion.div
                                 key={`${book.id}-${index}`}
                                 layout
-                                initial={{ opacity: 0, y: 30 }}
+                                initial={shouldAnimate ? { opacity: 0, y: 30 } : false}
                                 animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.8, delay: Math.min(index * 0.03, 1.5), ease: [0.22, 1, 0.36, 1] }}
+                                transition={{
+                                    duration: shouldAnimate ? 0.8 : 0,
+                                    delay: shouldAnimate ? Math.min((index - animationStartIndex) * 0.03, 1.2) : 0,
+                                    ease: [0.22, 1, 0.36, 1]
+                                }}
                                 className="break-inside-avoid mb-6 group relative cursor-pointer"
                                 onClick={() => router.push(`/${book.month}?focus=${book.id}`)}
                             >
                                 <div className="relative overflow-hidden rounded-sm shadow-[0_15px_45px_rgba(0,0,0,0.45)] hover:shadow-[0_25px_60px_rgba(0,0,0,0.6)] transition-all duration-500 bg-[#1c1915] border border-[#d4a5741a]">
                                     {/* Image */}
                                     <img
-                                        src={book.originalImageUrl || book.originalThumbnailUrl || book.cardImageUrl || book.coverUrl}
+                                        src={book.imageUrl || book.thumbnailUrl}
                                         alt={book.title}
                                         className="w-full h-auto object-contain transition-transform duration-1000 group-hover:scale-100"
                                         loading="lazy"
@@ -191,6 +260,8 @@ export default function RandomMasonry({ initialBooks }: RandomMasonryProps) {
                     <circle cx="12" cy="12" r="2"></circle>
                 </svg>
             </button>
+
+            <div ref={loadMoreRef} className="h-1 w-full" />
         </div>
     );
 }

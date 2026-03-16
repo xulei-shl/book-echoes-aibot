@@ -14,7 +14,8 @@
 
 # testing
 /coverage
-
+/components/aibot/
+/app/api/local-aibot/
 # next.js
 /.next/
 /out/
