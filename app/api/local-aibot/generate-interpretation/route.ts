@@ -45,7 +45,7 @@ export async function POST(request: Request) {
         });
 
         // 调用AI生成解读
-        const result = streamText({
+        const result = await streamText({
             model: createModel(llmConfig),
             system: systemPrompt,
             messages: [

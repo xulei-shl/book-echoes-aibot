@@ -10,7 +10,7 @@ import DocumentUploadWorkflow, { useDocumentUploadController, MAX_DOCUMENTS } fr
 import DocumentAnalysisProgressMessage from '@/components/aibot/DocumentAnalysisProgressMessage';
 import DocumentAnalysisDraftMessage from '@/components/aibot/DocumentAnalysisDraftMessage';
 import { useAIBotStore } from '@/store/aibot/useAIBotStore';
-import type { UIMessage } from 'ai';
+import type { Message as UIMessage } from '@ai-sdk/ui-utils';
 import type {
     BookInfo,
     DeepSearchLogEntry,

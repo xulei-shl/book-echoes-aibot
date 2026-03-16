@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { AIBOT_MODES } from '@/src/core/aibot/constants';
-import type { UIMessage } from 'ai';
+import type { Message as UIMessage } from '@ai-sdk/ui-utils';
 import type {
     DraftPayload,
     RetrievalResultData,

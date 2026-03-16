@@ -244,7 +244,7 @@ export async function POST(request: Request) {
             }
         });
         
-        const result = streamText({
+        const result = await streamText({
             model: createModel(workflowContext.llmConfig),
             system: workflowContext.systemPrompt,
             messages: chatMessages as any

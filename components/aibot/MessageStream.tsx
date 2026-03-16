@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import type { UIMessage } from 'ai';
+import type { Message as UIMessage } from '@ai-sdk/ui-utils';
 import RetrievalResultDisplay from './RetrievalResultDisplay';
 import ProgressLogDisplay from './ProgressLogDisplay';
 import DeepSearchProgressMessage from './DeepSearchProgressMessage';

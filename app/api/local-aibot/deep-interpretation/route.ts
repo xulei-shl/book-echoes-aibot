@@ -114,7 +114,7 @@ ${booksText}`;
         });
 
         // 使用流式输出
-        const result = streamText({
+        const result = await streamText({
             model,
             system: recommendationPrompt,
             prompt: fullPrompt
