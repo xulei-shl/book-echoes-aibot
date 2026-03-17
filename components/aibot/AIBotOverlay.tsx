@@ -1483,11 +1483,13 @@ export default function AIBotOverlay() {
                                         <div className="flex items-center gap-1 text-xs">
                                             <span className={clsx(
                                                 'w-2 h-2 rounded-full',
-                                                displayMode === AIBOT_MODES.TEXT ? 'bg-[#3B82F6]' : displayMode === AIBOT_MODES.DEEP ? 'bg-[#C9A063]' : 'bg-[#A855F7]'
+                                                displayMode === AIBOT_MODES.TEXT && 'bg-[#3B82F6]',
+                                                displayMode === AIBOT_MODES.DEEP && 'bg-[#C9A063]',
+                                                displayMode === AIBOT_MODES.DOCUMENT && 'bg-[#A855F7]'
                                             )}></span>
-                                            <span className={clsx(
-                                                displayMode === AIBOT_MODES.TEXT ? 'text-[#60A5FA]' : displayMode === AIBOT_MODES.DEEP ? 'text-[#C9A063]' : 'text-[#C084FC]'
-                                            )}>
+                                            <span style={{
+                                                color: displayMode === AIBOT_MODES.TEXT ? '#60A5FA' : displayMode === AIBOT_MODES.DEEP ? '#C9A063' : '#C084FC'
+                                            }}>
                                                 {displayMode === AIBOT_MODES.TEXT ? '简单' : displayMode === AIBOT_MODES.DEEP ? '深度' : '文档'}
                                             </span>
                                         </div>
