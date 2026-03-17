@@ -42,7 +42,7 @@ export function assertAIBotEnabled(): void {
  * 获取书籍检索 API 根路径，提供兜底值。
  */
 export function getBookApiBase(): string {
-    return process.env.BOOK_API_BASE_URL ?? 'http://127.0.0.1:8000';
+    return process.env.BOOK_API_BASE_URL ?? 'http://127.0.0.1:8001';
 }
 
 export interface LLMConfig {
