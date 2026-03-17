@@ -7,6 +7,17 @@ import type { UploadedDocument } from '@/src/core/aibot/types';
 
 export const MAX_DOCUMENTS = 5;
 
+const generateUUID = (): string => {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID();
+    }
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = (Math.random() * 16) | 0;
+        const v = c === 'x' ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+    });
+};
+
 export interface DocumentUploadController {
     uploadedDocuments: UploadedDocument[];
     documentUploadError?: string;
@@ -40,7 +51,7 @@ export function useDocumentUploadController(
                 try {
                     const content = await file.text();
                     const readyDocument: UploadedDocument = {
-                        id: crypto.randomUUID(),
+                        id: generateUUID(),
                         name: file.name,
                         content,
                         size: file.size,
@@ -51,7 +62,7 @@ export function useDocumentUploadController(
                 } catch (error) {
                     console.error('读取文件失败:', file.name, error);
                     const errorDocument: UploadedDocument = {
-                        id: crypto.randomUUID(),
+                        id: generateUUID(),
                         name: file.name,
                         content: '',
                         size: file.size,
@@ -145,7 +156,7 @@ export default function DocumentUploadWorkflow({
     }
 
     return (
-        <div className="relative">
+        <div className="mt-2 space-y-2">
             {/* 文档列表显示 */}
             <DocumentListDisplay
                 documents={uploadedDocuments}
@@ -155,7 +166,7 @@ export default function DocumentUploadWorkflow({
 
             {/* 错误信息显示 */}
             {documentUploadError && (
-                <div className="absolute left-12 right-4 bottom-12 mb-2 p-2 bg-red-950/30 border border-red-800/50 rounded text-xs text-red-400">
+                <div className="p-2 bg-red-950/30 border border-red-800/50 rounded text-xs text-red-400">
                     <div className="flex items-center justify-between">
                         <span>{documentUploadError}</span>
                         <button
@@ -171,7 +182,7 @@ export default function DocumentUploadWorkflow({
             )}
 
             {/* 状态指示器 */}
-            <div className="absolute left-12 right-4 bottom-8 flex items-center justify-between text-xs text-[#6F6D68]">
+            <div className="flex items-center justify-between text-xs text-[#6F6D68]">
                 <div className="flex items-center gap-4">
                     {hasUploading && (
                         <span className="flex items-center gap-1">

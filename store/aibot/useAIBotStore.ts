@@ -19,6 +19,17 @@ import type {
 } from '@/src/core/aibot/types';
 import type { AIBotMode } from '@/src/core/aibot/constants';
 
+const generateUUID = (): string => {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID();
+    }
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = (Math.random() * 16) | 0;
+        const v = c === 'x' ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+    });
+};
+
 interface AIBotState {
     isOverlayOpen: boolean;
     // 新的模式系统：simple（简单检索）、deep（深度检索）、document（文档上传）
@@ -305,7 +316,7 @@ export const useAIBotStore = create<AIBotState>((set) => ({
                 }
             }
             next.push({
-                id: crypto.randomUUID(),
+                id: generateUUID(),
                 role: 'assistant',
                 content
             } as any);

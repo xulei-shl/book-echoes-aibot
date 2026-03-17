@@ -32,7 +32,7 @@ export default function DocumentListDisplay({
     };
 
     return (
-        <div className="absolute left-12 right-4 bottom-16 bg-[#1B1B1B] border border-[#3A3A3A] rounded-lg p-3 max-h-32 overflow-y-auto">
+        <div className="bg-[#1B1B1B] border border-[#3A3A3A] rounded-lg p-3 max-h-32 overflow-y-auto">
             {/* 文档列表标题 */}
             <div className="flex items-center justify-between mb-2 text-xs text-[#A2A09A]">
                 <span>已上传文档 ({documents.length}/{maxDocuments})</span>

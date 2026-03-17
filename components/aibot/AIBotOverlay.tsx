@@ -25,6 +25,17 @@ import { AIBOT_MODES, type AIBotMode } from '@/src/core/aibot/constants';
 import type { LogEntry, SearchPhase } from '@/components/aibot/ProgressLogDisplay';
 import { formatBooksForSecondarySearch } from '@/src/utils/format-book-for-search';
 
+const generateUUID = (): string => {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return generateUUID();
+    }
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = (Math.random() * 16) | 0;
+        const v = c === 'x' ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+    });
+};
+
 const buildRequestMessages = (messages: UIMessage[]) =>
     messages.map((message) => ({
         role: message.role,
@@ -294,7 +305,7 @@ export default function AIBotOverlay() {
 
         // 立即添加用户消息到界面，无需等待分类
         const userMessage: UIMessage = {
-            id: crypto.randomUUID(),
+            id: generateUUID(),
             role: 'user',
             content: trimmed
         } as any;
@@ -332,7 +343,7 @@ export default function AIBotOverlay() {
         setDocumentAnalysisPhase('progress');
 
         // 添加进度消息
-        const progressMessageId = crypto.randomUUID();
+        const progressMessageId = generateUUID();
         const progressMessage: UIMessage = {
             id: progressMessageId,
             role: 'assistant',
@@ -381,7 +392,7 @@ export default function AIBotOverlay() {
             let buffer = '';
 
             // 添加草稿消息（用于流式显示）
-            const draftMessageId = crypto.randomUUID();
+            const draftMessageId = generateUUID();
             let draftMessageAdded = false;
 
             // 本地变量累积草稿内容
@@ -493,7 +504,7 @@ export default function AIBotOverlay() {
         setDeepSearchPhase('progress');
 
         // 添加进度消息
-        const progressMessageId = crypto.randomUUID();
+        const progressMessageId = generateUUID();
         const progressMessage: UIMessage = {
             id: progressMessageId,
             role: 'assistant',
@@ -527,7 +538,7 @@ export default function AIBotOverlay() {
             let buffer = '';
 
             // 添加草稿消息（用于流式显示）
-            const draftMessageId = crypto.randomUUID();
+            const draftMessageId = generateUUID();
             let draftMessageAdded = false;
 
             // 本地变量累积草稿内容（避免闭包问题）
@@ -699,7 +710,7 @@ export default function AIBotOverlay() {
                 });
 
                 // 添加图书列表消息
-                const booksMessageId = crypto.randomUUID();
+                const booksMessageId = generateUUID();
                 const booksMessage: UIMessage = {
                     id: booksMessageId,
                     role: 'assistant',
@@ -775,7 +786,7 @@ export default function AIBotOverlay() {
 
         // 添加解读消息 - 使用简单检索的方式（字符串内容）
         const reportMessage: UIMessage = {
-            id: crypto.randomUUID(),
+            id: generateUUID(),
             role: 'assistant',
             content: ''  // 使用空字符串初始化，后续用 updateLastAssistantMessage 更新
         } as any;
@@ -835,7 +846,7 @@ export default function AIBotOverlay() {
         // 添加用户消息显示正在分析的文档
         const documentNames = documents.map(doc => doc.name).join(', ');
         const userMessage: UIMessage = {
-            id: crypto.randomUUID(),
+            id: generateUUID(),
             role: 'user',
             content: `分析以下文档：${documentNames}`
         } as any;
@@ -907,7 +918,7 @@ export default function AIBotOverlay() {
                     }, documentAnalysisProgressMessageId || undefined);
 
                     // 添加图书列表消息
-                    const booksMessageId = crypto.randomUUID();
+                    const booksMessageId = generateUUID();
                     const booksMessage: UIMessage = {
                         id: booksMessageId,
                         role: 'assistant',
@@ -970,7 +981,7 @@ export default function AIBotOverlay() {
         }, documentAnalysisProgressMessageId || undefined);
 
         // 预先添加解读消息，方便流式实时渲染
-        const reportMessageId = crypto.randomUUID();
+        const reportMessageId = generateUUID();
         const reportMessage: UIMessage = {
             id: reportMessageId,
             role: 'assistant',
@@ -1089,7 +1100,7 @@ export default function AIBotOverlay() {
             // 如果是其他类型，直接返回提示
             if (classification.intent === 'other') {
                 const assistantMessage: UIMessage = {
-                    id: crypto.randomUUID(),
+                    id: generateUUID(),
                     role: 'assistant',
                     content: '你好，我是 Book Echoes 图书智搜助手，专注解读与推荐书籍内容。\n当前输入暂未匹配到图书检索任务。试着告诉我：你想解决的问题、关注的主题、阅读目标或领域关键词，我就能为你找到书。'
                 } as any;
@@ -1138,7 +1149,7 @@ export default function AIBotOverlay() {
 
             // 添加检索结果消息
             const retrievalMessage: UIMessage = {
-                id: crypto.randomUUID(),
+                id: generateUUID(),
                 role: 'assistant',
                 content: ''
             } as any;
@@ -1205,7 +1216,7 @@ export default function AIBotOverlay() {
 
             // 添加解读消息
             const interpretationMessage: UIMessage = {
-                id: crypto.randomUUID(),
+                id: generateUUID(),
                 role: 'assistant',
                 content: ''
             } as any;
@@ -1351,7 +1362,7 @@ export default function AIBotOverlay() {
                             <button
                                 type="button"
                                 onClick={closeOverlay}
-                                className="text-[#A2A09A] hover:text-white transition-colors cursor-pointer"
+                                className="px-3 py-1 rounded-full border border-[#3A3A3A] text-[#A2A09A] hover:border-[#C9A063] hover:text-[#C9A063] transition-colors cursor-pointer text-xs font-medium"
                             >
                                 ✕
                             </button>
@@ -1472,14 +1483,14 @@ export default function AIBotOverlay() {
                                         type="button"
                                         onClick={handleClear}
                                         disabled={isStreaming}
-                                        className="hover:text-white transition-colors disabled:cursor-not-allowed disabled:text-[#555]"
+                                        className="px-3 py-1 rounded-full border border-[#3A3A3A] text-[#A2A09A] hover:border-[#C9A063] hover:text-[#C9A063] transition-colors disabled:cursor-not-allowed disabled:text-[#555] text-xs font-medium"
                                     >
                                         清空
                                     </button>
                                     <button
                                         type="button"
                                         onClick={handleCopy}
-                                        className="hover:text-white transition-colors"
+                                        className="px-3 py-1 rounded-full border border-[#3A3A3A] text-[#A2A09A] hover:border-[#C9A063] hover:text-[#C9A063] transition-colors text-xs font-medium"
                                     >
                                         复制
                                     </button>
