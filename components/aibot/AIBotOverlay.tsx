@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import MessageStream from '@/components/aibot/MessageStream';
@@ -1310,11 +1309,12 @@ export default function AIBotOverlay() {
         return null;
     }
 
-    return createPortal(
+    return (
         <AnimatePresence>
             {isOverlayOpen && (
                 <motion.div
-                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[160]"
+                    className="fixed inset-0 bg-[#000000]/90 backdrop-blur-sm"
+                    style={{ zIndex: 9999 }}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
@@ -1322,11 +1322,11 @@ export default function AIBotOverlay() {
                 >
                     <motion.div
                         className="absolute inset-x-4 md:inset-x-24 top-10 bottom-10 bg-[#111111] border border-[#2E2E2E] rounded-3xl flex flex-col px-8 py-6"
+                        style={{ zIndex: 10000 }}
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.95 }}
                         onClick={(e) => e.stopPropagation()}
-                        style={{ minHeight: '0' }} // 确保flex容器可以正确计算高度
                     >
                     <header className="flex items-center justify-between pb-4 border-b border-[#2E2E2E]">
                         <div>
@@ -1495,7 +1495,6 @@ export default function AIBotOverlay() {
                     </motion.div>
                 </motion.div>
             )}
-        </AnimatePresence>,
-        document.body
+        </AnimatePresence>
     );
 }
