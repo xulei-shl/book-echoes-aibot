@@ -1313,191 +1313,195 @@ export default function AIBotOverlay() {
     return createPortal(
         <AnimatePresence>
             {isOverlayOpen && (
-                <>
-                    <motion.div
-                        key="aibot-backdrop"
-                        className="fixed inset-0 bg-[#000000]/90 backdrop-blur-sm"
-                        style={{ zIndex: 9999 }}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        onClick={closeOverlay}
-                    />
-                    <motion.div
-                        key="aibot-dialog"
-                        className="fixed inset-x-4 md:inset-x-24 top-10 bottom-10 bg-[#111111] border border-[#2E2E2E] rounded-3xl flex flex-col px-8 py-6 shadow-2xl"
-                        style={{ zIndex: 10000, minHeight: '0', backgroundColor: '#111111', borderColor: '#2E2E2E' }}
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <header className="flex items-center justify-between pb-4 border-b border-[#2E2E2E] shrink-0">
-                            <div>
-                                <p className="text-sm text-[#A2A09A]">AIBot 本地对话</p>
-                                <p className="text-xs text-[#6F6D68]">仅限本地调试，云端默认关闭</p>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <button
-                                    type="button"
-                                    onClick={closeOverlay}
-                                    className="text-[#A2A09A] hover:text-white transition-colors cursor-pointer"
-                                >
-                                    ✕
-                                </button>
-                            </div>
-                        </header>
+                <motion.div
+                    key="aibot-backdrop"
+                    className="fixed inset-0 bg-[#000000]/90 backdrop-blur-sm"
+                    style={{ zIndex: 9999 }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={(e) => {
+                        if (e.target === e.currentTarget) {
+                            closeOverlay();
+                        }
+                    }}
+                />
+            )}
+            {isOverlayOpen && (
+                <motion.div
+                    key="aibot-dialog"
+                    className="fixed inset-x-4 md:inset-x-24 top-10 bottom-10 bg-[#111111] border border-[#2E2E2E] rounded-3xl flex flex-col px-8 py-6 shadow-2xl"
+                    style={{ zIndex: 10000, minHeight: '0', backgroundColor: '#111111', borderColor: '#2E2E2E' }}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <header className="flex items-center justify-between pb-4 border-b border-[#2E2E2E] shrink-0">
+                        <div>
+                            <p className="text-sm text-[#A2A09A]">AIBot 本地对话</p>
+                            <p className="text-xs text-[#6F6D68]">仅限本地调试，云端默认关闭</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <button
+                                type="button"
+                                onClick={closeOverlay}
+                                className="text-[#A2A09A] hover:text-white transition-colors cursor-pointer"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    </header>
 
-                        <div className="flex-1 flex flex-col overflow-hidden relative" style={{ minHeight: '0' }}>
-                            <div className="flex-1 overflow-hidden">
-                                <div
-                                    className="h-full flex flex-col gap-6 py-4 pr-2 overflow-y-auto aibot-scroll"
-                                    style={{ minHeight: '0' }}
-                                >
-                                    <div className="flex-1 min-h-0" style={{ overflow: 'hidden' }}>
-                                        <MessageStream
-                                            messages={messages}
-                                            isStreaming={isStreaming || isGeneratingInterpretation || isDeepSearchDraftStreaming || isDocumentAnalysisDraftStreaming}
-                                            isSearching={isSearching}
-                                            retrievalPhase={retrievalPhase}
-                                            selectedBookIds={selectedBookIds}
-                                            onBookSelection={handleBookSelection}
-                                            onGenerateInterpretation={handleGenerateInterpretation}
-                                            onReenterSelection={reenterSelection}
-                                            onSecondaryRetrieval={handleSecondaryRetrieval}
-                                            originalQuery={originalQuery}
-                                            simpleSearchLogs={simpleSearchLogs}
-                                            simpleSearchPhase={simpleSearchPhase}
-                                            // 深度检索回调
-                                            onDeepSearchDraftChange={handleDeepSearchDraftChange}
-                                            onDeepSearchDraftConfirm={handleDeepSearchDraftConfirm}
-                                            onDeepSearchDraftRegenerate={handleDeepSearchDraftRegenerate}
-                                            onDeepSearchDraftCancel={handleDeepSearchDraftCancel}
-                                            onDeepSearchGenerateInterpretation={handleDeepSearchGenerateInterpretation}
-                                            // 文档分析回调
-                                            onDocumentAnalysisDraftChange={handleDocumentAnalysisDraftChange}
-                                            onDocumentAnalysisDraftConfirm={handleDocumentAnalysisDraftConfirm}
-                                            onDocumentAnalysisDraftRegenerate={handleDocumentAnalysisDraftRegenerate}
-                                            onDocumentAnalysisDraftCancel={handleDocumentAnalysisDraftCancel}
-                                            onDocumentAnalysisGenerateInterpretation={handleDocumentAnalysisGenerateInterpretation}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <form id="aibot-form" className="space-y-3 pt-4 border-t border-[#2E2E2E]" onSubmit={handleSubmit}>
-                                {/* 文档上传工作流 */}
-                                <div className="relative" style={{ minHeight: '150px' }}>
-                                    <textarea
-                                        value={inputValue}
-                                        onChange={(e) => setInputValue(e.target.value)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter' && e.ctrlKey) {
-                                                e.preventDefault();
-                                                // 创建一个模拟的表单事件
-                                                const syntheticEvent = {
-                                                    preventDefault: () => { },
-                                                    currentTarget: e.currentTarget.form
-                                                } as React.FormEvent<HTMLFormElement>;
-                                                handleSubmit(syntheticEvent);
-                                            }
-                                        }}
-                                        placeholder={
-                                            mode === AIBOT_MODES.DEEP ? '输入检索主题，开始深度检索' :
-                                                mode === AIBOT_MODES.DOCUMENT ? '文档分析模式中，请等待分析完成...' :
-                                                    '想检索关于什么主题的图书？或点击左下角上传文档分析'
-                                        }
-                                        className="w-full h-24 bg-[#1B1B1B] border border-[#3A3A3A] rounded-2xl p-4 text-sm text-[#E8E6DC] focus:outline-none focus:border-[#C9A063] font-info-content about-overlay-scroll overflow-y-auto"
-                                        disabled={isStreaming || isGeneratingInterpretation || isSearching || isDeepSearchDraftStreaming || isDocumentAnalysisDraftStreaming || mode === AIBOT_MODES.DOCUMENT}
+                    <div className="flex-1 flex flex-col overflow-hidden relative" style={{ minHeight: '0' }}>
+                        <div className="flex-1 overflow-hidden">
+                            <div
+                                className="h-full flex flex-col gap-6 py-4 pr-2 overflow-y-auto aibot-scroll"
+                                style={{ minHeight: '0' }}
+                            >
+                                <div className="flex-1 min-h-0" style={{ overflow: 'hidden' }}>
+                                    <MessageStream
+                                        messages={messages}
+                                        isStreaming={isStreaming || isGeneratingInterpretation || isDeepSearchDraftStreaming || isDocumentAnalysisDraftStreaming}
+                                        isSearching={isSearching}
+                                        retrievalPhase={retrievalPhase}
+                                        selectedBookIds={selectedBookIds}
+                                        onBookSelection={handleBookSelection}
+                                        onGenerateInterpretation={handleGenerateInterpretation}
+                                        onReenterSelection={reenterSelection}
+                                        onSecondaryRetrieval={handleSecondaryRetrieval}
+                                        originalQuery={originalQuery}
+                                        simpleSearchLogs={simpleSearchLogs}
+                                        simpleSearchPhase={simpleSearchPhase}
+                                        // 深度检索回调
+                                        onDeepSearchDraftChange={handleDeepSearchDraftChange}
+                                        onDeepSearchDraftConfirm={handleDeepSearchDraftConfirm}
+                                        onDeepSearchDraftRegenerate={handleDeepSearchDraftRegenerate}
+                                        onDeepSearchDraftCancel={handleDeepSearchDraftCancel}
+                                        onDeepSearchGenerateInterpretation={handleDeepSearchGenerateInterpretation}
+                                        // 文档分析回调
+                                        onDocumentAnalysisDraftChange={handleDocumentAnalysisDraftChange}
+                                        onDocumentAnalysisDraftConfirm={handleDocumentAnalysisDraftConfirm}
+                                        onDocumentAnalysisDraftRegenerate={handleDocumentAnalysisDraftRegenerate}
+                                        onDocumentAnalysisDraftCancel={handleDocumentAnalysisDraftCancel}
+                                        onDocumentAnalysisGenerateInterpretation={handleDocumentAnalysisGenerateInterpretation}
                                     />
-
-                                    {/* 文档上传工作流组件 - 在简单模式和文档模式下显示 */}
-                                    {(mode === AIBOT_MODES.TEXT || mode === AIBOT_MODES.DOCUMENT) && (
-                                        <DocumentUploadWorkflow
-                                            controller={documentUploadController}
-                                            disabled={isStreaming || isGeneratingInterpretation || isSearching || isDeepSearchDraftStreaming || isDocumentAnalysisDraftStreaming}
-                                            isAnalyzing={mode === AIBOT_MODES.DOCUMENT}
-                                        />
-                                    )}
                                 </div>
+                            </div>
+                        </div>
 
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3 text-xs text-[#7C7A74]">
-                                        <DocumentUploadButton
-                                            onFilesSelected={documentUploadController.handleFilesSelected}
-                                            disabled={
-                                                isStreaming ||
-                                                isGeneratingInterpretation ||
-                                                isSearching ||
-                                                isDeepSearchDraftStreaming ||
-                                                isDocumentAnalysisDraftStreaming ||
-                                                mode === AIBOT_MODES.DOCUMENT
-                                            }
-                                            uploadedCount={documentUploadController.uploadedDocuments.length}
-                                            maxFiles={MAX_DOCUMENTS}
-                                        />
-                                        <button
-                                            type="button"
-                                            className={clsx(
-                                                'px-3 py-1 rounded-full border',
-                                                mode === AIBOT_MODES.DEEP ? 'border-[#C9A063] text-[#C9A063]' : 'border-[#3A3A3A] text-[#A2A09A]'
-                                            )}
-                                            onClick={() => setMode(mode === AIBOT_MODES.DEEP ? AIBOT_MODES.TEXT : AIBOT_MODES.DEEP)}
-                                        >
-                                            {mode === AIBOT_MODES.DEEP ? '深度检索已开启' : '深度检索关闭'}
-                                        </button>
-                                        {/* 模式指示器 */}
-                                        <div className="flex items-center gap-1 text-xs">
-                                            <span className={clsx(
-                                                'w-2 h-2 rounded-full',
-                                                displayMode === AIBOT_MODES.TEXT ? 'bg-blue-500' : displayMode === AIBOT_MODES.DEEP ? 'bg-[#C9A063]' : 'bg-purple-500'
-                                            )}></span>
-                                            <span className={clsx(
-                                                displayMode === AIBOT_MODES.TEXT ? 'text-blue-400' : displayMode === AIBOT_MODES.DEEP ? 'text-[#C9A063]' : 'text-purple-400'
-                                            )}>
-                                                {displayMode === AIBOT_MODES.TEXT ? '简单' : displayMode === AIBOT_MODES.DEEP ? '深度' : '文档'}
-                                            </span>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={handleClear}
-                                            disabled={isStreaming}
-                                            className="hover:text-white transition-colors disabled:cursor-not-allowed disabled:text-[#555]"
-                                        >
-                                            清空
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={handleCopy}
-                                            className="hover:text-white transition-colors"
-                                        >
-                                            复制
-                                        </button>
+                        <form id="aibot-form" className="space-y-3 pt-4 border-t border-[#2E2E2E]" onSubmit={handleSubmit}>
+                            {/* 文档上传工作流 */}
+                            <div className="relative" style={{ minHeight: '150px' }}>
+                                <textarea
+                                    value={inputValue}
+                                    onChange={(e) => setInputValue(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && e.ctrlKey) {
+                                            e.preventDefault();
+                                            // 创建一个模拟的表单事件
+                                            const syntheticEvent = {
+                                                preventDefault: () => { },
+                                                currentTarget: e.currentTarget.form
+                                            } as React.FormEvent<HTMLFormElement>;
+                                            handleSubmit(syntheticEvent);
+                                        }
+                                    }}
+                                    placeholder={
+                                        mode === AIBOT_MODES.DEEP ? '输入检索主题，开始深度检索' :
+                                            mode === AIBOT_MODES.DOCUMENT ? '文档分析模式中，请等待分析完成...' :
+                                                '想检索关于什么主题的图书？或点击左下角上传文档分析'
+                                    }
+                                    className="w-full h-24 bg-[#1B1B1B] border border-[#3A3A3A] rounded-2xl p-4 text-sm text-[#E8E6DC] focus:outline-none focus:border-[#C9A063] font-info-content about-overlay-scroll overflow-y-auto"
+                                    disabled={isStreaming || isGeneratingInterpretation || isSearching || isDeepSearchDraftStreaming || isDocumentAnalysisDraftStreaming || mode === AIBOT_MODES.DOCUMENT}
+                                />
+
+                                {/* 文档上传工作流组件 - 在简单模式和文档模式下显示 */}
+                                {(mode === AIBOT_MODES.TEXT || mode === AIBOT_MODES.DOCUMENT) && (
+                                    <DocumentUploadWorkflow
+                                        controller={documentUploadController}
+                                        disabled={isStreaming || isGeneratingInterpretation || isSearching || isDeepSearchDraftStreaming || isDocumentAnalysisDraftStreaming}
+                                        isAnalyzing={mode === AIBOT_MODES.DOCUMENT}
+                                    />
+                                )}
+                            </div>
+
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3 text-xs text-[#7C7A74]">
+                                    <DocumentUploadButton
+                                        onFilesSelected={documentUploadController.handleFilesSelected}
+                                        disabled={
+                                            isStreaming ||
+                                            isGeneratingInterpretation ||
+                                            isSearching ||
+                                            isDeepSearchDraftStreaming ||
+                                            isDocumentAnalysisDraftStreaming ||
+                                            mode === AIBOT_MODES.DOCUMENT
+                                        }
+                                        uploadedCount={documentUploadController.uploadedDocuments.length}
+                                        maxFiles={MAX_DOCUMENTS}
+                                    />
+                                    <button
+                                        type="button"
+                                        className={clsx(
+                                            'px-3 py-1 rounded-full border',
+                                            mode === AIBOT_MODES.DEEP ? 'border-[#C9A063] text-[#C9A063]' : 'border-[#3A3A3A] text-[#A2A09A]'
+                                        )}
+                                        onClick={() => setMode(mode === AIBOT_MODES.DEEP ? AIBOT_MODES.TEXT : AIBOT_MODES.DEEP)}
+                                    >
+                                        {mode === AIBOT_MODES.DEEP ? '深度检索已开启' : '深度检索关闭'}
+                                    </button>
+                                    {/* 模式指示器 */}
+                                    <div className="flex items-center gap-1 text-xs">
+                                        <span className={clsx(
+                                            'w-2 h-2 rounded-full',
+                                            displayMode === AIBOT_MODES.TEXT ? 'bg-blue-500' : displayMode === AIBOT_MODES.DEEP ? 'bg-[#C9A063]' : 'bg-purple-500'
+                                        )}></span>
+                                        <span className={clsx(
+                                            displayMode === AIBOT_MODES.TEXT ? 'text-blue-400' : displayMode === AIBOT_MODES.DEEP ? 'text-[#C9A063]' : 'text-purple-400'
+                                        )}>
+                                            {displayMode === AIBOT_MODES.TEXT ? '简单' : displayMode === AIBOT_MODES.DEEP ? '深度' : '文档'}
+                                        </span>
                                     </div>
                                     <button
-                                        type="submit"
-                                        disabled={isStreaming || isSearching || isDeepSearchDraftStreaming || isDocumentAnalysisDraftStreaming || mode === AIBOT_MODES.DOCUMENT}
-                                        className="px-4 py-2 rounded-full bg-[#C9A063] text-black text-sm disabled:opacity-50"
+                                        type="button"
+                                        onClick={handleClear}
+                                        disabled={isStreaming}
+                                        className="hover:text-white transition-colors disabled:cursor-not-allowed disabled:text-[#555]"
                                     >
-                                        {mode === AIBOT_MODES.DOCUMENT ? '文档分析模式' :
-                                            isSearching ? '检索中...' :
-                                                isDeepSearchDraftStreaming || isDocumentAnalysisDraftStreaming ? '生成草稿中...' :
-                                                    deepSearchPhase === 'draft-confirm' ? '确认检索' :
-                                                        deepSearchPhase !== 'idle' && deepSearchPhase !== 'completed' && isDeepMode ? '深度检索进行中...' :
-                                                            isDeepMode ? '开始深度检索' :
-                                                                '发送'}
+                                        清空
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleCopy}
+                                        className="hover:text-white transition-colors"
+                                    >
+                                        复制
                                     </button>
                                 </div>
-                            </form>
+                                <button
+                                    type="submit"
+                                    disabled={isStreaming || isSearching || isDeepSearchDraftStreaming || isDocumentAnalysisDraftStreaming || mode === AIBOT_MODES.DOCUMENT}
+                                    className="px-4 py-2 rounded-full bg-[#C9A063] text-black text-sm disabled:opacity-50"
+                                >
+                                    {mode === AIBOT_MODES.DOCUMENT ? '文档分析模式' :
+                                        isSearching ? '检索中...' :
+                                            isDeepSearchDraftStreaming || isDocumentAnalysisDraftStreaming ? '生成草稿中...' :
+                                                deepSearchPhase === 'draft-confirm' ? '确认检索' :
+                                                    deepSearchPhase !== 'idle' && deepSearchPhase !== 'completed' && isDeepMode ? '深度检索进行中...' :
+                                                        isDeepMode ? '开始深度检索' :
+                                                            '发送'}
+                                </button>
+                            </div>
+                        </form>
 
-                            {error && (
-                                <p className="text-xs text-[#C76B6B]">
-                                    {error}
-                                </p>
-                            )}
-                        </div>
-                    </motion.div>
-                </>
+                        {error && (
+                            <p className="text-xs text-[#C76B6B]">
+                                {error}
+                            </p>
+                        )}
+                    </div>
+                </motion.div>
             )}
         </AnimatePresence>,
         document.body
