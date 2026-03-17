@@ -1314,29 +1314,34 @@ export default function AIBotOverlay() {
         <AnimatePresence>
             {isOverlayOpen && (
                 <motion.div
-                    key="aibot-backdrop"
-                    className="fixed inset-0 bg-[#000000]/90 backdrop-blur-sm"
-                    style={{ zIndex: 9999 }}
+                    key="aibot-overlay-container"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
+                    className="fixed inset-0"
+                    style={{ zIndex: 9999 }}
                     onClick={(e) => {
                         if (e.target === e.currentTarget) {
                             closeOverlay();
                         }
                     }}
-                />
-            )}
-            {isOverlayOpen && (
-                <motion.div
-                    key="aibot-dialog"
-                    className="fixed inset-x-4 md:inset-x-24 top-10 bottom-10 bg-[#111111] border border-[#2E2E2E] rounded-3xl flex flex-col px-8 py-6 shadow-2xl"
-                    style={{ zIndex: 10000, minHeight: '0', backgroundColor: '#111111', borderColor: '#2E2E2E' }}
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    onClick={(e) => e.stopPropagation()}
                 >
+                    <motion.div
+                        key="aibot-backdrop"
+                        className="absolute inset-0 bg-[#000000]/90 backdrop-blur-sm"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                    />
+                    <motion.div
+                        key="aibot-dialog"
+                        className="fixed inset-x-4 md:inset-x-24 top-10 bottom-10 bg-[#111111] border border-[#2E2E2E] rounded-3xl flex flex-col px-8 py-6 shadow-2xl"
+                        style={{ zIndex: 10000, minHeight: 0, height: 'calc(100vh - 80px)', backgroundColor: '#111111', borderColor: '#2E2E2E' }}
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
                     <header className="flex items-center justify-between pb-4 border-b border-[#2E2E2E] shrink-0">
                         <div>
                             <p className="text-sm text-[#A2A09A]">AIBot 本地对话</p>
@@ -1501,6 +1506,7 @@ export default function AIBotOverlay() {
                             </p>
                         )}
                     </div>
+                </motion.div>
                 </motion.div>
             )}
         </AnimatePresence>,
