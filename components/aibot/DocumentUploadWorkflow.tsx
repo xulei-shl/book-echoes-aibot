@@ -203,18 +203,6 @@ export default function DocumentUploadWorkflow({
                         </span>
                     )}
                 </div>
-
-                {/* 分析按钮 */}
-                {hasReadyDocuments && !hasUploading && (
-                    <button
-                        type="button"
-                        onClick={handleStartAnalysis}
-                        disabled={disabled || isAnalyzing || !hasReadyDocuments}
-                        className="px-3 py-1 bg-[#C9A063] text-black rounded hover:bg-[#B8935A] disabled:opacity-50 disabled:cursor-not-allowed text-xs font-medium transition-colors"
-                    >
-                        开始分析 ({statusStats.ready})
-                    </button>
-                )}
             </div>
         </div>
     );
