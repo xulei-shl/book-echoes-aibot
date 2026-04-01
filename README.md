@@ -67,3 +67,68 @@ npm run init-fonts
 类似网站
 
 https://goodbooks.io/
+
+---
+
+## 生产环境部署最佳实践
+
+### 1. 环境配置
+
+复制配置文件并按需修改：
+```bash
+cp .env.example .env
+cp .env.local.example .env.local
+```
+
+### 2. 安装依赖与构建
+
+```bash
+npm install
+npm run build
+```
+
+### 3. systemd 服务部署
+
+创建服务文件 `/etc/systemd/system/book-echoes.service`：
+
+```ini
+[Unit]
+Description=Book Echoes Aibot Next.js App
+After=network.target
+
+[Service]
+User=xulei
+Group=xulei
+WorkingDirectory=/opt/book-echoes-aibot
+ExecStart=/usr/local/bin/node node_modules/next/dist/bin/next start
+Environment=PORT=3000
+Environment=NODE_ENV=production
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=book-echoes
+
+[Install]
+WantedBy=multi-user.target
+```
+
+启动服务：
+```bash
+systemctl daemon-reload
+systemctl enable book-echoes.service
+systemctl start book-echoes.service
+```
+
+### 4. 常用命令
+
+```bash
+systemctl status book-echoes.service    # 查看状态
+systemctl restart book-echoes.service   # 重启
+journalctl -u book-echoes -n 50         # 查看日志
+```
+
+### 5. 注意事项
+
+- `.env` 和 `.env.local` 包含敏感密钥，已加入 `.gitignore`，勿提交到 Git
+- 仅提交 `.env.example` 和 `.env.local.example` 作为配置模板
