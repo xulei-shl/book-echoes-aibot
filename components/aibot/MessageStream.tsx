@@ -183,6 +183,7 @@ export default function MessageStream({
     onDocumentAnalysisGenerateInterpretation
 }: MessageStreamProps) {
     const { retrievalResults, deepSearchPhase, deepSearchLogs } = useAIBotStore(); // 获取检索结果状态、深度检索阶段和日志
+    const firstUserMessageId = messages.find((message) => message.role === 'user')?.id;
 
     // 判断报告是否正在生成或已完成（用于自动折叠图书列表）
     const isReportStartedOrCompleted = deepSearchPhase === 'report-streaming' || deepSearchPhase === 'completed';
@@ -213,16 +214,6 @@ export default function MessageStream({
                 }
             }}
         >
-            {/* 简单检索进度显示 - 固定在消息流顶部，保持在检索结果上方 */}
-            {simpleSearchLogs.length > 0 && (
-                <ProgressLogDisplay
-                    isVisible={true}
-                    logs={simpleSearchLogs}
-                    currentPhase={simpleSearchPhase}
-                    title="检索进度"
-                />
-            )}
-
             <AnimatePresence initial={false}>
                 {messages.map((message) => (
                     <motion.div
@@ -410,6 +401,17 @@ export default function MessageStream({
                                 ) : (
                                     (message as any).content
                                 )}
+                            </div>
+                        )}
+
+                        {message.role === 'user' && message.id === firstUserMessageId && simpleSearchLogs.length > 0 && (
+                            <div className="mt-4 text-left">
+                                <ProgressLogDisplay
+                                    isVisible={true}
+                                    logs={simpleSearchLogs}
+                                    currentPhase={simpleSearchPhase}
+                                    title="检索进度"
+                                />
                             </div>
                         )}
                     </motion.div>
