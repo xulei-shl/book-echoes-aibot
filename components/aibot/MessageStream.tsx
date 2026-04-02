@@ -184,6 +184,11 @@ export default function MessageStream({
 }: MessageStreamProps) {
     const { retrievalResults, deepSearchPhase, deepSearchLogs } = useAIBotStore(); // 获取检索结果状态、深度检索阶段和日志
     const firstUserMessageId = messages.find((message) => message.role === 'user')?.id;
+    const shouldShowSimpleSearchLogs =
+        simpleSearchLogs.length > 0 &&
+        messages.length > 0 &&
+        !messages.some((message) => message.role === 'assistant' && isDeepSearchMessage((message as any).content)) &&
+        !messages.some((message) => message.role === 'assistant' && isDocumentAnalysisMessage((message as any).content));
 
     // 判断报告是否正在生成或已完成（用于自动折叠图书列表）
     const isReportStartedOrCompleted = deepSearchPhase === 'report-streaming' || deepSearchPhase === 'completed';
@@ -404,7 +409,7 @@ export default function MessageStream({
                             </div>
                         )}
 
-                        {message.role === 'user' && message.id === firstUserMessageId && simpleSearchLogs.length > 0 && (
+                        {message.role === 'user' && message.id === firstUserMessageId && shouldShowSimpleSearchLogs && (
                             <div className="mt-4 text-left">
                                 <ProgressLogDisplay
                                     isVisible={true}

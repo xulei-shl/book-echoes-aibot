@@ -246,6 +246,7 @@ export default function AIBotOverlay() {
         setMessages([]);
         setPendingDraft(null, undefined);
         setError(undefined);
+        clearSimpleSearchLogs();
         resetDeepSearch();
         resetDocumentAnalysis();
         clearUploadedDocuments();
@@ -1321,6 +1322,7 @@ export default function AIBotOverlay() {
         setInputValue('');
         setPendingDraft(null, undefined);
         setError(undefined);
+        clearSimpleSearchLogs();
         resetDeepSearch(); // 重置深度检索状态
         resetDocumentAnalysis(); // 重置文档分析状态
         clearUploadedDocuments(); // 清空已上传文档
