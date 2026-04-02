@@ -1499,7 +1499,7 @@ export default function AIBotOverlay() {
                                             )}
                                             onClick={() => setMode(mode === AIBOT_MODES.DEEP ? AIBOT_MODES.TEXT : AIBOT_MODES.DEEP)}
                                         >
-                                            {mode === AIBOT_MODES.DEEP ? '深度检索已开启' : '深度检索关闭'}
+                                            深度检索
                                         </button>
                                         {/* 模式指示器 */}
                                         <div className="flex items-center gap-1 text-xs">
@@ -1542,8 +1542,7 @@ export default function AIBotOverlay() {
                                                     isDeepSearchDraftStreaming || isDocumentAnalysisDraftStreaming ? '生成草稿中...' :
                                                         deepSearchPhase === 'draft-confirm' ? '确认检索' :
                                                             deepSearchPhase !== 'idle' && deepSearchPhase !== 'completed' && isDeepMode ? '深度检索进行中...' :
-                                                                isDeepMode ? '开始深度检索' :
-                                                                    '发送'}
+                                                                '发送'}
                                     </button>
                                 </div>
                             </form>
