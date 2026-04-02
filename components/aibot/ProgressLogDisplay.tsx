@@ -215,7 +215,7 @@ export default function ProgressLogDisplay({
                                                         className={`relative overflow-hidden p-3 border ${
                                                             log.status === 'error' ? 'border-red-500/30 bg-red-500/5' :
                                                             log.status === 'running' ? 'border-[#C9A063]/30 bg-[#C9A063]/5' :
-                                                            log.status === 'completed' ? 'border-green-500/30 bg-green-500/5' :
+                                                            log.status === 'completed' ? 'border-[#C9A063]/28 bg-[#C9A063]/8' :
                                                             'border-[#C9A063]/15 bg-[#111111]/80'
                                                         }`}
                                                     >
@@ -239,7 +239,7 @@ export default function ProgressLogDisplay({
                                                                 ) : log.status === 'error' ? (
                                                                     <span className="text-red-400">❌</span>
                                                                 ) : log.status === 'completed' ? (
-                                                                    <span className="text-green-400">✓</span>
+                                                                    <span className="text-[#E6C98B]">✓</span>
                                                                 ) : (
                                                                     <span className="text-[#A2A09A]">○</span>
                                                                 )}
@@ -247,16 +247,21 @@ export default function ProgressLogDisplay({
 
                                                             <div className="relative z-10 flex-1 min-w-0">
                                                                 <div className="flex items-center gap-2 mb-1">
-                                                                    <span className={`text-sm ${isRunning ? 'text-[#E8D7B3]' : ''}`}>
+                                                                    <span className={`text-sm font-info-content ${
+                                                                        log.status === 'error' ? 'text-red-200' :
+                                                                        log.status === 'completed' ? 'text-[#F3E7C9]' :
+                                                                        log.status === 'running' ? 'text-[#F3E7C9]' :
+                                                                        'text-[#F2EFE6]'
+                                                                    }`}>
                                                                         {PHASE_ICONS[log.phase]} {PHASE_LABELS[log.phase]}
                                                                     </span>
-                                                                    <span className="text-xs text-[#A2A09A]">
+                                                                    <span className="text-xs text-[#D1C5A8] font-mono tracking-wider">
                                                                         {log.timestamp}
                                                                     </span>
                                                                     {isRunning && (
                                                                         <motion.span
-                                                                            className="text-[10px] font-mono tracking-[0.24em] text-[#C9A063]/70"
-                                                                            animate={{ opacity: [0.35, 1, 0.35] }}
+                                                                            className="text-[10px] font-mono tracking-[0.24em] text-[#F0D9A6]"
+                                                                            animate={{ opacity: [0.45, 1, 0.45] }}
                                                                             transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
                                                                         >
                                                                             RUNNING
@@ -264,17 +269,17 @@ export default function ProgressLogDisplay({
                                                                     )}
                                                                 </div>
 
-                                                                <p className={`text-sm ${
-                                                                    log.status === 'error' ? 'text-red-400' :
-                                                                    log.status === 'running' ? 'text-[#C9A063]' :
-                                                                    log.status === 'completed' ? 'text-green-400' :
-                                                                    'text-[#A2A09A]'
+                                                                <p className={`text-sm font-info-content ${
+                                                                    log.status === 'error' ? 'text-red-100' :
+                                                                    log.status === 'running' ? 'text-[#FFF4DD]' :
+                                                                    log.status === 'completed' ? 'text-[#FFF1D2]' :
+                                                                    'text-[#E8E6DC]'
                                                                 }`}>
                                                                     {log.message}
                                                                 </p>
 
                                                                 {log.details && (
-                                                                    <p className="text-xs text-[#6F6D68] mt-1">
+                                                                    <p className="text-xs text-[#CFC7B6] mt-1 font-info-content">
                                                                         {log.details}
                                                                     </p>
                                                                 )}

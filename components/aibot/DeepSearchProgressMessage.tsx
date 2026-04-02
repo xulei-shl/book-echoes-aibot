@@ -60,7 +60,7 @@ export default function DeepSearchProgressMessage({
         <div className="mb-4">
             {/* 进度窗口头部 - 可点击折叠 */}
             <motion.div
-                className="flex items-center justify-between p-3 rounded-t-xl border border-[#343434] bg-[rgba(26,26,26,0.8)] cursor-pointer"
+                className="flex items-center justify-between p-3 border border-[#C9A063]/20 bg-[rgba(26,26,26,0.8)] cursor-pointer"
                 onClick={() => setIsExpanded(!isExpanded)}
                 whileHover={{ backgroundColor: 'rgba(201, 160, 99, 0.1)' }}
                 transition={{ duration: 0.2 }}
@@ -69,10 +69,10 @@ export default function DeepSearchProgressMessage({
                     <div className="animate-pulse">
                         <div className="w-2 h-2 bg-[#C9A063] rounded-full"></div>
                     </div>
-                    <span className="text-[#C9A063] text-sm font-medium font-body">
+                    <span className="text-[#C9A063] text-sm font-medium font-mono tracking-wider">
                         {title}
                     </span>
-                    <div className="text-xs text-[#A2A09A] font-body">
+                    <div className="text-xs text-[#A2A09A] font-mono tracking-wider">
                         {completedCount} / {totalCount} 完成
                     </div>
                 </div>
@@ -95,12 +95,12 @@ export default function DeepSearchProgressMessage({
                         transition={{ duration: 0.3 }}
                         className="overflow-hidden"
                     >
-                        <div className="border border-[#343434] border-t-0 rounded-b-xl bg-[rgba(26,26,26,0.8)]">
+                        <div className="border border-[#C9A063]/20 border-t-0 bg-[rgba(26,26,26,0.8)]">
                             {/* 进度条 */}
                             <div className="p-4 pb-3">
-                                <div className="w-full bg-[#1B1B1B] rounded-full h-1">
+                                <div className="w-full bg-[#1B1B1B] h-1">
                                     <motion.div
-                                        className="bg-[#C9A063] h-1 rounded-full"
+                                        className="bg-[#C9A063] h-1"
                                         initial={{ width: 0 }}
                                         animate={{ width: `${progressPercent}%` }}
                                         transition={{ duration: 0.5 }}
@@ -110,61 +110,96 @@ export default function DeepSearchProgressMessage({
 
                             {/* 日志列表 */}
                             <div className="px-4 pb-4">
-                                <div className="space-y-2 max-h-24 overflow-y-auto aibot-scroll">
-                                    {logs.map((log) => (
-                                        <motion.div
-                                            key={log.id}
-                                            initial={{ opacity: 0, x: -20 }}
-                                            animate={{ opacity: 1, x: 0 }}
-                                            transition={{ duration: 0.2 }}
-                                            className={`p-3 rounded-lg border ${
-                                                log.status === 'error' ? 'border-red-500/30 bg-red-500/5' :
-                                                log.status === 'running' ? 'border-[#C9A063]/30 bg-[#C9A063]/5' :
-                                                log.status === 'completed' ? 'border-green-500/30 bg-green-500/5' :
-                                                'border-[#343434] bg-[#1B1B1B]'
-                                            }`}
-                                        >
-                                            <div className="flex items-start gap-3">
-                                                <div className="flex-shrink-0 mt-0.5">
-                                                    {log.status === 'running' ? (
-                                                        <div className="animate-spin rounded-full w-3 h-3 border-b border-[#C9A063]"></div>
-                                                    ) : log.status === 'error' ? (
-                                                        <span className="text-red-400">❌</span>
-                                                    ) : log.status === 'completed' ? (
-                                                        <span className="text-green-400">✓</span>
-                                                    ) : (
-                                                        <span className="text-[#A2A09A]">○</span>
-                                                    )}
-                                                </div>
+                                <div className="space-y-2 max-h-24 overflow-y-auto about-overlay-scroll">
+                                    {logs.map((log) => {
+                                        const isRunning = log.status === 'running';
 
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center gap-2 mb-1">
-                                                        <span className="text-sm font-body">
-                                                            {PHASE_ICONS[log.phase] || '📋'} {PHASE_LABELS[log.phase] || log.phase}
-                                                        </span>
-                                                        <span className="text-xs text-[#A2A09A] font-body">
-                                                            {log.timestamp}
-                                                        </span>
+                                        return (
+                                            <motion.div
+                                                key={log.id}
+                                                initial={{ opacity: 0, x: -20 }}
+                                                animate={isRunning ? {
+                                                    opacity: [0.9, 1, 0.9],
+                                                    borderColor: ['rgba(201,160,99,0.22)', 'rgba(201,160,99,0.45)', 'rgba(201,160,99,0.22)'],
+                                                    backgroundColor: ['rgba(201,160,99,0.03)', 'rgba(201,160,99,0.08)', 'rgba(201,160,99,0.03)']
+                                                } : { opacity: 1, x: 0 }}
+                                                transition={isRunning ? { duration: 1.8, repeat: Infinity, ease: 'easeInOut' } : { duration: 0.2 }}
+                                                className={`relative overflow-hidden p-3 border ${
+                                                    log.status === 'error' ? 'border-red-500/30 bg-red-500/5' :
+                                                    log.status === 'running' ? 'border-[#C9A063]/30 bg-[#C9A063]/5' :
+                                                    log.status === 'completed' ? 'border-[#C9A063]/28 bg-[#C9A063]/8' :
+                                                    'border-[#C9A063]/15 bg-[#111111]/80'
+                                                }`}
+                                            >
+                                                {isRunning && (
+                                                    <motion.div
+                                                        aria-hidden="true"
+                                                        className="pointer-events-none absolute inset-y-0 left-0 w-10 bg-gradient-to-r from-transparent via-[#C9A063]/12 to-transparent"
+                                                        initial={{ x: '-120%' }}
+                                                        animate={{ x: '420%' }}
+                                                        transition={{ duration: 1.6, repeat: Infinity, ease: 'linear' }}
+                                                    />
+                                                )}
+
+                                                <div className="flex items-start gap-3">
+                                                    <div className="flex-shrink-0 mt-0.5">
+                                                        {isRunning ? (
+                                                            <div className="relative flex h-3 w-3 items-center justify-center">
+                                                                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#C9A063]/35"></span>
+                                                                <span className="relative inline-flex h-2.5 w-2.5 animate-spin rounded-full border border-[#C9A063]/25 border-t-[#C9A063]"></span>
+                                                            </div>
+                                                        ) : log.status === 'error' ? (
+                                                            <span className="text-red-400">❌</span>
+                                                        ) : log.status === 'completed' ? (
+                                                            <span className="text-[#E6C98B]">✓</span>
+                                                        ) : (
+                                                            <span className="text-[#A2A09A]">○</span>
+                                                        )}
                                                     </div>
 
-                                                    <p className={`text-sm font-body ${
-                                                        log.status === 'error' ? 'text-red-400' :
-                                                        log.status === 'running' ? 'text-[#C9A063]' :
-                                                        log.status === 'completed' ? 'text-green-400' :
-                                                        'text-[#A2A09A]'
-                                                    }`}>
-                                                        {log.message}
-                                                    </p>
+                                                    <div className="relative z-10 flex-1 min-w-0">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <span className={`text-sm font-info-content ${
+                                                                log.status === 'error' ? 'text-red-200' :
+                                                                log.status === 'completed' ? 'text-[#F3E7C9]' :
+                                                                log.status === 'running' ? 'text-[#F3E7C9]' :
+                                                                'text-[#F2EFE6]'
+                                                            }`}>
+                                                                {PHASE_ICONS[log.phase] || '📋'} {PHASE_LABELS[log.phase] || log.phase}
+                                                            </span>
+                                                            <span className="text-xs text-[#D1C5A8] font-mono tracking-wider">
+                                                                {log.timestamp}
+                                                            </span>
+                                                            {isRunning && (
+                                                                <motion.span
+                                                                    className="text-[10px] font-mono tracking-[0.24em] text-[#F0D9A6]"
+                                                                    animate={{ opacity: [0.45, 1, 0.45] }}
+                                                                    transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
+                                                                >
+                                                                    RUNNING
+                                                                </motion.span>
+                                                            )}
+                                                        </div>
 
-                                                    {log.details && (
-                                                        <p className="text-xs text-[#6F6D68] mt-1 font-body">
-                                                            {log.details}
+                                                        <p className={`text-sm font-info-content ${
+                                                            log.status === 'error' ? 'text-red-100' :
+                                                            log.status === 'running' ? 'text-[#FFF4DD]' :
+                                                            log.status === 'completed' ? 'text-[#FFF1D2]' :
+                                                            'text-[#E8E6DC]'
+                                                        }`}>
+                                                            {log.message}
                                                         </p>
-                                                    )}
+
+                                                        {log.details && (
+                                                            <p className="text-xs text-[#CFC7B6] mt-1 font-info-content">
+                                                                {log.details}
+                                                            </p>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        </motion.div>
-                                    ))}
+                                            </motion.div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </div>

@@ -60,11 +60,11 @@ export default function DocumentAnalysisDraftMessage({
             </div>
 
             {/* 文档信息 */}
-            <div className="text-xs text-[#A2A09A] bg-[#2A2A2A] rounded-lg p-3">
-                <div>基于以下文档的分析：</div>
-                <div className="mt-1 text-[#E8E6DC]">{content.userInput}</div>
+            <div className="text-xs text-[#A2A09A] bg-[#111111]/80 border border-[#C9A063]/15 p-3">
+                <div className="font-info-content">基于以下文档的分析：</div>
+                <div className="mt-1 text-[#E8E6DC] font-info-content">{content.userInput}</div>
                 {content.documentAnalyses.length > 0 && (
-                    <div className="mt-2 text-[#6F6D68]">
+                    <div className="mt-2 text-[#6F6D68] font-info-content">
                         共分析了 {content.documentAnalyses.length} 篇文档
                     </div>
                 )}

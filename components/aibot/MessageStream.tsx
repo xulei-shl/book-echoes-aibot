@@ -396,7 +396,7 @@ export default function MessageStream({
             </AnimatePresence>
 
             {/* 简单检索进度显示 */}
-            {isSearching && simpleSearchLogs.length > 0 && (
+            {simpleSearchLogs.length > 0 && (
                 <ProgressLogDisplay
                     isVisible={true}
                     logs={simpleSearchLogs}
