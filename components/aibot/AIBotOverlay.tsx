@@ -1517,7 +1517,7 @@ export default function AIBotOverlay() {
                                         {/* 模式指示器 */}
                                         <div className="flex items-center gap-1 text-xs">
                                             <span className={clsx(
-                                                'w-2 h-2 rounded-full',
+                                                'inline-block w-2 h-2 rounded-full shrink-0',
                                                 displayMode === AIBOT_MODES.TEXT && 'bg-[#3B82F6]',
                                                 displayMode === AIBOT_MODES.DEEP && 'bg-[#C9A063]',
                                                 displayMode === AIBOT_MODES.DOCUMENT && 'bg-[#A855F7]'
