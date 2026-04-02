@@ -27,7 +27,7 @@ import { formatBooksForSecondarySearch } from '@/src/utils/format-book-for-searc
 
 const generateUUID = (): string => {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-        return generateUUID();
+        return crypto.randomUUID();
     }
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
         const r = (Math.random() * 16) | 0;
@@ -141,6 +141,8 @@ export default function AIBotOverlay() {
         setDocumentAnalysisReportContent,
         setDocumentAnalysisReportStreaming,
         resetDocumentAnalysis,
+        deepSearchReportContent,
+        documentAnalysisReportContent,
     } = useAIBotStore();
 
     const [inputValue, setInputValue] = useState('');
@@ -1287,15 +1289,26 @@ export default function AIBotOverlay() {
     }, [clearSelection, setRetrievalPhase, isDeepMode, setDeepMode]);
 
 
-    const handleCopy = async () => {
-        if (!lastAssistant) {
-            setError('暂无可复制内容');
+    const handleDownload = useCallback(() => {
+        const reportMarkdown = documentAnalysisReportContent || deepSearchReportContent || lastAssistant;
+
+        if (!reportMarkdown) {
+            setError('暂无可下载内容');
             return;
         }
-        await navigator.clipboard.writeText(lastAssistant);
-        setError('已复制到剪贴板');
-        setTimeout(() => setError(undefined), 2000);
-    };
+
+        const blob = new Blob([reportMarkdown], { type: 'text/markdown;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+
+        link.href = url;
+        link.download = `aibot-report-${timestamp}.md`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    }, [documentAnalysisReportContent, deepSearchReportContent, lastAssistant, setError]);
 
     const handleClear = async () => {
         console.log('[AIBotOverlay] 清空聊天记录', {
@@ -1525,10 +1538,10 @@ export default function AIBotOverlay() {
                                         </button>
                                         <button
                                             type="button"
-                                            onClick={handleCopy}
+                                            onClick={handleDownload}
                                             className="px-3 py-1 border border-[#C9A063]/30 text-[#C9A063] hover:bg-[#C9A063] hover:text-[#1a1a1a] transition-colors duration-300 text-xs font-mono tracking-wider"
                                         >
-                                            复制
+                                            下载
                                         </button>
                                     </div>
                                     <button
