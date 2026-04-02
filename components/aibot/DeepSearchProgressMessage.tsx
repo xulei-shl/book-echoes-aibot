@@ -60,20 +60,23 @@ export default function DeepSearchProgressMessage({
         <div className="mb-4">
             {/* 进度窗口头部 - 可点击折叠 */}
             <motion.div
-                className="flex items-center justify-between p-3 rounded-t-xl border border-[#343434] bg-[rgba(26,26,26,0.8)] cursor-pointer"
+                className="aibot-workflow-header cursor-pointer"
                 onClick={() => setIsExpanded(!isExpanded)}
-                whileHover={{ backgroundColor: 'rgba(201, 160, 99, 0.1)' }}
+                whileHover={{ backgroundColor: 'rgba(201, 160, 99, 0.16)' }}
                 transition={{ duration: 0.2 }}
             >
                 <div className="flex items-center gap-3">
-                    <div className="animate-pulse">
-                        <div className="w-2 h-2 bg-[#C9A063] rounded-full"></div>
+                    <div className="relative flex h-8 w-8 items-center justify-center rounded-full border border-[#C9A063]/24 bg-[#1A1712]">
+                        <div className="absolute inset-0 rounded-full bg-[#C9A063]/10 animate-pulse" />
+                        <div className="relative h-2 w-2 rounded-full bg-[#C9A063] shadow-[0_0_18px_rgba(201,160,99,0.4)]"></div>
                     </div>
-                    <span className="text-[#C9A063] text-sm font-medium font-body">
-                        {title}
-                    </span>
-                    <div className="text-xs text-[#A2A09A] font-body">
-                        {completedCount} / {totalCount} 完成
+                    <div>
+                        <span className="block font-info-content text-sm font-medium text-[#F0E4D0]">
+                            {title}
+                        </span>
+                        <div className="text-xs text-[#AFA79A] font-info-content">
+                            {completedCount} / {totalCount} 完成
+                        </div>
                     </div>
                 </div>
                 <motion.div
@@ -95,69 +98,69 @@ export default function DeepSearchProgressMessage({
                         transition={{ duration: 0.3 }}
                         className="overflow-hidden"
                     >
-                        <div className="border border-[#343434] border-t-0 rounded-b-xl bg-[rgba(26,26,26,0.8)]">
+                        <div className="aibot-workflow-card rounded-t-none border-t-0">
                             {/* 进度条 */}
-                            <div className="p-4 pb-3">
-                                <div className="w-full bg-[#1B1B1B] rounded-full h-1">
+                            <div className="px-4 pt-4 pb-3 md:px-5">
+                                <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#100F0D]">
                                     <motion.div
-                                        className="bg-[#C9A063] h-1 rounded-full"
-                                        initial={{ width: 0 }}
-                                        animate={{ width: `${progressPercent}%` }}
-                                        transition={{ duration: 0.5 }}
+                                        className="h-full rounded-full bg-[linear-gradient(90deg,#C9A063,#E4CC9F,#C9A063)] bg-[length:200%_100%]"
+                                        initial={{ width: 0, backgroundPosition: '0% 50%' }}
+                                        animate={{ width: `${progressPercent}%`, backgroundPosition: ['0% 50%', '100% 50%'] }}
+                                        transition={{ width: { duration: 0.5 }, backgroundPosition: { duration: 1.8, repeat: Infinity, ease: 'linear' } }}
                                     />
                                 </div>
                             </div>
 
                             {/* 日志列表 */}
-                            <div className="px-4 pb-4">
-                                <div className="space-y-2 max-h-24 overflow-y-auto aibot-scroll">
+                            <div className="px-4 pb-4 md:px-5 md:pb-5">
+                                <div className="aibot-scroll space-y-2.5 max-h-40 overflow-y-auto pr-1">
                                     {logs.map((log) => (
                                         <motion.div
                                             key={log.id}
                                             initial={{ opacity: 0, x: -20 }}
                                             animate={{ opacity: 1, x: 0 }}
                                             transition={{ duration: 0.2 }}
-                                            className={`p-3 rounded-lg border ${
-                                                log.status === 'error' ? 'border-red-500/30 bg-red-500/5' :
-                                                log.status === 'running' ? 'border-[#C9A063]/30 bg-[#C9A063]/5' :
-                                                log.status === 'completed' ? 'border-green-500/30 bg-green-500/5' :
-                                                'border-[#343434] bg-[#1B1B1B]'
+                                            className={`rounded-2xl border px-3 py-3 md:px-4 ${
+                                                log.status === 'error' ? 'border-red-400/18 bg-red-400/8' :
+                                                log.status === 'running' ? 'border-[#C9A063]/26 bg-[#C9A063]/10 shadow-[0_0_0_1px_rgba(201,160,99,0.04)]' :
+                                                log.status === 'completed' ? 'border-emerald-400/18 bg-emerald-400/8' :
+                                                'border-[#E8E6DC]/8 bg-[#151412]'
                                             }`}
                                         >
                                             <div className="flex items-start gap-3">
-                                                <div className="flex-shrink-0 mt-0.5">
+                                                <div className="mt-0.5 flex-shrink-0">
                                                     {log.status === 'running' ? (
-                                                        <div className="animate-spin rounded-full w-3 h-3 border-b border-[#C9A063]"></div>
+                                                        <div className="h-3.5 w-3.5 rounded-full border border-[#C9A063] border-t-transparent animate-spin"></div>
                                                     ) : log.status === 'error' ? (
-                                                        <span className="text-red-400">❌</span>
+                                                        <span className="text-red-300">●</span>
                                                     ) : log.status === 'completed' ? (
-                                                        <span className="text-green-400">✓</span>
+                                                        <span className="text-emerald-300">●</span>
                                                     ) : (
-                                                        <span className="text-[#A2A09A]">○</span>
+                                                        <span className="text-[#8E8679]">○</span>
                                                     )}
                                                 </div>
 
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center gap-2 mb-1">
-                                                        <span className="text-sm font-body">
-                                                            {PHASE_ICONS[log.phase] || '📋'} {PHASE_LABELS[log.phase] || log.phase}
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="mb-1 flex items-center gap-2">
+                                                        <span className="font-info-content text-sm text-[#ECE4D7]">
+                                                            {PHASE_LABELS[log.phase] || log.phase}
                                                         </span>
-                                                        <span className="text-xs text-[#A2A09A] font-body">
+                                                        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#8E8679]">
                                                             {log.timestamp}
                                                         </span>
                                                     </div>
 
-                                                    <p className={`text-sm font-body ${
-                                                        log.status === 'error' ? 'text-red-400' :
-                                                        log.status === 'running' ? 'text-[#C9A063]' :
-                                                        log.status === 'completed' ? 'text-green-400' :
-                                                        'text-[#A2A09A]'
+                                                    <p className={`font-info-content text-sm leading-6 ${
+                                                        log.status === 'error' ? 'text-red-200' :
+                                                        log.status === 'running' ? 'text-[#F0DEC0]' :
+                                                        log.status === 'completed' ? 'text-emerald-200' :
+                                                        'text-[#B8B0A3]'
                                                     }`}>
                                                         {log.message}
                                                     </p>
 
                                                     {log.details && (
-                                                        <p className="text-xs text-[#6F6D68] mt-1 font-body">
+                                                        <p className="mt-1 text-xs leading-5 text-[#7E776C] font-info-content">
                                                             {log.details}
                                                         </p>
                                                     )}

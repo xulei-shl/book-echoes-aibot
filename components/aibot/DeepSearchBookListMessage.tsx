@@ -105,23 +105,25 @@ export default function DeepSearchBookListMessage({
         <div className="mb-4">
             {/* 头部 */}
             <motion.div
-                className="flex items-center justify-between p-3 rounded-t-xl border border-[#343434] bg-[rgba(201,160,99,0.15)] cursor-pointer"
+                className="aibot-workflow-header cursor-pointer"
                 onClick={() => setIsExpanded(!isExpanded)}
-                whileHover={{ backgroundColor: 'rgba(201, 160, 99, 0.2)' }}
+                whileHover={{ backgroundColor: 'rgba(201, 160, 99, 0.16)' }}
                 transition={{ duration: 0.2 }}
             >
                 <div className="flex items-center gap-3 flex-wrap">
-                    <span className="text-[#C9A063] text-sm font-medium font-body">
-                        📚 相关图书
-                    </span>
-                    <span className="text-[#E8E6DC] text-sm font-body">
-                        找到 {books.length} 本
-                    </span>
-                    {selectedCount > 0 && (
-                        <span className="text-xs px-2 py-0.5 bg-[#C9A063]/20 text-[#C9A063] rounded font-body">
-                            已选 {selectedCount} 本
+                    <div className="relative flex h-8 w-8 items-center justify-center rounded-full border border-[#C9A063]/24 bg-[#1A1712]">
+                        <div className="absolute inset-0 rounded-full bg-[#C9A063]/10 animate-pulse" />
+                        <div className="relative h-2 w-2 rounded-full bg-[#C9A063] shadow-[0_0_18px_rgba(201,160,99,0.4)]"></div>
+                    </div>
+                    <div>
+                        <span className="block font-info-content text-sm font-medium text-[#F0E4D0]">
+                            相关图书
                         </span>
-                    )}
+                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                            <span className="aibot-chip">共 {books.length} 本</span>
+                            {selectedCount > 0 && <span className="aibot-chip aibot-chip--active">已选 {selectedCount} 本</span>}
+                        </div>
+                    </div>
                 </div>
                 <motion.div
                     animate={{ rotate: isExpanded ? 180 : 0 }}
@@ -142,9 +144,9 @@ export default function DeepSearchBookListMessage({
                         transition={{ duration: 0.3 }}
                         className="overflow-hidden"
                     >
-                        <div className="border border-[#343434] border-t-0 rounded-b-xl bg-[rgba(26,26,26,0.8)]">
+                        <div className="aibot-workflow-card rounded-t-none border-t-0">
                             {/* 图书列表 */}
-                            <div className="p-4 max-h-96 overflow-y-auto aibot-scroll">
+                            <div className="aibot-scroll max-h-96 overflow-y-auto px-4 py-4 md:px-5">
                                 {displayBooks.length > 0 ? (
                                     displayBooks.map((book, index) => (
                                         <BookItem
@@ -157,9 +159,9 @@ export default function DeepSearchBookListMessage({
                                         />
                                     ))
                                 ) : (
-                                    <div className="text-center py-8">
-                                        <p className="text-[#A2A09A] text-sm font-body">未找到相关图书</p>
-                                        <p className="text-[#6F6D68] text-xs mt-1 font-body">请尝试调整搜索条件</p>
+                                    <div className="py-8 text-center">
+                                        <p className="text-sm text-[#BDB4A6] font-info-content">未找到相关图书</p>
+                                        <p className="mt-1 text-xs text-[#736D62] font-info-content">请尝试调整搜索条件</p>
                                     </div>
                                 )}
 
@@ -170,57 +172,48 @@ export default function DeepSearchBookListMessage({
                                             e.stopPropagation();
                                             setShowAll(!showAll);
                                         }}
-                                        className="w-full py-2 mt-2 text-center text-[#C9A063] text-sm hover:bg-[#1B1B1B] rounded-lg transition-colors border border-[#343434] font-body"
+                                        className="aibot-btn aibot-btn--ghost mt-3 w-full"
                                     >
-                                        {showAll ? '▲ 收起' : `▼ 显示全部 ${books.length} 本`}
+                                        {showAll ? '收起列表' : `显示全部 ${books.length} 本`}
                                     </button>
                                 )}
                             </div>
 
                             {/* 操作按钮 */}
                             {books.length > 0 && (
-                                <div className="p-4 border-t border-[#343434] flex flex-wrap gap-3">
-                                    <div className="relative group">
+                                <div className="aibot-workflow-footer">
+                                    <div className="flex flex-wrap gap-2">
                                         <button
                                             onClick={handleGenerateInterpretation}
                                             disabled={isLoading || (selectedCount === 0 && books.filter(b => (b.similarityScore || 0) > 0.42).length === 0)}
-                                            className="px-4 py-2 bg-[#C9A063] text-black rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#D4A863] transition-colors font-body"
+                                            className="aibot-btn aibot-btn--primary"
                                         >
                                             {isLoading ? '生成中...' : `生成解读 ${selectedCount > 0 ? `(${selectedCount}本)` : ''}`}
                                         </button>
-                                        <div className="absolute bottom-full left-0 mb-2 px-3 py-2 bg-[#1B1B1B] text-[#E8E6DC] text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 border border-[#343434] shadow-lg max-w-xs min-w-48 font-body pointer-events-none">
-                                            生成选中图书的AI解读，如未选择则自动筛选相似度{'>'}0.42的图书
-                                        </div>
-                                    </div>
 
-                                    {/* 新增：二次检索按钮 */}
-                                    <div className="relative group">
                                         <button
                                             onClick={handleSecondaryRetrieval}
                                             disabled={isLoading || books.length === 0 || !onSecondaryRetrieval}
-                                            className="px-4 py-2 border border-[#343434] text-[#E8E6DC] rounded-lg text-sm hover:bg-[#1B1B1B] transition-colors font-body disabled:opacity-50 disabled:cursor-not-allowed"
+                                            className="aibot-btn aibot-btn--secondary"
                                         >
                                             二次检索 {selectedCount > 0 ? `(${selectedCount}本)` : `(${books.length}本)`}
                                         </button>
-                                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-[#1B1B1B] text-[#E8E6DC] text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 border border-[#343434] shadow-lg max-w-xs min-w-48 font-body pointer-events-none">
-                                            基于选中图书进行二次检索，切换到简单检索模式
-                                        </div>
+
+                                        <button
+                                            onClick={handleAutoSelect}
+                                            className="aibot-btn aibot-btn--ghost"
+                                        >
+                                            自动筛选
+                                        </button>
+
+                                        <button
+                                            onClick={handleClearSelection}
+                                            disabled={selectedCount === 0}
+                                            className="aibot-btn aibot-btn--ghost"
+                                        >
+                                            清空选择
+                                        </button>
                                     </div>
-
-                                    <button
-                                        onClick={handleAutoSelect}
-                                        className="px-4 py-2 border border-[#343434] text-[#E8E6DC] rounded-lg text-sm hover:bg-[#1B1B1B] transition-colors font-body"
-                                    >
-                                        自动筛选
-                                    </button>
-
-                                    <button
-                                        onClick={handleClearSelection}
-                                        disabled={selectedCount === 0}
-                                        className="px-4 py-2 border border-[#343434] text-[#A2A09A] rounded-lg text-sm hover:bg-[#1B1B1B] transition-colors disabled:opacity-50 font-body"
-                                    >
-                                        清空选择
-                                    </button>
                                 </div>
                             )}
                         </div>

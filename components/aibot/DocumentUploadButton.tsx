@@ -79,21 +79,18 @@ export default function DocumentUploadButton({
     const hasUploadedDocuments = uploadedCount > 0;
 
     return (
-        <div className="relative flex items-center">
+        <div className="relative flex items-center gap-2">
             <button
                 type="button"
                 onClick={handleClick}
                 disabled={buttonDisabled}
-                className={`
-                    px-3 py-1 rounded-full border text-xs font-medium transition-colors duration-200
-                    flex items-center gap-2
-                    ${buttonDisabled
-                        ? 'border-[#3A3A3A] text-[#555] cursor-not-allowed opacity-60'
+                className={`aibot-btn ${
+                    buttonDisabled
+                        ? 'aibot-btn--ghost'
                         : hasUploadedDocuments
-                            ? 'border-[#C9A063] text-[#C9A063] hover:border-[#E4B56F] hover:text-[#E4B56F]'
-                            : 'border-[#3A3A3A] text-[#A2A09A] hover:border-[#C9A063] hover:text-[#C9A063]'
-                    }
-                `}
+                            ? 'aibot-btn--secondary border-[#C9A063]/38 text-[#E8D7BB]'
+                            : 'aibot-btn--ghost'
+                }`}
                 title={buttonDisabled
                     ? `已达到最大文档数量限制（${maxFiles}个）`
                     : `上传Markdown文档（${uploadedCount}/${maxFiles}）`
@@ -114,13 +111,7 @@ export default function DocumentUploadButton({
 
             {/* 数量提示 */}
             {uploadedCount > 0 && (
-                <span className={`
-                    ml-2 px-2 py-0.5 rounded-full text-[10px] font-medium
-                    ${isNearLimit
-                        ? 'bg-orange-500 text-white'
-                        : 'bg-[#2A2A2A] text-[#C9A063]'
-                    }
-                `}>
+                <span className={`aibot-chip ${isNearLimit ? 'aibot-chip--active' : ''}`}>
                     {uploadedCount}/{maxFiles}
                 </span>
             )}

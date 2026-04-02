@@ -40,29 +40,37 @@ export default function DocumentAnalysisDraftMessage({
     return (
         <div className="space-y-4">
             {/* 标题 */}
-            <div className="flex items-center gap-2 text-sm font-medium text-[#E8E6DC]">
-                {content.isStreaming ? (
-                    <>
-                        <div className="w-4 h-4 border-2 border-[#C9A063] border-t-transparent rounded-full animate-spin"></div>
-                        正在生成交叉分析报告...
-                    </>
-                ) : content.isComplete ? (
-                    <>
-                        <div className="w-4 h-4 bg-green-500 rounded-full"></div>
-                        交叉分析报告生成完成
-                    </>
-                ) : (
-                    <>
-                        <div className="w-4 h-4 bg-[#C9A063] rounded-full"></div>
-                        交叉分析报告
-                    </>
-                )}
+            <div className="aibot-panel flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                <div className="flex items-center gap-3 text-sm font-medium text-[#E8E6DC] font-info-content">
+                    {content.isStreaming ? (
+                        <>
+                            <div className="h-4 w-4 rounded-full border-2 border-[#C9A063] border-t-transparent animate-spin"></div>
+                            正在生成交叉分析报告...
+                        </>
+                    ) : content.isComplete ? (
+                        <>
+                            <div className="h-4 w-4 rounded-full bg-emerald-400 shadow-[0_0_14px_rgba(52,211,153,0.32)]"></div>
+                            交叉分析报告生成完成
+                        </>
+                    ) : (
+                        <>
+                            <div className="h-4 w-4 rounded-full bg-[#C9A063] shadow-[0_0_14px_rgba(201,160,99,0.32)]"></div>
+                            交叉分析报告
+                        </>
+                    )}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                    <span className="aibot-chip">文档输入</span>
+                    {content.documentAnalyses.length > 0 && (
+                        <span className="aibot-chip aibot-chip--active">{content.documentAnalyses.length} 篇文档</span>
+                    )}
+                </div>
             </div>
 
             {/* 文档信息 */}
-            <div className="text-xs text-[#A2A09A] bg-[#2A2A2A] rounded-lg p-3">
+            <div className="aibot-panel px-4 py-3 text-xs text-[#A2A09A] font-info-content">
                 <div>基于以下文档的分析：</div>
-                <div className="mt-1 text-[#E8E6DC]">{content.userInput}</div>
+                <div className="mt-2 text-[#E8E6DC] leading-6">{content.userInput}</div>
                 {content.documentAnalyses.length > 0 && (
                     <div className="mt-2 text-[#6F6D68]">
                         共分析了 {content.documentAnalyses.length} 篇文档
@@ -82,15 +90,15 @@ export default function DocumentAnalysisDraftMessage({
 
             {/* 图书检索进度提示 - 放在交叉分析模块底部 */}
             {(documentAnalysisPhase === 'book-search' || documentAnalysisPhase === 'book-selection') && (
-                <div className="flex items-center gap-2 text-sm font-medium text-[#E8E6DC]">
+                <div className="aibot-panel flex items-center gap-2 px-4 py-3 text-sm font-medium text-[#E8E6DC] font-info-content">
                     {documentAnalysisPhase === 'book-search' ? (
                         <>
-                            <div className="w-3 h-3 border-2 border-[#C9A063] border-t-transparent rounded-full animate-spin"></div>
+                            <div className="h-3.5 w-3.5 rounded-full border-2 border-[#C9A063] border-t-transparent animate-spin"></div>
                             正在检索相关图书...
                         </>
                     ) : (
                         <>
-                            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                            <div className="h-3.5 w-3.5 rounded-full bg-emerald-400"></div>
                             图书检索完成
                         </>
                     )}

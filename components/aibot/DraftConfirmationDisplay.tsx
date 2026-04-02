@@ -67,23 +67,25 @@ export default function DraftConfirmationDisplay({
         <div className="mb-4">
             {/* 草稿确认头部 */}
             <motion.div
-                className="flex items-center justify-between p-3 rounded-t-xl border border-[#343434] bg-[rgba(201,160,99,0.1)] cursor-pointer"
+                className="aibot-workflow-header cursor-pointer"
                 onClick={() => !isEditing && setIsExpanded(!isExpanded)}
-                whileHover={{ backgroundColor: 'rgba(201, 160, 99, 0.2)' }}
+                whileHover={{ backgroundColor: 'rgba(201, 160, 99, 0.16)' }}
                 transition={{ duration: 0.2 }}
             >
                 <div className="flex items-center gap-3">
-                    <span className="text-[#C9A063] text-sm font-medium">
-                        📝 草稿确认
-                    </span>
-                    {isGenerating && (
-                        <span className="animate-pulse text-xs text-[#A2A09A]">生成中...</span>
-                    )}
-                    {draftMarkdown && !isGenerating && (
-                        <span className="text-xs text-[#E8E6DC]">
-                            {draftMarkdown.length} 字符
+                    <div className="relative flex h-8 w-8 items-center justify-center rounded-full border border-[#C9A063]/24 bg-[#1A1712]">
+                        <div className="absolute inset-0 rounded-full bg-[#C9A063]/10 animate-pulse" />
+                        <div className="relative h-2 w-2 rounded-full bg-[#C9A063] shadow-[0_0_18px_rgba(201,160,99,0.4)]"></div>
+                    </div>
+                    <div>
+                        <span className="block font-info-content text-sm font-medium text-[#F0E4D0]">
+                            草稿确认
                         </span>
-                    )}
+                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                            {isGenerating && <span className="aibot-chip aibot-chip--active">生成中</span>}
+                            {draftMarkdown && !isGenerating && <span className="aibot-chip">{draftMarkdown.length} 字</span>}
+                        </div>
+                    </div>
                 </div>
                 <div className="flex items-center gap-2">
                     {searchSnippets.length > 0 && (
@@ -92,9 +94,9 @@ export default function DraftConfirmationDisplay({
                                 e.stopPropagation();
                                 setShowMetadata(!showMetadata);
                             }}
-                            className="text-xs px-2 py-1 rounded border border-[#343434] text-[#A2A09A] hover:bg-[#1B1B1B] transition-colors"
+                            className="aibot-btn aibot-btn--ghost px-3 py-1 text-xs"
                         >
-                            源数据 ({searchSnippets.length})
+                            源数据 {searchSnippets.length}
                         </button>
                     )}
                     <motion.div
@@ -117,7 +119,7 @@ export default function DraftConfirmationDisplay({
                         transition={{ duration: 0.3 }}
                         className="overflow-hidden"
                     >
-                        <div className="border border-[#343434] border-t-0 rounded-b-xl bg-[rgba(26,26,26,0.8)]">
+                        <div className="aibot-workflow-card rounded-t-none border-t-0">
                             {/* 源数据展示 */}
                             <AnimatePresence>
                                 {showMetadata && searchSnippets.length > 0 && (
@@ -126,24 +128,24 @@ export default function DraftConfirmationDisplay({
                                         animate={{ height: 'auto', opacity: 1 }}
                                         exit={{ height: 0, opacity: 0 }}
                                         transition={{ duration: 0.3 }}
-                                        className="overflow-hidden border-b border-[#343434]"
+                                        className="overflow-hidden border-b border-[#C9A063]/10"
                                     >
-                                        <div className="p-4">
-                                            <h4 className="text-[#C9A063] text-sm font-medium mb-3">检索源数据</h4>
-                                            <div className="space-y-3 max-h-48 overflow-y-auto about-overlay-scroll">
+                                        <div className="px-4 py-4 md:px-5">
+                                            <h4 className="mb-3 font-info-content text-sm font-medium text-[#E8DCC8]">检索源数据</h4>
+                                            <div className="aibot-scroll space-y-3 max-h-48 overflow-y-auto pr-1">
                                                 {searchSnippets.map((snippet, index) => (
-                                                    <div key={index} className="p-3 bg-[#1B1B1B] rounded-lg border border-[#343434]">
-                                                        <h5 className="text-[#E8E6DC] font-medium text-sm mb-1 truncate">
+                                                    <div key={index} className="rounded-2xl border border-[#E8E6DC]/8 bg-[#151412] px-3 py-3">
+                                                        <h5 className="mb-1 truncate text-sm font-medium text-[#F3ECE0] font-info-content">
                                                             {snippet.title}
                                                         </h5>
-                                                        <p className="text-[#A2A09A] text-xs mb-2 line-clamp-2">
+                                                        <p className="mb-2 line-clamp-2 text-xs leading-5 text-[#A9A293] font-info-content">
                                                             {snippet.snippet}
                                                         </p>
-                                                        <a 
-                                                            href={snippet.url} 
-                                                            target="_blank" 
+                                                        <a
+                                                            href={snippet.url}
+                                                            target="_blank"
                                                             rel="noopener noreferrer"
-                                                            className="text-[#C9A063] text-xs hover:underline"
+                                                            className="text-xs text-[#C9A063] hover:text-[#E8D7BB] transition-colors font-info-content"
                                                         >
                                                             查看原文
                                                         </a>
@@ -156,30 +158,27 @@ export default function DraftConfirmationDisplay({
                             </AnimatePresence>
 
                             {/* Markdown 实时渲染与编辑 */}
-                            <div className="p-4">
+                            <div className="aibot-workflow-body">
                                 <div className="mb-3 flex items-center justify-between">
-                                    <div>
-                                        {/* <h4 className="text-[#C9A063] text-sm font-medium">交叉分析草稿</h4> */}
-                                        <div className="text-xs text-[#6F6D68] mt-1">
-                                            {isEditing ? '纯文本编辑模式' : '确认后将用于深度检索'}
-                                        </div>
+                                    <div className="text-xs text-[#6F6D68] mt-1 font-info-content">
+                                        {isEditing ? '纯文本编辑模式' : '确认后将用于深度检索'}
                                     </div>
                                     <div className="flex items-center gap-2">
                                         {isGenerating && cleanedDraft && !isEditing && (
-                                            <span className="text-xs text-[#A2A09A]">流式更新中...</span>
+                                            <span className="text-xs text-[#A2A09A] font-info-content">流式更新中...</span>
                                         )}
                                         {!isGenerating && (
                                             isEditing ? (
                                                 <>
                                                     <button
                                                         onClick={handleSaveEdit}
-                                                        className="px-3 py-1 bg-[#C9A063] text-black rounded text-xs font-medium hover:bg-[#D4A863] transition-colors"
+                                                        className="aibot-btn aibot-btn--primary px-3 py-1 text-xs"
                                                     >
                                                         保存
                                                     </button>
                                                     <button
                                                         onClick={handleCancelEdit}
-                                                        className="px-3 py-1 border border-[#343434] text-[#A2A09A] rounded text-xs hover:bg-[#1B1B1B] transition-colors"
+                                                        className="aibot-btn aibot-btn--ghost px-3 py-1 text-xs"
                                                     >
                                                         取消
                                                     </button>
@@ -187,7 +186,7 @@ export default function DraftConfirmationDisplay({
                                             ) : (
                                                 <button
                                                     onClick={handleStartEdit}
-                                                    className="px-3 py-1 border border-[#343434] text-[#E8E6DC] rounded text-xs hover:bg-[#1B1B1B] transition-colors"
+                                                    className="aibot-btn aibot-btn--secondary px-3 py-1 text-xs"
                                                 >
                                                     编辑
                                                 </button>
@@ -200,11 +199,11 @@ export default function DraftConfirmationDisplay({
                                     <textarea
                                         value={editValue}
                                         onChange={(e) => setEditValue(e.target.value)}
-                                        className="w-full h-64 rounded-lg bg-[#1B1B1B] border border-[#343434] text-sm text-[#E8E6DC] p-3 focus:outline-none focus:border-[#C9A063] font-info-content resize-none"
+                                        className="aibot-scroll h-64 w-full resize-none rounded-[1.25rem] border border-[#C9A063]/14 bg-[#11100E]/85 p-4 text-sm leading-7 text-[#E8E6DC] focus:outline-none focus:border-[#C9A063]/40 font-info-content"
                                         placeholder="检索草稿将在此显示..."
                                     />
                                 ) : (
-                                    <div className="rounded-lg border border-[#343434] bg-[#1B1B1B] p-3 max-h-80 overflow-y-auto about-overlay-scroll">
+                                    <div className="aibot-scroll max-h-80 overflow-y-auto rounded-[1.25rem] border border-[#E8E6DC]/8 bg-[#11100E]/75 p-4 pr-3">
                                         {cleanedDraft ? (
                                             <div
                                                 className="prose prose-invert prose-sm max-w-none font-info-content"
@@ -218,37 +217,37 @@ export default function DraftConfirmationDisplay({
                                                 </ReactMarkdown>
                                             </div>
                                         ) : (
-                                            <p className="text-xs text-[#6F6D68]">等待内容生成...</p>
+                                            <p className="text-xs text-[#6F6D68] font-info-content">等待内容生成...</p>
                                         )}
                                         {isGenerating && cleanedDraft && (
-                                            <span className="inline-block w-2 h-4 bg-[#C9A063] animate-pulse ml-1 align-middle" />
+                                            <span className="ml-1 inline-block h-4 w-2 rounded-full bg-[#C9A063] animate-pulse align-middle" />
                                         )}
                                     </div>
                                 )}
                             </div>
 
                             {/* 操作按钮 */}
-                            <div className="p-4 border-t border-[#343434] flex items-center justify-between">
-                                <div className="flex gap-3">
+                            <div className="aibot-workflow-footer">
+                                <div className="flex flex-wrap gap-2">
                                     <button
                                         onClick={onCancel}
-                                        className="px-4 py-2 border border-[#343434] text-[#A2A09A] rounded-lg text-sm hover:bg-[#1B1B1B] transition-colors"
+                                        className="aibot-btn aibot-btn--ghost"
                                     >
                                         取消
                                     </button>
                                     <button
                                         onClick={onRegenerate}
                                         disabled={isGenerating}
-                                        className="px-4 py-2 border border-[#343434] text-[#E8E6DC] rounded-lg text-sm hover:bg-[#1B1B1B] transition-colors disabled:opacity-50"
+                                        className="aibot-btn aibot-btn--secondary"
                                     >
                                         {isGenerating ? '生成中...' : '重新生成'}
                                     </button>
                                 </div>
-                                
+
                                 <button
                                     onClick={onConfirm}
                                     disabled={!draftMarkdown.trim() || isGenerating}
-                                    className="px-6 py-2 bg-[#C9A063] text-black rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#D4A863] transition-colors"
+                                    className="aibot-btn aibot-btn--primary"
                                 >
                                     确认检索
                                 </button>

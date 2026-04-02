@@ -85,49 +85,41 @@ export default function RetrievalResultDisplay({
     };
 
     return (
-        <div className="retrieval-result-container mb-3">
+        <div className="retrieval-result-container mb-4">
             {/* 头部 - 可点击折叠 */}
             <motion.div
-                className={`retrieval-header flex items-center justify-between p-3 rounded-t-xl border border-[#343434] cursor-pointer ${
-                    isSelectionMode
-                        ? 'bg-[rgba(201,160,99,0.2)]'
-                        : 'bg-[rgba(201,160,99,0.1)]'
-                }`}
+                className="aibot-workflow-header cursor-pointer"
                 onClick={() => setIsCollapsed(!isCollapsed)}
-                whileHover={{
-                    backgroundColor: isSelectionMode
-                        ? 'rgba(201, 160, 99, 0.25)'
-                        : 'rgba(201, 160, 99, 0.15)'
-                }}
+                whileHover={{ backgroundColor: isSelectionMode ? 'rgba(201, 160, 99, 0.18)' : 'rgba(201, 160, 99, 0.14)' }}
                 transition={{ duration: 0.2 }}
             >
                 <div className="flex items-center gap-3 flex-wrap">
+                    <div className="relative flex h-8 w-8 items-center justify-center rounded-full border border-[#C9A063]/24 bg-[#1A1712]">
+                        <div className="absolute inset-0 rounded-full bg-[#C9A063]/10 animate-pulse" />
+                        <div className="relative h-2 w-2 rounded-full bg-[#C9A063] shadow-[0_0_18px_rgba(201,160,99,0.4)]"></div>
+                    </div>
                     {isSelectionMode ? (
                         <>
-                            <span className="text-[#C9A063] text-sm font-medium font-body">
-                                📚 请选择相关图书生成解读或二次检索
-                            </span>
-                            <span className="text-[#E8E6DC] text-sm font-body">
-                                已选择 {selectedCount} 本图书
-                            </span>
-                            {retrievalResult.books.length > 0 && (
-                                <span className="text-[#6F6D68] text-xs font-body">
-                                    共 {retrievalResult.books.length} 本可供选择
+                            <div>
+                                <span className="block font-info-content text-sm font-medium text-[#F0E4D0]">
+                                    请选择相关图书
                                 </span>
-                            )}
+                                <span className="block pt-1 text-xs text-[#AAA292] font-info-content">
+                                    已选择 {selectedCount} 本 · 共 {retrievalResult.books.length} 本可供筛选
+                                </span>
+                            </div>
                         </>
                     ) : (
-                        <>
-                            <span className="text-[#C9A063] text-sm font-medium font-body">
-                                📚 检索结果
+                        <div>
+                            <span className="block font-info-content text-sm font-medium text-[#F0E4D0]">
+                                检索结果
                             </span>
-                            <span className="text-[#E8E6DC] text-sm font-body">
+                            <span className="block pt-1 text-xs text-[#AAA292] font-info-content">
                                 找到 {retrievalResult.totalCount} 本相关图书
                             </span>
-                        </>
+                        </div>
                     )}
                 </div>
-                {/* 折叠指示器 */}
                 <motion.div
                     animate={{ rotate: isCollapsed ? 180 : 0 }}
                     transition={{ duration: 0.2 }}
@@ -147,109 +139,83 @@ export default function RetrievalResultDisplay({
                         transition={{ duration: 0.3 }}
                         className="overflow-hidden"
                     >
-                        <div className="book-list border border-[#343434] border-t-0 rounded-b-xl bg-[rgba(26,26,26,0.8)]">
-                            <div className="p-4 max-h-96 overflow-y-auto">
-                {displayBooks.length > 0 ? (
-                    displayBooks.map((book, index) => (
-                        <BookItem
-                            key={`${book.id}-${index}`}
-                            book={book}
-                            isCompact={true}
-                            showCheckbox={isSelectionMode} // 只在选择模式下显示复选框
-                            isSelected={selectedBookIds.has(book.id)}
-                            onSelectionChange={onSelectionChange}
-                        />
-                    ))
-                ) : (
-                    <div className="text-center py-8">
-                        <p className="text-[#A2A09A] text-sm mb-2">未找到相关图书</p>
-                        <p className="text-[#6F6D68] text-xs">请尝试调整搜索关键词或搜索条件</p>
-                        {/* 添加调试信息 */}
-                        <div className="mt-4 p-2 bg-[#1B1B1B] rounded text-xs text-left">
-                            <p className="text-[#6F6D68]">调试信息:</p>
-                            <p className="text-[#6F6D68]">总图书数: {retrievalResult.books.length}</p>
-                            <p className="text-[#6F6D68]">显示图书数: {displayBooks.length}</p>
-                            <p className="text-[#6F6D68]">选择模式: {isSelectionMode ? '是' : '否'}</p>
-                            <p className="text-[#6F6D68]">显示全部: {showAll ? '是' : '否'}</p>
-                        </div>
-                    </div>
-                )}
+                        <div className="aibot-workflow-card rounded-t-none border-t-0">
+                            <div className="aibot-scroll max-h-96 overflow-y-auto px-4 py-4 md:px-5">
+                                {displayBooks.length > 0 ? (
+                                    displayBooks.map((book, index) => (
+                                        <BookItem
+                                            key={`${book.id}-${index}`}
+                                            book={book}
+                                            isCompact={true}
+                                            showCheckbox={isSelectionMode}
+                                            isSelected={selectedBookIds.has(book.id)}
+                                            onSelectionChange={onSelectionChange}
+                                        />
+                                    ))
+                                ) : (
+                                    <div className="py-10 text-center">
+                                        <p className="text-sm mb-2 text-[#BDB4A6] font-info-content">未找到相关图书</p>
+                                        <p className="text-xs text-[#736D62] font-info-content">请尝试调整搜索关键词或搜索条件</p>
+                                    </div>
+                                )}
 
-                {/* 显示更多按钮 */}
-                {retrievalResult.books.length > 3 && (
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setShowAll(!showAll);
-                        }}
-                        className="w-full py-2 mt-2 text-center text-[#C9A063] text-sm hover:bg-[#1B1B1B] rounded-lg transition-colors border border-[#343434] font-body"
-                    >
-                        {showAll ? '▲ 收起' : `▼ 显示全部 ${retrievalResult.books.length} 本`}
-                    </button>
-                )}
+                                {/* 显示更多按钮 */}
+                                {retrievalResult.books.length > 3 && (
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setShowAll(!showAll);
+                                        }}
+                                        className="aibot-btn aibot-btn--ghost mt-3 w-full"
+                                    >
+                                        {showAll ? '收起列表' : `显示全部 ${retrievalResult.books.length} 本`}
+                                    </button>
+                                )}
 
-                {/* 选择模式下的操作按钮 */}
-                {isSelectionMode && (
-                    <div className="selection-actions mt-4 flex flex-wrap gap-3">
-                        <div className="relative group">
-                            <button
-                                onClick={handleGenerateInterpretation}
-                                className="px-4 py-2 bg-[#C9A063] text-black rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#D4A863] transition-colors font-body"
-                                disabled={selectedCount === 0 && retrievalResult.books.filter(book => (book.similarityScore || 0) > 0.42).length === 0}
-                            >
-                                生成解读 {selectedCount > 0 && `(${selectedCount}本)`}
-                            </button>
-                            <div className="absolute bottom-full left-0 mb-2 px-3 py-2 bg-[#1B1B1B] text-[#E8E6DC] text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 border border-[#343434] shadow-lg max-w-xs min-w-48 font-body">
-                                生成选中图书的AI解读，如未选择则自动筛选相似度{'>'}0.42的图书
-                                <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-[#343434]"></div>
-                            </div>
-                        </div>
-                        <div className="relative group">
-                            <button
-                                onClick={handleSecondaryRetrieval}
-                                className="px-4 py-2 border border-[#C9A063] text-[#C9A063] rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[rgba(201,160,99,0.1)] transition-colors font-body"
-                                disabled={selectedCount === 0}
-                            >
-                                二次检索 {selectedCount > 0 && `(${selectedCount}本)`}
-                            </button>
-                            <div className="absolute bottom-full left-0 mb-2 px-3 py-2 bg-[#1B1B1B] text-[#E8E6DC] text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 border border-[#343434] shadow-lg max-w-xs min-w-48 font-body">
-                                基于选中图书和原始查询进行深度检索分析
-                                <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-[#343434]"></div>
-                            </div>
-                        </div>
-                        <div className="relative group">
-                            <button
-                                onClick={handleAutoSelect}
-                                className="px-4 py-2 border border-[#343434] text-[#E8E6DC] rounded-lg text-sm hover:bg-[#1B1B1B] transition-colors font-body"
-                            >
-                                自动筛选
-                            </button>
-                            <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-[#1B1B1B] text-[#E8E6DC] text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 border border-[#343434] shadow-lg max-w-xs min-w-48 font-body">
-                                自动选择相似度{'>'}0.42的高相关度图书
-                                <div className="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-[#343434]"></div>
-                            </div>
-                        </div>
-                        <button
-                            onClick={handleClearSelection}
-                            className="px-4 py-2 border border-[#343434] text-[#A2A09A] rounded-lg text-sm hover:bg-[#1B1B1B] transition-colors font-body"
-                            disabled={selectedCount === 0}
-                        >
-                            清空选择
-                        </button>
-                    </div>
-                )}
+                                {/* 选择模式下的操作按钮 */}
+                                {isSelectionMode && (
+                                    <div className="mt-4 flex flex-wrap gap-2">
+                                        <button
+                                            onClick={handleGenerateInterpretation}
+                                            className="aibot-btn aibot-btn--primary"
+                                            disabled={selectedCount === 0 && retrievalResult.books.filter(book => (book.similarityScore || 0) > 0.42).length === 0}
+                                        >
+                                            生成解读 {selectedCount > 0 && `(${selectedCount}本)`}
+                                        </button>
+                                        <button
+                                            onClick={handleSecondaryRetrieval}
+                                            className="aibot-btn aibot-btn--secondary"
+                                            disabled={selectedCount === 0}
+                                        >
+                                            二次检索 {selectedCount > 0 && `(${selectedCount}本)`}
+                                        </button>
+                                        <button
+                                            onClick={handleAutoSelect}
+                                            className="aibot-btn aibot-btn--ghost"
+                                        >
+                                            自动筛选
+                                        </button>
+                                        <button
+                                            onClick={handleClearSelection}
+                                            className="aibot-btn aibot-btn--ghost"
+                                            disabled={selectedCount === 0}
+                                        >
+                                            清空选择
+                                        </button>
+                                    </div>
+                                )}
 
-                {/* 显示模式下的操作按钮 */}
-                {!isSelectionMode && onReenterSelection && (
-                    <button
-                        onClick={onReenterSelection}
-                        className="w-full py-2 mt-3 text-center text-[#E8E6DC] text-sm hover:bg-[#C9A063] hover:text-black rounded-lg transition-colors border border-[#343434] flex items-center justify-center gap-2 font-body"
-                    >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0">
-                            <path d="M4 12a8 8 0 0 1 8-8V0l4 4-4 4V6a6 6 0 1 0 6 6h-2a8 8 0 1 1-8-8z" fill="currentColor" />
-                        </svg>
-                        重新选择图书进行解读
-                    </button>
+                                {/* 显示模式下的操作按钮 */}
+                                {!isSelectionMode && onReenterSelection && (
+                                    <button
+                                        onClick={onReenterSelection}
+                                        className="aibot-btn aibot-btn--secondary mt-4 w-full"
+                                    >
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0">
+                                            <path d="M4 12a8 8 0 0 1 8-8V0l4 4-4 4V6a6 6 0 1 0 6 6h-2a8 8 0 1 1-8-8z" fill="currentColor" />
+                                        </svg>
+                                        重新选择图书进行解读
+                                    </button>
                                 )}
                             </div>
                         </div>

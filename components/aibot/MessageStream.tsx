@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import clsx from 'clsx';
 import type { Message as UIMessage } from '@ai-sdk/ui-utils';
 import RetrievalResultDisplay from './RetrievalResultDisplay';
 import ProgressLogDisplay from './ProgressLogDisplay';
@@ -191,7 +192,7 @@ export default function MessageStream({
 
     return (
         <div
-            className="flex-1 overflow-y-auto pr-2 space-y-4 aibot-scroll"
+            className="aibot-scroll flex-1 space-y-5 overflow-y-auto pr-2"
             style={{
                 maxHeight: '100%',
                 minHeight: '0' // 确保flex子元素可以缩小
@@ -209,7 +210,8 @@ export default function MessageStream({
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
-                        className={message.role === 'user' ? 'text-right' : 'text-left'}
+                        transition={{ duration: 0.24, ease: 'easeOut' }}
+                        className={message.role === 'user' ? 'flex justify-end' : 'flex justify-start'}
                     >
                         {message.role === 'assistant' && (
                             <>
@@ -286,24 +288,35 @@ export default function MessageStream({
                                 {/* 文档分析解读报告消息 */}
                                 {isDocumentAnalysisReport((message as any).content) && (
                                     <div
-                                        className="bg-[#1B1B1B] border border-[#343434] rounded-xl p-4"
+                                        className="aibot-workflow-card max-w-[min(100%,56rem)]"
                                         key={`document-report-container-${message.id}`}
                                     >
-                                        <div
-                                            className="prose prose-invert prose-sm max-w-none font-info-content"
-                                            suppressHydrationWarning
-                                            key={`document-report-markdown-${message.id}`}
-                                        >
-                                            <ReactMarkdown
-                                                remarkPlugins={[remarkGfm]}
-                                                components={messageMarkdownComponents}
-                                            >
-                                                {cleanMarkdownCodeBlock((message as any).content.reportMarkdown || '')}
-                                            </ReactMarkdown>
+                                        <div className="aibot-workflow-header">
+                                            <div className="flex items-center gap-3">
+                                                <span className="h-2 w-2 rounded-full bg-[#C9A063] shadow-[0_0_16px_rgba(201,160,99,0.42)]" />
+                                                <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-[#C9A063]/75">analysis report</span>
+                                            </div>
+                                            {(message as any).content.isStreaming && (
+                                                <span className="aibot-chip aibot-chip--active">生成中</span>
+                                            )}
                                         </div>
-                                        {(message as any).content.isStreaming && (
-                                            <span className="inline-block w-2 h-4 bg-[#C9A063] animate-pulse ml-1"></span>
-                                        )}
+                                        <div className="aibot-workflow-body">
+                                            <div
+                                                className="prose prose-invert prose-sm max-w-none font-info-content"
+                                                suppressHydrationWarning
+                                                key={`document-report-markdown-${message.id}`}
+                                            >
+                                                <ReactMarkdown
+                                                    remarkPlugins={[remarkGfm]}
+                                                    components={messageMarkdownComponents}
+                                                >
+                                                    {cleanMarkdownCodeBlock((message as any).content.reportMarkdown || '')}
+                                                </ReactMarkdown>
+                                            </div>
+                                            {(message as any).content.isStreaming && (
+                                                <span className="mt-2 inline-block h-4 w-2 animate-pulse rounded-full bg-[#C9A063] align-middle"></span>
+                                            )}
+                                        </div>
                                     </div>
                                 )}
 
@@ -316,30 +329,42 @@ export default function MessageStream({
                                    // 确保是最后一条助手消息（报告消息）
                                    messages.filter(m => m.role === 'assistant').slice(-1)[0]?.id === message.id)) && (
                                     <div
-                                        className="bg-[#1B1B1B] border border-[#343434] rounded-xl p-4"
+                                        className="aibot-workflow-card max-w-[min(100%,56rem)]"
                                         key={`report-container-${message.id}`}
                                     >
-                                        {/* 稳定容器：阻止 AnimatePresence 追踪 ReactMarkdown 内部 DOM 变化 */}
-                                        <div
-                                            className="prose prose-invert prose-sm max-w-none font-info-content"
-                                            suppressHydrationWarning
-                                            key={`report-markdown-${message.id}`}
-                                        >
-                                            <ReactMarkdown
-                                                remarkPlugins={[remarkGfm]}
-                                                components={messageMarkdownComponents}
-                                            >
-                                                {/* 新方式：直接使用字符串内容（与简单检索一致），清理可能的代码块包裹 */}
-                                                {typeof (message as any).content === 'string'
-                                                    ? cleanMarkdownCodeBlock((message as any).content)
-                                                    : cleanMarkdownCodeBlock((message as any).content.reportMarkdown || '')}
-                                            </ReactMarkdown>
+                                        <div className="aibot-workflow-header">
+                                            <div className="flex items-center gap-3">
+                                                <span className="h-2 w-2 rounded-full bg-[#C9A063] shadow-[0_0_16px_rgba(201,160,99,0.42)]" />
+                                                <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-[#C9A063]/75">deep report</span>
+                                            </div>
+                                            {((typeof (message as any).content === 'object' && (message as any).content.isStreaming) ||
+                                              (deepSearchPhase === 'report-streaming' && typeof (message as any).content === 'string')) && (
+                                                <span className="aibot-chip aibot-chip--active">生成中</span>
+                                            )}
                                         </div>
-                                        {/* 显示流式输出的光标 */}
-                                        {((typeof (message as any).content === 'object' && (message as any).content.isStreaming) ||
-                                          (deepSearchPhase === 'report-streaming' && typeof (message as any).content === 'string')) && (
-                                            <span className="inline-block w-2 h-4 bg-[#C9A063] animate-pulse ml-1"></span>
-                                        )}
+                                        <div className="aibot-workflow-body">
+                                            {/* 稳定容器：阻止 AnimatePresence 追踪 ReactMarkdown 内部 DOM 变化 */}
+                                            <div
+                                                className="prose prose-invert prose-sm max-w-none font-info-content"
+                                                suppressHydrationWarning
+                                                key={`report-markdown-${message.id}`}
+                                            >
+                                                <ReactMarkdown
+                                                    remarkPlugins={[remarkGfm]}
+                                                    components={messageMarkdownComponents}
+                                                >
+                                                    {/* 新方式：直接使用字符串内容（与简单检索一致），清理可能的代码块包裹 */}
+                                                    {typeof (message as any).content === 'string'
+                                                        ? cleanMarkdownCodeBlock((message as any).content)
+                                                        : cleanMarkdownCodeBlock((message as any).content.reportMarkdown || '')}
+                                                </ReactMarkdown>
+                                            </div>
+                                            {/* 显示流式输出的光标 */}
+                                            {((typeof (message as any).content === 'object' && (message as any).content.isStreaming) ||
+                                              (deepSearchPhase === 'report-streaming' && typeof (message as any).content === 'string')) && (
+                                                <span className="mt-2 inline-block h-4 w-2 animate-pulse rounded-full bg-[#C9A063] align-middle"></span>
+                                            )}
+                                        </div>
                                     </div>
                                 )}
 
@@ -370,15 +395,14 @@ export default function MessageStream({
                            typeof (message as any).content === 'string' &&
                            messages.filter(m => m.role === 'assistant').slice(-1)[0]?.id === message.id) && (
                             <div
-                                className={`inline-block rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap font-info-content ${
-                                    message.role === 'user'
-                                        ? 'bg-[#2F2F2F] text-[#E8E6DC]'
-                                        : 'bg-[#1B1B1B] border border-[#343434] text-[#E8E6DC]'
-                                }`}
+                                className={clsx(
+                                    'max-w-[min(100%,56rem)] overflow-hidden',
+                                    message.role === 'user' ? 'rounded-[1.5rem] border border-[#E8E6DC]/10 bg-[#24211D] px-4 py-3 text-[#F4EAD8] shadow-[0_14px_30px_rgba(0,0,0,0.18)] md:px-5' : 'aibot-workflow-card'
+                                )}
                             >
                                 {message.role === 'assistant' ? (
                                     // 稳定容器：阻止 AnimatePresence 追踪 ReactMarkdown 内部 DOM 变化
-                                    <div suppressHydrationWarning>
+                                    <div className="aibot-workflow-body" suppressHydrationWarning>
                                         <ReactMarkdown
                                             remarkPlugins={[remarkGfm]}
                                             components={messageMarkdownComponents}
@@ -387,7 +411,7 @@ export default function MessageStream({
                                         </ReactMarkdown>
                                     </div>
                                 ) : (
-                                    (message as any).content
+                                    <div className="text-sm leading-7 whitespace-pre-wrap font-info-content">{(message as any).content}</div>
                                 )}
                             </div>
                         )}

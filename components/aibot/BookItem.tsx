@@ -47,18 +47,18 @@ export default function BookItem({
 
     return (
         <motion.div
-            className={`book-item ${isExpanded ? 'expanded' : ''} ${localSelected ? 'selected' : ''} flex gap-3 p-3 rounded-lg bg-[rgba(27,27,27,0.6)] mb-2 cursor-pointer transition-all duration-200 hover:bg-[rgba(201,160,99,0.15)] hover:translate-x-1 ${localSelected ? 'border border-[#C9A063] bg-[rgba(201,160,99,0.1)]' : ''}`}
-            whileHover={{ scale: 1.01 }}
+            className={`book-item ${isExpanded ? 'expanded' : ''} ${localSelected ? 'selected' : ''} mb-3 flex gap-3 rounded-[1.35rem] border px-3 py-3 transition-all duration-200 ${localSelected ? 'border-[#C9A063]/34 bg-[#C9A063]/8 shadow-[0_12px_28px_rgba(201,160,99,0.08)]' : 'border-[#E8E6DC]/8 bg-[#151412] hover:border-[#C9A063]/20 hover:bg-[#1A1815]'} ${showCheckbox || !isCompact ? 'cursor-pointer' : 'cursor-default'}`}
+            whileHover={{ scale: 1.005 }}
             onClick={handleClick}
         >
             {/* 复选框 */}
             {showCheckbox && (
-                <div className="book-checkbox flex items-center justify-center">
+                <div className="book-checkbox flex items-center justify-center pt-1">
                     <input
                         type="checkbox"
                         checked={localSelected}
                         onChange={(e) => handleSelectionChange(e.target.checked)}
-                        className="w-4 h-4 text-[#C9A063] bg-[#1B1B1B] border-[#343434] rounded focus:ring-[#C9A063] focus:ring-2"
+                        className="h-4 w-4 rounded border-[#4A4338] bg-[#11100E] focus:ring-2 focus:ring-[#C9A063]"
                         style={{ accentColor: '#C9A063' }}
                     />
                 </div>
@@ -77,76 +77,70 @@ export default function BookItem({
                 />
             )}
             
-            {/* 基本信息 */}
             <div className="flex-1 min-w-0 font-info-content">
-                <h3 className="text-[#E8E6DC] font-medium text-sm truncate mb-1">
-                    {book.title}
-                </h3>
-                {book.subtitle && !isCompact && (
-                    <p className="text-[#A2A09A] text-xs truncate mb-1">
-                        {book.subtitle}
-                    </p>
-                )}
-                <p className="text-[#A2A09A] text-sm mb-1">
-                    {book.author}
-                </p>
-                
-                <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                        <h3 className="truncate text-sm font-semibold text-[#F4ECDD] md:text-[15px]">
+                            {book.title}
+                        </h3>
+                        {book.subtitle && !isCompact && (
+                            <p className="mt-1 truncate text-xs text-[#A9A293]">
+                                {book.subtitle}
+                            </p>
+                        )}
+                        <p className="mt-2 text-sm text-[#CEC6B7]">
+                            {book.author}
+                        </p>
+                    </div>
+                    {localSelected && (
+                        <span className="aibot-chip aibot-chip--active">已选择</span>
+                    )}
+                </div>
+
+                <div className="mt-3 flex flex-wrap items-center gap-2">
                     {book.rating && (
-                        <div className="flex items-center gap-1">
-                            <span className="text-[#C9A063] text-xs">★</span>
-                            <span className="text-[#E8E6DC] text-xs">{book.rating}</span>
-                        </div>
+                        <span className="aibot-chip">
+                            <span className="text-[#C9A063]">★</span>
+                            {book.rating}
+                        </span>
                     )}
                     {book.similarityScore !== undefined && book.similarityScore !== null && (
-                        <div className="flex items-center gap-1">
-                            <span className="text-[#6F6D68] text-xs">相似:</span>
-                            <span className="text-[#A2A09A] text-xs font-medium">{book.similarityScore.toFixed(3)}</span>
-                        </div>
+                        <span className="aibot-chip">相似 {book.similarityScore.toFixed(3)}</span>
                     )}
                     {book.fusedScore !== undefined && book.fusedScore !== null && (
-                        <div className="flex items-center gap-1">
-                            <span className="text-[#6F6D68] text-xs">融合:</span>
-                            <span className="text-[#A2A09A] text-xs font-medium">{book.fusedScore.toFixed(3)}</span>
-                        </div>
+                        <span className="aibot-chip">融合 {book.fusedScore.toFixed(3)}</span>
                     )}
                     {book.finalScore !== undefined && book.finalScore !== null && (
-                        <div className="flex items-center gap-1">
-                            <span className="text-[#6F6D68] text-xs">最终:</span>
-                            <span className="text-[#A2A09A] text-xs font-medium">{book.finalScore.toFixed(3)}</span>
-                        </div>
+                        <span className="aibot-chip">最终 {book.finalScore.toFixed(3)}</span>
                     )}
                     {book.callNumber && (
-                        <div className="flex items-center gap-1">
-                            <span className="text-[#6F6D68] text-xs">索书号:</span>
-                            <span className="text-[#C9A063] text-xs font-medium">{book.callNumber}</span>
-                        </div>
+                        <span className="aibot-chip text-[#E2D0AE]">索书号 {book.callNumber}</span>
                     )}
                     {book.publishYear && (
-                        <span className="text-[#6F6D68] text-xs">{book.publishYear}年</span>
+                        <span className="aibot-chip">{book.publishYear}年</span>
                     )}
                 </div>
 
                 {/* 亮点信息 */}
                 {book.highlights && book.highlights.length > 0 && (
-                    <div className="mt-2">
-                        <p className="text-[#A2A09A] text-xs line-clamp-2 font-info-content">
-                            {book.highlights.join('; ')}
+                    <div className="mt-3 rounded-2xl border border-[#E8E6DC]/8 bg-[#11100E]/70 px-3 py-2.5">
+                        <p className="text-xs leading-6 text-[#B9B1A2] font-info-content line-clamp-2">
+                            {book.highlights.join('； ')}
                         </p>
                     </div>
                 )}
 
                 {/* 摘要信息 - 可折叠显示 */}
                 {book.description && (
-                    <div className="mt-2">
-                        <div className="flex items-center gap-2 mb-1">
-                            <span className="text-[#6F6D68] text-xs">摘要:</span>
+                    <div className="mt-3">
+                        <div className="mb-1 flex items-center gap-2">
+                            <span className="text-xs text-[#7E776C]">摘要</span>
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     setShowAbstract(!showAbstract);
                                 }}
-                                className="text-[#C9A063] text-xs hover:text-[#E8E6DC] transition-colors"
+                                className="text-xs text-[#C9A063] hover:text-[#E8E6DC] transition-colors"
                             >
                                 {showAbstract ? '收起' : '展开'}
                             </button>
@@ -160,7 +154,7 @@ export default function BookItem({
                                     transition={{ duration: 0.3 }}
                                     className="overflow-hidden"
                                 >
-                                    <p className="text-[#A2A09A] text-xs leading-relaxed bg-[#1B1B1B] p-2 rounded border border-[#343434] font-info-content">
+                                    <p className="rounded-2xl border border-[#E8E6DC]/8 bg-[#11100E]/80 p-3 text-xs leading-6 text-[#C0B8AA] font-info-content">
                                         {book.description}
                                     </p>
                                 </motion.div>

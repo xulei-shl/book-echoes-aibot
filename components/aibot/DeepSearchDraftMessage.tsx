@@ -78,23 +78,32 @@ export default function DeepSearchDraftMessage({
         <div className="mb-4">
             {/* 草稿头部 */}
             <motion.div
-                className="flex items-center justify-between p-3 rounded-t-xl border border-[#343434] bg-[rgba(201,160,99,0.1)] cursor-pointer"
+                className="aibot-workflow-header cursor-pointer"
                 onClick={() => !isEditing && setIsExpanded(!isExpanded)}
-                whileHover={{ backgroundColor: 'rgba(201, 160, 99, 0.15)' }}
+                whileHover={{ backgroundColor: 'rgba(201, 160, 99, 0.16)' }}
                 transition={{ duration: 0.2 }}
             >
                 <div className="flex items-center gap-3">
-                    <span className="text-[#C9A063] text-sm font-medium font-body">
-                        📝 检索草稿
-                    </span>
-                    {isStreaming && (
-                        <span className="animate-pulse text-xs text-[#A2A09A] font-body">生成中...</span>
-                    )}
-                    {isComplete && !isStreaming && (
-                        <span className="text-xs text-green-400 font-body">
-                            ✓ 生成完成 ({cleanedDraft.length} 字符)
+                    <div className="relative flex h-8 w-8 items-center justify-center rounded-full border border-[#C9A063]/24 bg-[#1A1712]">
+                        <div className="absolute inset-0 rounded-full bg-[#C9A063]/10 animate-pulse" />
+                        <div className="relative h-2 w-2 rounded-full bg-[#C9A063] shadow-[0_0_18px_rgba(201,160,99,0.4)]"></div>
+                    </div>
+                    <div>
+                        <span className="block font-info-content text-sm font-medium text-[#F0E4D0]">
+                            检索草稿
                         </span>
-                    )}
+                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                            {isStreaming && (
+                                <span className="aibot-chip aibot-chip--active">生成中</span>
+                            )}
+                            {isComplete && !isStreaming && (
+                                <span className="aibot-chip aibot-chip--success">已完成 · {cleanedDraft.length} 字</span>
+                            )}
+                            {!isStreaming && !isComplete && (
+                                <span className="aibot-chip">等待确认</span>
+                            )}
+                        </div>
+                    </div>
                 </div>
                 <div className="flex items-center gap-2">
                     {searchSnippets.length > 0 && (
@@ -103,9 +112,9 @@ export default function DeepSearchDraftMessage({
                                 e.stopPropagation();
                                 setShowMetadata(!showMetadata);
                             }}
-                            className="text-xs px-2 py-1 rounded border border-[#343434] text-[#A2A09A] hover:bg-[#1B1B1B] transition-colors font-body"
+                            className="aibot-btn aibot-btn--ghost px-3 py-1 text-xs"
                         >
-                            源数据 ({searchSnippets.length})
+                            源数据 {searchSnippets.length}
                         </button>
                     )}
                     <motion.div
@@ -128,18 +137,18 @@ export default function DeepSearchDraftMessage({
                         transition={{ duration: 0.3 }}
                         className="overflow-hidden"
                     >
-                        <div className="border border-[#343434] border-t-0 rounded-b-xl bg-[rgba(26,26,26,0.8)]">
+                        <div className="aibot-workflow-card rounded-t-none border-t-0">
                             {/* 关键词展示 */}
                             {keywords.length > 0 && (
-                                <div className="p-4 border-b border-[#343434]">
+                                <div className="border-b border-[#C9A063]/10 px-4 py-4 md:px-5">
                                     <div className="flex flex-wrap gap-2">
                                         {keywords.map((kw, idx) => (
                                             <span
                                                 key={idx}
-                                                className={`text-xs px-2 py-1 rounded font-body ${
-                                                    kw.priority === 'high' ? 'bg-[#C9A063]/20 text-[#C9A063]' :
-                                                    kw.priority === 'medium' ? 'bg-blue-500/20 text-blue-400' :
-                                                    'bg-[#343434] text-[#A2A09A]'
+                                                className={`aibot-chip ${
+                                                    kw.priority === 'high' ? 'aibot-chip--active' :
+                                                    kw.priority === 'medium' ? 'border-[#7B9DAE]/22 bg-[#7B9DAE]/10 text-[#C9D8E0]' :
+                                                    ''
                                                 }`}
                                             >
                                                 {kw.keyword}
@@ -157,24 +166,24 @@ export default function DeepSearchDraftMessage({
                                         animate={{ height: 'auto', opacity: 1 }}
                                         exit={{ height: 0, opacity: 0 }}
                                         transition={{ duration: 0.3 }}
-                                        className="overflow-hidden border-b border-[#343434]"
+                                        className="overflow-hidden border-b border-[#C9A063]/10"
                                     >
-                                        <div className="p-4">
-                                            <h4 className="text-[#C9A063] text-sm font-medium mb-3 font-body">检索源数据</h4>
-                                            <div className="space-y-3 max-h-48 overflow-y-auto aibot-scroll">
+                                        <div className="px-4 py-4 md:px-5">
+                                            <h4 className="mb-3 font-info-content text-sm font-medium text-[#E8DCC8]">检索源数据</h4>
+                                            <div className="aibot-scroll space-y-3 max-h-48 overflow-y-auto pr-1">
                                                 {searchSnippets.map((snippet, index) => (
-                                                    <div key={index} className="p-3 bg-[#1B1B1B] rounded-lg border border-[#343434]">
-                                                        <h5 className="text-[#E8E6DC] font-medium text-sm mb-1 truncate font-body">
+                                                    <div key={index} className="rounded-2xl border border-[#E8E6DC]/8 bg-[#151412] px-3 py-3">
+                                                        <h5 className="mb-1 truncate font-info-content text-sm font-medium text-[#F3ECE0]">
                                                             {snippet.title}
                                                         </h5>
-                                                        <p className="text-[#A2A09A] text-xs mb-2 line-clamp-2 font-body">
+                                                        <p className="mb-2 line-clamp-2 text-xs leading-5 text-[#A9A293] font-info-content">
                                                             {snippet.snippet}
                                                         </p>
                                                         <a
                                                             href={snippet.url}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
-                                                            className="text-[#C9A063] text-xs hover:underline font-body"
+                                                            className="text-xs text-[#C9A063] hover:text-[#E8D7BB] transition-colors font-info-content"
                                                         >
                                                             查看原文
                                                         </a>
@@ -187,34 +196,32 @@ export default function DeepSearchDraftMessage({
                             </AnimatePresence>
 
                             {/* 草稿内容区域 */}
-                            <div className="p-4">
+                            <div className="aibot-workflow-body">
                                 {isEditing ? (
-                                    // 编辑模式
                                     <div>
                                         <textarea
                                             value={editValue}
                                             onChange={(e) => setEditValue(e.target.value)}
-                                            className="w-full h-64 rounded-lg bg-[#1B1B1B] border border-[#343434] text-sm text-[#E8E6DC] p-3 focus:outline-none focus:border-[#C9A063] font-info-content resize-none aibot-scroll"
+                                            className="aibot-scroll h-72 w-full resize-none rounded-[1.25rem] border border-[#C9A063]/14 bg-[#11100E]/85 p-4 text-sm leading-7 text-[#E8E6DC] focus:outline-none focus:border-[#C9A063]/40 font-info-content"
                                             placeholder="编辑检索草稿..."
                                         />
-                                        <div className="flex gap-2 mt-3">
+                                        <div className="mt-3 flex gap-2">
                                             <button
                                                 onClick={handleSaveEdit}
-                                                className="px-3 py-1 bg-[#C9A063] text-black rounded text-sm font-medium hover:bg-[#D4A863] transition-colors font-body"
+                                                className="aibot-btn aibot-btn--primary"
                                             >
                                                 保存
                                             </button>
                                             <button
                                                 onClick={handleCancelEdit}
-                                                className="px-3 py-1 border border-[#343434] text-[#A2A09A] rounded text-sm hover:bg-[#1B1B1B] transition-colors font-body"
+                                                className="aibot-btn aibot-btn--ghost"
                                             >
                                                 取消
                                             </button>
                                         </div>
                                     </div>
                                 ) : (
-                                    // 预览模式
-                                    <div className="max-h-80 overflow-y-auto aibot-scroll">
+                                    <div className="aibot-scroll max-h-80 overflow-y-auto pr-1">
                                         {cleanedDraft ? (
                                             <div
                                                 className="prose prose-invert prose-sm max-w-none font-info-content"
@@ -229,14 +236,14 @@ export default function DeepSearchDraftMessage({
                                                 </ReactMarkdown>
                                             </div>
                                         ) : (
-                                            <div className="text-center py-8">
-                                                <p className="text-[#A2A09A] text-sm font-body">等待草稿生成...</p>
+                                            <div className="py-8 text-center">
+                                                <p className="text-sm text-[#A2A09A] font-info-content">等待草稿生成...</p>
                                             </div>
                                         )}
 
                                         {/* 流式输出时的光标指示 */}
                                         {isStreaming && cleanedDraft && (
-                                            <span className="inline-block w-2 h-4 bg-[#C9A063] animate-pulse ml-1 align-middle"></span>
+                                            <span className="ml-1 inline-block h-4 w-2 animate-pulse rounded-full bg-[#C9A063] align-middle"></span>
                                         )}
                                     </div>
                                 )}
@@ -244,12 +251,12 @@ export default function DeepSearchDraftMessage({
 
                             {/* 操作按钮 - 仅在完成且非编辑模式时显示 */}
                             {isComplete && !isEditing && (
-                                <div className="p-4 border-t border-[#343434] flex items-center justify-between">
-                                    <div className="flex gap-3">
+                                <div className="aibot-workflow-footer">
+                                    <div className="flex flex-wrap gap-2">
                                         {onCancel && (
                                             <button
                                                 onClick={onCancel}
-                                                className="px-4 py-2 border border-[#343434] text-[#A2A09A] rounded-lg text-sm hover:bg-[#1B1B1B] transition-colors font-body"
+                                                className="aibot-btn aibot-btn--ghost"
                                             >
                                                 取消
                                             </button>
@@ -257,14 +264,14 @@ export default function DeepSearchDraftMessage({
                                         {onRegenerate && (
                                             <button
                                                 onClick={onRegenerate}
-                                                className="px-4 py-2 border border-[#343434] text-[#E8E6DC] rounded-lg text-sm hover:bg-[#1B1B1B] transition-colors font-body"
+                                                className="aibot-btn aibot-btn--secondary"
                                             >
                                                 重新生成
                                             </button>
                                         )}
                                         <button
                                             onClick={handleStartEdit}
-                                            className="px-4 py-2 border border-[#343434] text-[#E8E6DC] rounded-lg text-sm hover:bg-[#1B1B1B] transition-colors font-body"
+                                            className="aibot-btn aibot-btn--secondary"
                                         >
                                             编辑
                                         </button>
@@ -274,7 +281,7 @@ export default function DeepSearchDraftMessage({
                                         <button
                                             onClick={onConfirm}
                                             disabled={!cleanedDraft.trim()}
-                                            className="px-6 py-2 bg-[#C9A063] text-black rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#D4A863] transition-colors font-body"
+                                            className="aibot-btn aibot-btn--primary"
                                         >
                                             确认检索
                                         </button>
