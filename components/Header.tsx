@@ -21,7 +21,7 @@ export default function Header({ showHomeButton = false, aboutContent, theme = '
     const [isAboutOpen, setIsAboutOpen] = useState(false);
     const [isVisible, setIsVisible] = useState(true);
     const [lastScrollY, setLastScrollY] = useState(0);
-    
+
     // 主题卡MD内容相关状态
     const [isMdOverlayOpen, setIsMdOverlayOpen] = useState(false);
     const [mdContent, setMdContent] = useState('');
@@ -129,9 +129,7 @@ export default function Header({ showHomeButton = false, aboutContent, theme = '
         return () => window.removeEventListener('scroll', handleScroll);
     }, [lastScrollY]);
 
-    const buttonStyles = theme === 'dark'
-        ? "btn-random btn-random--dark px-4 py-2 md:px-5 md:py-2.5 text-sm md:text-base font-body tracking-widest hover:scale-105"
-        : "btn-random px-4 py-2 md:px-5 md:py-2.5 text-sm md:text-base font-body tracking-widest hover:scale-105";
+    const buttonStyles = "flex items-center justify-center gap-2 border border-[#C9A063]/30 bg-transparent px-4 py-2 md:px-5 md:py-2.5 text-sm md:text-base font-mono tracking-wider text-[#C9A063]/80 hover:bg-[#C9A063] hover:text-[#1a1a1a] transition-colors duration-300";
 
     return (
         <header className="fixed top-0 left-0 right-0 z-50 pointer-events-none">
@@ -190,9 +188,9 @@ export default function Header({ showHomeButton = false, aboutContent, theme = '
                             {pathname !== '/archive' && (
                                 <button
                                     onClick={() => router.push('/archive')}
-                                className={buttonStyles}
-                                aria-label="往期回顾"
-                            >
+                                    className={buttonStyles}
+                                    aria-label="往期回顾"
+                                >
                                     <svg
                                         className="w-4 h-4"
                                         fill="none"
@@ -246,7 +244,7 @@ export default function Header({ showHomeButton = false, aboutContent, theme = '
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                             </svg>
-                            <span>主题导读</span>
+                            <span>导读</span>
                         </button>
                     )}
 

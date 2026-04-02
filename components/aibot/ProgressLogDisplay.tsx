@@ -89,7 +89,7 @@ export default function ProgressLogDisplay({
             id: `${Date.now()}-${Math.random()}`,
             timestamp: new Date().toLocaleTimeString('zh-CN')
         };
-        
+
         setLogs(prev => {
             const existingIndex = prev.findIndex(log => log.phase === entry.phase);
             if (existingIndex >= 0) {
@@ -99,9 +99,9 @@ export default function ProgressLogDisplay({
             }
             return [...prev, newLog];
         });
-        
+
         setCurrentPhase(entry.phase);
-        
+
         if (entry.phase === 'completed' && entry.status === 'completed') {
             setTimeout(() => {
                 onComplete?.();
@@ -212,12 +212,11 @@ export default function ProgressLogDisplay({
                                                             backgroundColor: ['rgba(201,160,99,0.03)', 'rgba(201,160,99,0.08)', 'rgba(201,160,99,0.03)']
                                                         } : { opacity: 1, x: 0 }}
                                                         transition={isRunning ? { duration: 1.8, repeat: Infinity, ease: 'easeInOut' } : { duration: 0.2 }}
-                                                        className={`relative overflow-hidden p-3 border ${
-                                                            log.status === 'error' ? 'border-red-500/30 bg-red-500/5' :
-                                                            log.status === 'running' ? 'border-[#C9A063]/30 bg-[#C9A063]/5' :
-                                                            log.status === 'completed' ? 'border-[#C9A063]/28 bg-[#C9A063]/8' :
-                                                            'border-[#C9A063]/15 bg-[#111111]/80'
-                                                        }`}
+                                                        className={`relative overflow-hidden p-3 border ${log.status === 'error' ? 'border-red-500/30 bg-red-500/5' :
+                                                                log.status === 'running' ? 'border-[#C9A063]/30 bg-[#C9A063]/5' :
+                                                                    log.status === 'completed' ? 'border-[#C9A063]/28 bg-[#C9A063]/8' :
+                                                                        'border-[#C9A063]/15 bg-[#111111]/80'
+                                                            }`}
                                                     >
                                                         {isRunning && (
                                                             <motion.div
@@ -247,16 +246,16 @@ export default function ProgressLogDisplay({
 
                                                             <div className="relative z-10 flex-1 min-w-0">
                                                                 <div className="flex items-center gap-2 mb-1">
-                                                                    <span className="text-sm font-medium font-info-content" style={{ color: log.status === 'error' ? '#FFE2E2' : log.status === 'completed' || log.status === 'running' ? '#FFF4DD' : '#FFF8EB' }}>
+                                                                    <span className="text-sm font-medium font-info-content" style={{ color: log.status === 'error' ? '#ef4444' : log.status === 'completed' || log.status === 'running' ? '#C9A063' : '#E8E6DC' }}>
                                                                         {PHASE_ICONS[log.phase]} {PHASE_LABELS[log.phase]}
                                                                     </span>
-                                                                    <span className="text-xs font-mono tracking-wider" style={{ color: '#F2DEC2' }}>
+                                                                    <span className="text-xs font-mono tracking-wider" style={{ color: '#A2A09A' }}>
                                                                         {log.timestamp}
                                                                     </span>
                                                                     {isRunning && (
                                                                         <motion.span
                                                                             className="text-[10px] font-mono tracking-[0.24em]"
-                                                                            style={{ color: '#FFE7B8' }}
+                                                                            style={{ color: '#C9A063' }}
                                                                             animate={{ opacity: [0.55, 1, 0.55] }}
                                                                             transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
                                                                         >
@@ -265,12 +264,12 @@ export default function ProgressLogDisplay({
                                                                     )}
                                                                 </div>
 
-                                                                <p className="text-sm font-medium font-info-content" style={{ color: log.status === 'error' ? '#FFF1F2' : log.status === 'running' || log.status === 'completed' ? '#FFF8EB' : '#F7F3EA' }}>
+                                                                <p className="text-sm font-medium font-info-content" style={{ color: log.status === 'error' ? '#fca5a5' : log.status === 'running' || log.status === 'completed' ? '#E8E6DC' : '#A2A09A' }}>
                                                                     {log.message}
                                                                 </p>
 
                                                                 {log.details && (
-                                                                    <p className="text-xs mt-1 font-info-content" style={{ color: '#EADCC5' }}>
+                                                                    <p className="text-xs mt-1 font-info-content" style={{ color: '#A2A09A' }}>
                                                                         {log.details}
                                                                     </p>
                                                                 )}
