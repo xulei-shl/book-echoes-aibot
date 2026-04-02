@@ -69,40 +69,80 @@ const readEnv = (key?: string): string | undefined => {
     return process.env[key];
 };
 
-/**
- * 根据 `.env.local` 与检索 API 回传的 hint 合成 LLM 调用信息。
- */
-export function resolveLLMConfig(
-    hint?: LLMHintMetadata,
-    overrides?: Partial<LLMConfig>
-): LLMConfig {
-    const baseURL =
-        overrides?.baseURL ??
-        hint?.base_url ??
-        readEnv(hint?.base_url_env) ??
-        process.env.AIBOT_LLM_BASE_URL;
+const resolveCandidateFromPrefix = (prefix: string): LLMConfig | null => {
+    const baseURL = process.env[`${prefix}_BASE_URL`];
+    const apiKey = process.env[`${prefix}_API_KEY`];
+    const model = process.env[`${prefix}_MODEL`];
+    const temperatureRaw = process.env[`${prefix}_TEMPERATURE`] ?? process.env.AIBOT_LLM_TEMPERATURE;
+    const temperature = temperatureRaw ? Number(temperatureRaw) : undefined;
 
-    const apiKey =
-        overrides?.apiKey ??
-        hint?.api_key ??
-        readEnv(hint?.api_key_env) ??
-        process.env.AIBOT_LLM_API_KEY;
-
-    const model =
-        overrides?.model ??
-        hint?.model ??
-        readEnv(hint?.model_env) ??
-        process.env.AIBOT_LLM_MODEL;
+    if (!baseURL && !apiKey && !model) {
+        return null;
+    }
 
     if (!baseURL || !apiKey || !model) {
-        logger.error('LLM 配置缺失，请检查环境变量', { baseURL: !!baseURL, apiKey: !!apiKey, model: !!model });
-        throw new Error('AIBot LLM 环境变量未配置完整');
+        logger.error('LLM 候选配置缺失，请检查环境变量', {
+            prefix,
+            baseURL: !!baseURL,
+            apiKey: !!apiKey,
+            model: !!model
+        });
+        throw new Error(`AIBot LLM 候选配置 ${prefix} 不完整`);
     }
 
     return {
         baseURL,
         apiKey,
         model,
-        temperature: overrides?.temperature ?? hint?.suggested_temperature
+        temperature: typeof temperature === 'number' && !Number.isNaN(temperature) ? temperature : undefined
+    };
+};
+
+export function resolveLLMCandidates(): LLMConfig[] {
+    const primary = resolveCandidateFromPrefix('AIBOT_LLM_PRIMARY');
+    const secondary = resolveCandidateFromPrefix('AIBOT_LLM_SECONDARY');
+
+    if (primary) {
+        return secondary ? [primary, secondary] : [primary];
+    }
+
+    const legacyBaseURL = process.env.AIBOT_LLM_BASE_URL;
+    const legacyApiKey = process.env.AIBOT_LLM_API_KEY;
+    const legacyModel = process.env.AIBOT_LLM_MODEL;
+    const legacyTemperatureRaw = process.env.AIBOT_LLM_TEMPERATURE;
+    const legacyTemperature = legacyTemperatureRaw ? Number(legacyTemperatureRaw) : undefined;
+
+    if (!legacyBaseURL || !legacyApiKey || !legacyModel) {
+        logger.error('LLM 配置缺失，请检查环境变量', {
+            baseURL: !!legacyBaseURL,
+            apiKey: !!legacyApiKey,
+            model: !!legacyModel
+        });
+        throw new Error('AIBot LLM 环境变量未配置完整');
+    }
+
+    const legacyPrimary: LLMConfig = {
+        baseURL: legacyBaseURL,
+        apiKey: legacyApiKey,
+        model: legacyModel,
+        temperature: typeof legacyTemperature === 'number' && !Number.isNaN(legacyTemperature) ? legacyTemperature : undefined
+    };
+
+    return secondary ? [legacyPrimary, secondary] : [legacyPrimary];
+}
+
+/**
+ * 本地模式统一从 `.env.local` 解析主模型配置。
+ */
+export function resolveLLMConfig(
+    _hint?: LLMHintMetadata,
+    overrides?: Partial<LLMConfig>
+): LLMConfig {
+    const [primary] = resolveLLMCandidates();
+
+    return {
+        ...primary,
+        ...overrides,
+        temperature: overrides?.temperature ?? primary.temperature
     };
 }

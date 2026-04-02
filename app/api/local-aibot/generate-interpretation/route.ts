@@ -1,12 +1,10 @@
 import { NextResponse } from 'next/server';
-import { streamText } from 'ai';
 import { assertAIBotEnabled, AIBotDisabledError } from '@/src/utils/aibot-env';
 import { getLogger } from '@/src/utils/logger';
-import { createModel } from '@/src/core/aibot/researchWorkflow';
+import { streamTextWithFallback } from '@/src/core/aibot/llmClient';
 import { loadPrompt } from '@/src/core/aibot/promptLoader';
 import { AIBOT_PROMPT_FILES } from '@/src/core/aibot/constants';
 import type { BookInfo, ChatMessage, GenerateInterpretationRequest } from '@/src/core/aibot/types';
-import { resolveLLMConfig } from '@/src/utils/aibot-env';
 
 const logger = getLogger('aibot.api.generate-interpretation');
 
@@ -34,9 +32,6 @@ export async function POST(request: Request) {
         // 加载系统提示词
         const systemPrompt = await loadPrompt(AIBOT_PROMPT_FILES.SIMPLE_SEARCH);
         
-        // 获取LLM配置
-        const llmConfig = resolveLLMConfig();
-
         logger.info('生成解读', {
             originalQuery,
             selectedBooksCount: selectedBooks.length,
@@ -44,9 +39,7 @@ export async function POST(request: Request) {
             userPromptLength: userPrompt.length
         });
 
-        // 调用AI生成解读
-        const result = await streamText({
-            model: createModel(llmConfig),
+        const result = await streamTextWithFallback({
             system: systemPrompt,
             messages: [
                 { role: 'user', content: userPrompt }

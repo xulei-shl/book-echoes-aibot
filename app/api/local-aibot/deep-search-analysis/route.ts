@@ -2,17 +2,38 @@ import { NextResponse } from 'next/server';
 import { assertAIBotEnabled, AIBotDisabledError } from '@/src/utils/aibot-env';
 import { getLogger } from '@/src/utils/logger';
 import { performWebSearch } from '@/src/core/aibot/webSearchService';
-import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
-import { generateText, streamText } from 'ai';
 import { loadPrompt } from '@/src/core/aibot/promptLoader';
-import { resolveLLMConfig } from '@/src/utils/aibot-env';
+import { generateTextWithFallback, getLLMConfigSummary, streamTextWithFallback } from '@/src/core/aibot/llmClient';
 import { AIBOT_PROMPT_FILES } from '@/src/core/aibot/constants';
 import type { WebSearchSnippet } from '@/src/core/aibot/types';
 
 const logger = getLogger('aibot.api.deep-search-analysis');
 
-// 进度回调函数类型
-type ProgressCallback = (phase: string, message: string, status: 'running' | 'completed' | 'error', details?: string) => void;
+const getErrorDetails = (error: unknown): string => {
+    if (!(error instanceof Error)) {
+        return '未知错误';
+    }
+
+    const maybeApiError = error as Error & {
+        statusCode?: number;
+        responseBody?: string;
+        cause?: { message?: string };
+    };
+
+    const parts = [error.message];
+
+    if (typeof maybeApiError.statusCode === 'number') {
+        parts.push(`status=${maybeApiError.statusCode}`);
+    }
+
+    if (typeof maybeApiError.responseBody === 'string' && maybeApiError.responseBody.trim()) {
+        parts.push(`response=${maybeApiError.responseBody.trim().slice(0, 500)}`);
+    } else if (typeof maybeApiError.cause?.message === 'string' && maybeApiError.cause.message.trim()) {
+        parts.push(`cause=${maybeApiError.cause.message.trim().slice(0, 300)}`);
+    }
+
+    return parts.join(' | ');
+};
 
 // 发送SSE进度更新
 const sendProgress = (controller: ReadableStreamDefaultController, phase: string, message: string, status: 'running' | 'completed' | 'error', details?: string) => {
@@ -27,22 +48,6 @@ const sendProgress = (controller: ReadableStreamDefaultController, phase: string
     
     const data = `data: ${JSON.stringify(progressData)}\n\n`;
     controller.enqueue(new TextEncoder().encode(data));
-};
-
-const createModel = (config: any) => {
-    logger.info('创建深度检索分析模型实例', {
-        model: config.model,
-        baseURL: config.baseURL,
-        hasApiKey: !!config.apiKey
-    });
-    
-    const customProvider = createOpenAICompatible({
-        name: 'custom-llm',
-        baseURL: config.baseURL,
-        apiKey: config.apiKey
-    });
-    
-    return customProvider(config.model);
 };
 
 const joinSnippets = (snippets: WebSearchSnippet[]): string =>
@@ -75,6 +80,7 @@ export async function POST(request: Request) {
     
     const stream = new ReadableStream({
         async start(controller) {
+            let currentPhase = 'init';
             try {
                 const body = await request.json();
                 const { userInput } = body as DeepSearchAnalysisRequest;
@@ -87,16 +93,18 @@ export async function POST(request: Request) {
 
                 logger.info('开始深度检索分析流程', { userInput });
 
-                const llmConfig = resolveLLMConfig();
-                const model = createModel(llmConfig);
+                const llmConfigSummary = getLLMConfigSummary();
 
-                // 第一步：自动生成关键词
+                logger.info('深度检索分析使用 LLM 配置', {
+                    llmConfigSummary
+                });
+
+                currentPhase = 'keyword';
                 logger.info('开始生成检索关键词');
-                sendProgress(controller, 'keyword', '正在生成检索关键词...', 'running');
+                sendProgress(controller, 'keyword', '正在生成检索关键词...', 'running', llmConfigSummary);
                 
                 const keywordPrompt = await loadPrompt(AIBOT_PROMPT_FILES.KEYWORD_GENERATION);
-                const keywordResult = await generateText({
-                    model,
+                const keywordResult = await generateTextWithFallback({
                     system: keywordPrompt,
                     prompt: `用户输入：${userInput}\n\n请生成适合的检索关键词。`
                 });
@@ -150,7 +158,7 @@ export async function POST(request: Request) {
                 let analysisCompleted = 0;
                 const totalKeywords = keywords.length;
 
-                // 检测搜索引擎类型
+                currentPhase = 'search';
                 const useJina = process.env.USE_JINA_SEARCH !== 'false';
                 const searchEngine = useJina ? 'Jina' : 'DuckDuckGo';
                 sendProgress(controller, 'search', `正在执行${searchEngine}检索...`, 'running');
@@ -160,7 +168,7 @@ export async function POST(request: Request) {
                 const searchAndAnalysisPromises = keywords.map(async (keywordItem, index) => {
                     logger.info('检索关键词', { keyword: keywordItem.keyword });
 
-                    // 使用统一的网络搜索服务
+                    currentPhase = 'search';
                     const snippets = await performWebSearch(keywordItem.keyword);
 
                     // 更新检索进度
@@ -170,14 +178,14 @@ export async function POST(request: Request) {
                         `已检索 ${searchCompleted}/${totalKeywords} 个关键词`);
 
                     if (snippets.length > 0) {
+                        currentPhase = 'analysis';
                         // 单篇分析
                         sendProgress(controller, 'analysis', `正在分析关键词: ${keywordItem.keyword}`, 'running');
 
                         const articlePrompt = await loadPrompt(AIBOT_PROMPT_FILES.ARTICLE_ANALYSIS);
                         const searchResultText = joinSnippets(snippets);
 
-                        const analysisResult = await generateText({
-                            model,
+                        const analysisResult = await generateTextWithFallback({
                             system: articlePrompt,
                             prompt: `# 关键词\n${keywordItem.keyword}\n\n# 用户原始输入\n${userInput}\n\n# 网络搜索结果\n${searchResultText}`
                         });
@@ -210,6 +218,7 @@ export async function POST(request: Request) {
                 sendProgress(controller, 'analysis', `所有关键词分析完成，共生成 ${allAnalyses.length} 篇分析`, 'completed');
 
                 // 第三步：交叉分析（流式输出草稿）
+                currentPhase = 'cross-analysis';
                 sendProgress(controller, 'cross-analysis', '正在进行交叉分析...', 'running');
 
                 const crossPrompt = await loadPrompt(AIBOT_PROMPT_FILES.ARTICLE_CROSS_ANALYSIS);
@@ -225,8 +234,7 @@ export async function POST(request: Request) {
                 controller.enqueue(encoder.encode(`data: ${JSON.stringify(draftStartData)}\n\n`));
 
                 // 使用 streamText 实现草稿流式输出
-                const crossAnalysisStream = await streamText({
-                    model,
+                const crossAnalysisStream = await streamTextWithFallback({
                     system: crossPrompt,
                     prompt: `# 用户原始输入\n${userInput}\n\n# 检索关键词\n${keywords.map(k => `- ${k.keyword} (${k.priority})`).join('\n')}\n\n# 文章分析结果\n${combinedAnalyses}`
                 });
@@ -265,8 +273,9 @@ export async function POST(request: Request) {
                 controller.close();
 
             } catch (error) {
-                logger.error('深度检索分析失败', { error });
-                sendProgress(controller, 'error', '深度检索分析失败', 'error', error instanceof Error ? error.message : '未知错误');
+                const errorDetails = getErrorDetails(error);
+                logger.error('深度检索分析失败', { currentPhase, error, errorDetails });
+                sendProgress(controller, currentPhase, `深度检索分析失败（阶段: ${currentPhase}）`, 'error', errorDetails);
                 controller.close();
             }
         }

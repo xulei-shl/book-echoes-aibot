@@ -1,30 +1,12 @@
 import { NextResponse } from 'next/server';
 import { assertAIBotEnabled, AIBotDisabledError } from '@/src/utils/aibot-env';
 import { getLogger } from '@/src/utils/logger';
-import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
-import { streamText } from 'ai';
+import { streamTextWithFallback } from '@/src/core/aibot/llmClient';
 import { loadPrompt } from '@/src/core/aibot/promptLoader';
-import { resolveLLMConfig } from '@/src/utils/aibot-env';
 import { AIBOT_PROMPT_FILES } from '@/src/core/aibot/constants';
 import type { BookInfo } from '@/src/core/aibot/types';
 
 const logger = getLogger('aibot.api.deep-interpretation');
-
-const createModel = (config: any) => {
-    logger.info('创建深度解读模型实例', {
-        model: config.model,
-        baseURL: config.baseURL,
-        hasApiKey: !!config.apiKey
-    });
-    
-    const customProvider = createOpenAICompatible({
-        name: 'custom-llm',
-        baseURL: config.baseURL,
-        apiKey: config.apiKey
-    });
-    
-    return customProvider(config.model);
-};
 
 interface DeepInterpretationRequest {
     selectedBooks: BookInfo[];
@@ -58,14 +40,11 @@ export async function POST(request: Request) {
             return NextResponse.json({ message: 'originalQuery 不能为空' }, { status: 400 });
         }
 
-        logger.info('开始生成深度解读', { 
+        logger.info('开始生成深度解读', {
             bookCount: selectedBooks.length,
             draftLength: draftMarkdown.length,
-            originalQuery 
+            originalQuery
         });
-
-        const llmConfig = resolveLLMConfig();
-        const model = createModel(llmConfig);
 
         // 加载推荐导语提示词
         const recommendationPrompt = await loadPrompt(AIBOT_PROMPT_FILES.RECOMMENDATION);
@@ -114,8 +93,7 @@ ${booksText}`;
         });
 
         // 使用流式输出
-        const result = await streamText({
-            model,
+        const result = await streamTextWithFallback({
             system: recommendationPrompt,
             prompt: fullPrompt
         });

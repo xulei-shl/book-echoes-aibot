@@ -1,9 +1,7 @@
-import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
-import { generateText } from 'ai';
+import { generateTextWithFallback } from '@/src/core/aibot/llmClient';
 import { AIBOT_INTENTS, AIBOT_MODES, AIBOT_PROMPT_FILES, type AIBotMode } from '@/src/core/aibot/constants';
 import { loadPrompt } from '@/src/core/aibot/promptLoader';
 import type { IntentClassifierInput, IntentClassificationResult } from '@/src/core/aibot/types';
-import { resolveLLMConfig } from '@/src/utils/aibot-env';
 import { getLogger } from '@/src/utils/logger';
 
 const logger = getLogger('aibot.classifier');
@@ -121,20 +119,7 @@ export async function classifyUserIntent(input: IntentClassifierInput): Promise<
 
     try {
         const prompt = await loadPrompt(AIBOT_PROMPT_FILES.QUESTION_CLASSIFIER);
-        const llmConfig = resolveLLMConfig(undefined, {
-            model: 'gemini-flash-latest',
-            temperature: 0
-        });
-        const customProvider = createOpenAICompatible({
-            name: 'custom-llm-classifier',
-            baseURL: llmConfig.baseURL,
-            apiKey: llmConfig.apiKey
-        });
-        
-        const model = customProvider(llmConfig.model);
-
-        const result = await generateText({
-            model,
+        const result = await generateTextWithFallback({
             system: prompt,
             prompt: buildClassifierPrompt({ ...input, userInput: trimmed })
         });

@@ -3,7 +3,7 @@
  * 负责将用户的简单查询扩展为多个语义丰富的检索探针
  */
 
-import { resolveLLMConfig } from '@/src/utils/aibot-env';
+import { postChatCompletionsWithFallback } from '@/src/core/aibot/llmClient';
 import { loadPrompt } from '@/src/core/aibot/promptLoader';
 import { getLogger } from '@/src/utils/logger';
 import type { QueryExpansionResult, ExpandedProbe } from '@/src/core/aibot/types';
@@ -102,12 +102,8 @@ export async function expandQuery(query: string): Promise<QueryExpansionResult> 
         // 获取prompt模板
         const systemPrompt = await getExpansionPrompt();
 
-        // 获取LLM配置
-        const llmConfig = resolveLLMConfig();
-
         // 构建请求
         const requestBody = {
-            model: llmConfig.model,
             messages: [
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: query }
@@ -117,29 +113,10 @@ export async function expandQuery(query: string): Promise<QueryExpansionResult> 
         };
 
         logger.debug('发送查询扩展请求', {
-            model: llmConfig.model,
             queryLength: query.length
         });
 
-        const response = await fetch(`${llmConfig.baseURL}/chat/completions`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${llmConfig.apiKey}`
-            },
-            body: JSON.stringify(requestBody)
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            logger.error('LLM API调用失败', {
-                status: response.status,
-                error: errorText
-            });
-            throw new Error(`LLM API返回 ${response.status}: ${errorText}`);
-        }
-
-        const data = await response.json();
+        const data = await postChatCompletionsWithFallback(requestBody);
         const rawOutput = data.choices?.[0]?.message?.content || '';
 
         const duration = Date.now() - startTime;

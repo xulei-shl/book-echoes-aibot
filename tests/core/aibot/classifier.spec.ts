@@ -2,23 +2,23 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { classifyUserIntent, hasPromptInjectionRisk, shouldBypassClassifier } from '@/src/core/aibot/classifier';
 import { AIBOT_INTENTS, AIBOT_MODES } from '@/src/core/aibot/constants';
 
-vi.mock('@ai-sdk/openai', () => ({
-    openai: vi.fn(() => 'mock-model')
-}));
-
 const generateTextMock = vi.fn();
 
 vi.mock('ai', () => ({
-    generateText: (...args: unknown[]) => generateTextMock(...args)
+    generateText: (...args: unknown[]) => generateTextMock(...args),
+    streamText: vi.fn()
 }));
 
 describe('AIBot question classifier', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         generateTextMock.mockReset();
-        process.env.AIBOT_LLM_BASE_URL = 'http://localhost:2020/v1';
-        process.env.AIBOT_LLM_API_KEY = 'sk-test';
-        process.env.AIBOT_LLM_MODEL = 'gpt-4.1-mini';
+        process.env.AIBOT_LLM_PRIMARY_BASE_URL = 'http://localhost:2020/v1';
+        process.env.AIBOT_LLM_PRIMARY_API_KEY = 'sk-test';
+        process.env.AIBOT_LLM_PRIMARY_MODEL = 'gpt-4.1-mini';
+        delete process.env.AIBOT_LLM_SECONDARY_BASE_URL;
+        delete process.env.AIBOT_LLM_SECONDARY_API_KEY;
+        delete process.env.AIBOT_LLM_SECONDARY_MODEL;
     });
 
     it('parses LLM JSON output correctly', async () => {
@@ -50,6 +50,25 @@ describe('AIBot question classifier', () => {
 
         expect(result.intent).toBe(AIBOT_INTENTS.SIMPLE_SEARCH);
         expect(result.source).toBe('rule');
+    });
+
+    it('falls back to default search intent when both candidates fail', async () => {
+        process.env.AIBOT_LLM_SECONDARY_BASE_URL = 'http://localhost:3030/v1';
+        process.env.AIBOT_LLM_SECONDARY_API_KEY = 'sk-secondary';
+        process.env.AIBOT_LLM_SECONDARY_MODEL = 'gpt-secondary';
+
+        generateTextMock
+            .mockRejectedValueOnce(Object.assign(new Error('primary timeout'), { statusCode: 503 }))
+            .mockRejectedValueOnce(Object.assign(new Error('secondary timeout'), { statusCode: 503 }));
+
+        const result = await classifyUserIntent({
+            userInput: '推荐三本商业史相关的书',
+            messages: []
+        });
+
+        expect(result.intent).toBe(AIBOT_INTENTS.SEARCH);
+        expect(result.source).toBe('rule');
+        expect(generateTextMock).toHaveBeenCalledTimes(2);
     });
 
     it('detects prompt injection keywords', () => {

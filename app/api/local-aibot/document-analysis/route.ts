@@ -1,10 +1,8 @@
 import { NextResponse } from 'next/server';
 import { assertAIBotEnabled, AIBotDisabledError } from '@/src/utils/aibot-env';
 import { getLogger } from '@/src/utils/logger';
-import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
-import { generateText, streamText } from 'ai';
 import { loadPrompt } from '@/src/core/aibot/promptLoader';
-import { resolveLLMConfig } from '@/src/utils/aibot-env';
+import { generateTextWithFallback, streamTextWithFallback } from '@/src/core/aibot/llmClient';
 import { AIBOT_PROMPT_FILES } from '@/src/core/aibot/constants';
 import type { DocumentAnalysisRequest } from '@/src/core/aibot/types';
 
@@ -26,22 +24,6 @@ const sendProgress = (controller: ReadableStreamDefaultController, phase: string
 
     const data = `data: ${JSON.stringify(progressData)}\n\n`;
     controller.enqueue(new TextEncoder().encode(data));
-};
-
-const createModel = (config: any) => {
-    logger.info('创建文档分析模型实例', {
-        model: config.model,
-        baseURL: config.baseURL,
-        hasApiKey: !!config.apiKey
-    });
-
-    const customProvider = createOpenAICompatible({
-        name: 'custom-llm',
-        baseURL: config.baseURL,
-        apiKey: config.apiKey
-    });
-
-    return customProvider(config.model);
 };
 
 export async function POST(request: Request) {
@@ -74,9 +56,6 @@ export async function POST(request: Request) {
                     documentNames: documents.map(doc => doc.name)
                 });
 
-                const llmConfig = resolveLLMConfig();
-                const model = createModel(llmConfig);
-
                 // 第一步：文档分析（并行处理所有文档）
                 logger.info('开始文档分析');
                 sendProgress(controller, 'document-analysis', '正在分析文档内容...', 'running');
@@ -92,8 +71,7 @@ export async function POST(request: Request) {
                     try {
                         const articlePrompt = await loadPrompt(AIBOT_PROMPT_FILES.ARTICLE_ANALYSIS);
 
-                        const analysisResult = await generateText({
-                            model,
+                        const analysisResult = await generateTextWithFallback({
                             system: articlePrompt,
                             prompt: `# 文档名称\n${document.name}\n\n# 文档内容\n${document.content}`
                         });
@@ -162,8 +140,7 @@ export async function POST(request: Request) {
                 controller.enqueue(encoder.encode(`data: ${JSON.stringify(draftStartData)}\n\n`));
 
                 // 使用 streamText 实现草稿流式输出
-                const crossAnalysisStream = await streamText({
-                    model,
+                const crossAnalysisStream = await streamTextWithFallback({
                     system: crossPrompt,
                     prompt: `# 文档名称\n${documentNames}\n\n# 文档分析结果\n${combinedAnalyses}`
                 });

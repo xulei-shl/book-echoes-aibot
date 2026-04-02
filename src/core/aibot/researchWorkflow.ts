@@ -1,30 +1,13 @@
-import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
-import { generateText } from 'ai';
 import { AIBOT_MODES, AIBOT_PROMPT_FILES, DEFAULT_MULTI_QUERY_TOP_K, DEFAULT_TOP_K } from '@/src/core/aibot/constants';
 import { loadPrompt } from '@/src/core/aibot/promptLoader';
+import { generateTextWithFallback } from '@/src/core/aibot/llmClient';
 import { multiQuery, textSearch } from '@/src/core/aibot/retrievalService';
 import { researchWithDuckDuckGo } from '@/src/core/aibot/mcp/duckduckgoResearcher';
 import type { ChatWorkflowContext, ChatWorkflowInput, DraftWorkflowResult, RetrievalResultData } from '@/src/core/aibot/types';
-import { resolveLLMConfig, type LLMConfig, type LLMHintMetadata } from '@/src/utils/aibot-env';
+import { resolveLLMConfig } from '@/src/utils/aibot-env';
 import { getLogger } from '@/src/utils/logger';
 
 const logger = getLogger('aibot.workflow');
-
-const createModel = (config: LLMConfig) => {
-    logger.info('创建模型实例', {
-        model: config.model,
-        baseURL: config.baseURL,
-        hasApiKey: !!config.apiKey
-    });
-    
-    const customProvider = createOpenAICompatible({
-        name: 'custom-llm',
-        baseURL: config.baseURL,
-        apiKey: config.apiKey
-    });
-    
-    return customProvider(config.model);
-};
 
 const joinSnippets = (snippets: DraftWorkflowResult['searchSnippets']): string =>
     snippets
@@ -64,22 +47,17 @@ const buildSystemPrompt = (basePrompt: string, contextPlainText: string, userInp
  * 深度检索草稿生成：DuckDuckGo 摘要 -> article_analysis -> article_cross_analysis。
  */
 export async function runDraftWorkflow(userInput: string): Promise<DraftWorkflowResult> {
-    const llmConfig = resolveLLMConfig();
-    const model = createModel(llmConfig);
-
     const snippets = await researchWithDuckDuckGo(userInput, { topK: DEFAULT_TOP_K });
     const duckduckgoText = joinSnippets(snippets);
 
     const articlePrompt = await loadPrompt(AIBOT_PROMPT_FILES.ARTICLE_ANALYSIS);
-    const analysisResult = await generateText({
-        model,
+    const analysisResult = await generateTextWithFallback({
         system: articlePrompt,
         prompt: `# 用户输入\n${userInput}\n\n# DuckDuckGo 摘要\n${duckduckgoText}`
     });
 
     const crossPrompt = await loadPrompt(AIBOT_PROMPT_FILES.ARTICLE_CROSS_ANALYSIS);
-    const crossAnalysisResult = await generateText({
-        model,
+    const crossAnalysisResult = await generateTextWithFallback({
         system: crossPrompt,
         prompt: `# 用户输入\n${userInput}\n\n# 文章分析结果\n${analysisResult.text.trim()}`
     });
@@ -160,8 +138,7 @@ export async function buildChatWorkflowContext(
     );
 
     const metadata = (retrieval.metadata ?? {}) as Record<string, unknown>;
-    const llmHint = (metadata.llm_hint ?? metadata.llmHint) as LLMHintMetadata | undefined;
-    const llmConfig = resolveLLMConfig(llmHint);
+    const llmConfig = resolveLLMConfig();
 
     return {
         mode: input.mode,
@@ -173,4 +150,4 @@ export async function buildChatWorkflowContext(
     };
 }
 
-export { createModel };
+export { resolveLLMConfig };

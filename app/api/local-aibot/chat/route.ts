@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
-import { streamText, type CoreMessage } from 'ai';
+import { type CoreMessage } from 'ai';
 import { assertAIBotEnabled, AIBotDisabledError } from '@/src/utils/aibot-env';
 import { getLogger } from '@/src/utils/logger';
-import { buildChatWorkflowContext, createModel } from '@/src/core/aibot/researchWorkflow';
+import { streamTextWithFallback } from '@/src/core/aibot/llmClient';
+import { buildChatWorkflowContext } from '@/src/core/aibot/researchWorkflow';
 import { classifyUserIntent, hasPromptInjectionRisk } from '@/src/core/aibot/classifier';
 import { AIBOT_INTENTS, AIBOT_MODES, type AIBotMode } from '@/src/core/aibot/constants';
 import type { ChatMessage, IntentClassificationResult } from '@/src/core/aibot/types';
@@ -244,8 +245,7 @@ export async function POST(request: Request) {
             }
         });
         
-        const result = await streamText({
-            model: createModel(workflowContext.llmConfig),
+        const result = await streamTextWithFallback({
             system: workflowContext.systemPrompt,
             messages: chatMessages as any
         });

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { isLocalAIBotEnabled, resolveLLMConfig, DEFAULT_PLAIN_TEXT_TEMPLATE } from '../../src/utils/aibot-env';
+import { isLocalAIBotEnabled, resolveLLMConfig, resolveLLMCandidates, DEFAULT_PLAIN_TEXT_TEMPLATE } from '../../src/utils/aibot-env';
 
 describe('aibot env helpers', () => {
     const originalEnv = { ...process.env };
@@ -17,10 +17,49 @@ describe('aibot env helpers', () => {
         expect(isLocalAIBotEnabled()).toBe(false);
     });
 
-    it('根据 hint 合成 LLM 配置', () => {
-        process.env.AIBOT_LLM_BASE_URL = 'http://localhost:8001/v1';
-        process.env.AIBOT_LLM_API_KEY = 'sk-base';
-        process.env.AIBOT_LLM_MODEL = 'gpt-test';
+    it('优先解析 primary/secondary LLM 配置', () => {
+        process.env.AIBOT_LLM_PRIMARY_BASE_URL = 'http://primary/v1';
+        process.env.AIBOT_LLM_PRIMARY_API_KEY = 'sk-primary';
+        process.env.AIBOT_LLM_PRIMARY_MODEL = 'gpt-primary';
+        process.env.AIBOT_LLM_SECONDARY_BASE_URL = 'http://secondary/v1';
+        process.env.AIBOT_LLM_SECONDARY_API_KEY = 'sk-secondary';
+        process.env.AIBOT_LLM_SECONDARY_MODEL = 'gpt-secondary';
+
+        expect(resolveLLMCandidates()).toEqual([
+            {
+                baseURL: 'http://primary/v1',
+                apiKey: 'sk-primary',
+                model: 'gpt-primary',
+                temperature: undefined
+            },
+            {
+                baseURL: 'http://secondary/v1',
+                apiKey: 'sk-secondary',
+                model: 'gpt-secondary',
+                temperature: undefined
+            }
+        ]);
+    });
+
+    it('旧 AIBOT_LLM_* 配置映射为 primary', () => {
+        process.env.AIBOT_LLM_BASE_URL = 'http://legacy/v1';
+        process.env.AIBOT_LLM_API_KEY = 'sk-legacy';
+        process.env.AIBOT_LLM_MODEL = 'gpt-legacy';
+
+        expect(resolveLLMCandidates()).toEqual([
+            {
+                baseURL: 'http://legacy/v1',
+                apiKey: 'sk-legacy',
+                model: 'gpt-legacy',
+                temperature: undefined
+            }
+        ]);
+    });
+
+    it('resolveLLMConfig 忽略 hint 覆盖，本地模式固定使用 env primary', () => {
+        process.env.AIBOT_LLM_PRIMARY_BASE_URL = 'http://primary/v1';
+        process.env.AIBOT_LLM_PRIMARY_API_KEY = 'sk-primary';
+        process.env.AIBOT_LLM_PRIMARY_MODEL = 'gpt-primary';
 
         const config = resolveLLMConfig({
             base_url: 'http://override',
@@ -30,10 +69,10 @@ describe('aibot env helpers', () => {
         });
 
         expect(config).toMatchObject({
-            baseURL: 'http://override',
-            apiKey: 'sk-override',
-            model: 'gpt-override',
-            temperature: 0.2
+            baseURL: 'http://primary/v1',
+            apiKey: 'sk-primary',
+            model: 'gpt-primary',
+            temperature: undefined
         });
     });
 

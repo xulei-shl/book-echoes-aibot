@@ -1,10 +1,8 @@
 import { NextResponse } from 'next/server';
 import { assertAIBotEnabled, AIBotDisabledError } from '@/src/utils/aibot-env';
 import { getLogger } from '@/src/utils/logger';
-import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
-import { generateText } from 'ai';
+import { generateTextWithFallback, getLLMConfigSummary } from '@/src/core/aibot/llmClient';
 import { loadPrompt } from '@/src/core/aibot/promptLoader';
-import { resolveLLMConfig } from '@/src/utils/aibot-env';
 import { AIBOT_PROMPT_FILES } from '@/src/core/aibot/constants';
 
 const logger = getLogger('aibot.api.keywords');
@@ -14,22 +12,6 @@ interface KeywordResult {
     reason: string;
     priority: 'high' | 'medium' | 'low';
 }
-
-const createModel = (config: any) => {
-    logger.info('创建关键词生成模型实例', {
-        model: config.model,
-        baseURL: config.baseURL,
-        hasApiKey: !!config.apiKey
-    });
-    
-    const customProvider = createOpenAICompatible({
-        name: 'custom-llm',
-        baseURL: config.baseURL,
-        apiKey: config.apiKey
-    });
-    
-    return customProvider(config.model);
-};
 
 export async function POST(request: Request) {
     try {
@@ -49,16 +31,15 @@ export async function POST(request: Request) {
             return NextResponse.json({ message: 'user_input 不能为空' }, { status: 400 });
         }
 
-        logger.info('开始生成检索关键词', { userInput });
-
-        const llmConfig = resolveLLMConfig();
-        const model = createModel(llmConfig);
+        logger.info('开始生成检索关键词', {
+            userInput,
+            llmConfigSummary: getLLMConfigSummary()
+        });
 
         // 加载关键词生成提示词
         const keywordPrompt = await loadPrompt(AIBOT_PROMPT_FILES.KEYWORD_GENERATION);
 
-        const result = await generateText({
-            model,
+        const result = await generateTextWithFallback({
             system: keywordPrompt,
             prompt: `用户输入：${userInput}\n\n请生成适合的检索关键词。`
         });
