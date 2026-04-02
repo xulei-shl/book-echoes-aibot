@@ -10,9 +10,20 @@ import { useAIBotStore } from '@/store/aibot/useAIBotStore';
 
 // 清理 markdown 代码块包裹
 const cleanMarkdownCodeBlock = (content: string): string => {
-    const codeBlockPattern = /^```(?:markdown|md)?\s*\n?([\s\S]*?)\n?```\s*$/;
-    const match = content.trim().match(codeBlockPattern);
-    return match ? match[1].trim() : content;
+    const openingFencePattern = /^```(?:markdown|md)?\s*\n?/i;
+    const closingFencePattern = /\n?```\s*$/;
+
+    if (!openingFencePattern.test(content)) {
+        return content;
+    }
+
+    let normalizedContent = content.replace(openingFencePattern, '');
+
+    if (closingFencePattern.test(normalizedContent)) {
+        normalizedContent = normalizedContent.replace(closingFencePattern, '');
+    }
+
+    return normalizedContent;
 };
 
 interface DeepSearchDraftMessageProps {
