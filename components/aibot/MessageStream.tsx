@@ -213,6 +213,16 @@ export default function MessageStream({
                 }
             }}
         >
+            {/* 简单检索进度显示 - 固定在消息流顶部，保持在检索结果上方 */}
+            {simpleSearchLogs.length > 0 && (
+                <ProgressLogDisplay
+                    isVisible={true}
+                    logs={simpleSearchLogs}
+                    currentPhase={simpleSearchPhase}
+                    title="检索进度"
+                />
+            )}
+
             <AnimatePresence initial={false}>
                 {messages.map((message) => (
                     <motion.div
@@ -405,16 +415,6 @@ export default function MessageStream({
                     </motion.div>
                 ))}
             </AnimatePresence>
-
-            {/* 简单检索进度显示 */}
-            {simpleSearchLogs.length > 0 && (
-                <ProgressLogDisplay
-                    isVisible={true}
-                    logs={simpleSearchLogs}
-                    currentPhase={simpleSearchPhase}
-                    title="检索进度"
-                />
-            )}
 
             {isStreaming && (
                 <div className="text-left text-xs text-[#A2A09A] animate-pulse">
