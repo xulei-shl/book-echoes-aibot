@@ -1516,12 +1516,12 @@ export default function AIBotOverlay() {
                                         </button>
                                         {/* 模式指示器 */}
                                         <div className="flex items-center gap-1 text-xs">
-                                            <span className={clsx(
-                                                'inline-block w-2 h-2 rounded-full shrink-0',
-                                                displayMode === AIBOT_MODES.TEXT && 'bg-[#3B82F6]',
-                                                displayMode === AIBOT_MODES.DEEP && 'bg-[#C9A063]',
-                                                displayMode === AIBOT_MODES.DOCUMENT && 'bg-[#A855F7]'
-                                            )}></span>
+                                            <span
+                                                className="inline-block w-2 h-2 rounded-full shrink-0"
+                                                style={{
+                                                    backgroundColor: displayMode === AIBOT_MODES.TEXT ? '#3B82F6' : displayMode === AIBOT_MODES.DEEP ? '#C9A063' : '#A855F7'
+                                                }}
+                                            ></span>
                                             <span style={{
                                                 color: displayMode === AIBOT_MODES.TEXT ? '#60A5FA' : displayMode === AIBOT_MODES.DEEP ? '#C9A063' : '#C084FC'
                                             }}>
