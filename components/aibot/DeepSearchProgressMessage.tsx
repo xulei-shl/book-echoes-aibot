@@ -124,12 +124,11 @@ export default function DeepSearchProgressMessage({
                                                     backgroundColor: ['rgba(201,160,99,0.03)', 'rgba(201,160,99,0.08)', 'rgba(201,160,99,0.03)']
                                                 } : { opacity: 1, x: 0 }}
                                                 transition={isRunning ? { duration: 1.8, repeat: Infinity, ease: 'easeInOut' } : { duration: 0.2 }}
-                                                className={`relative overflow-hidden p-3 border ${
-                                                    log.status === 'error' ? 'border-red-500/30 bg-red-500/5' :
-                                                    log.status === 'running' ? 'border-[#C9A063]/30 bg-[#C9A063]/5' :
-                                                    log.status === 'completed' ? 'border-[#C9A063]/28 bg-[#C9A063]/8' :
-                                                    'border-[#C9A063]/15 bg-[#111111]/80'
-                                                }`}
+                                                className={`relative overflow-hidden p-3 border ${log.status === 'error' ? 'border-red-500/30 bg-red-500/5' :
+                                                        log.status === 'running' ? 'border-[#C9A063]/30 bg-[#C9A063]/5' :
+                                                            log.status === 'completed' ? 'border-[#C9A063]/28 bg-[#C9A063]/8' :
+                                                                'border-[#C9A063]/15 bg-[#111111]/80'
+                                                    }`}
                                             >
                                                 {isRunning && (
                                                     <motion.div
@@ -159,21 +158,17 @@ export default function DeepSearchProgressMessage({
 
                                                     <div className="relative z-10 flex-1 min-w-0">
                                                         <div className="flex items-center gap-2 mb-1">
-                                                            <span className={`text-sm font-info-content ${
-                                                                log.status === 'error' ? 'text-red-200' :
-                                                                log.status === 'completed' ? 'text-[#F3E7C9]' :
-                                                                log.status === 'running' ? 'text-[#F3E7C9]' :
-                                                                'text-[#F2EFE6]'
-                                                            }`}>
+                                                            <span className="text-sm font-medium font-info-content" style={{ color: log.status === 'error' ? '#ef4444' : log.status === 'completed' || log.status === 'running' ? '#C9A063' : '#E8E6DC' }}>
                                                                 {PHASE_ICONS[log.phase] || '📋'} {PHASE_LABELS[log.phase] || log.phase}
                                                             </span>
-                                                            <span className="text-xs text-[#D1C5A8] font-mono tracking-wider">
+                                                            <span className="text-xs font-mono tracking-wider" style={{ color: '#A2A09A' }}>
                                                                 {log.timestamp}
                                                             </span>
                                                             {isRunning && (
                                                                 <motion.span
-                                                                    className="text-[10px] font-mono tracking-[0.24em] text-[#F0D9A6]"
-                                                                    animate={{ opacity: [0.45, 1, 0.45] }}
+                                                                    className="text-[10px] font-mono tracking-[0.24em]"
+                                                                    style={{ color: '#C9A063' }}
+                                                                    animate={{ opacity: [0.55, 1, 0.55] }}
                                                                     transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
                                                                 >
                                                                     RUNNING
@@ -181,17 +176,12 @@ export default function DeepSearchProgressMessage({
                                                             )}
                                                         </div>
 
-                                                        <p className={`text-sm font-info-content ${
-                                                            log.status === 'error' ? 'text-red-100' :
-                                                            log.status === 'running' ? 'text-[#FFF4DD]' :
-                                                            log.status === 'completed' ? 'text-[#FFF1D2]' :
-                                                            'text-[#E8E6DC]'
-                                                        }`}>
+                                                        <p className="text-sm font-medium font-info-content" style={{ color: log.status === 'error' ? '#fca5a5' : log.status === 'running' || log.status === 'completed' ? '#E8E6DC' : '#A2A09A' }}>
                                                             {log.message}
                                                         </p>
 
                                                         {log.details && (
-                                                            <p className="text-xs text-[#CFC7B6] mt-1 font-info-content">
+                                                            <p className="text-xs mt-1 font-info-content" style={{ color: '#A2A09A' }}>
                                                                 {log.details}
                                                             </p>
                                                         )}
