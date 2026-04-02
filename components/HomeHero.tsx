@@ -227,7 +227,7 @@ export default function HomeHero({ images, targetLink, title, subtitle }: HomeHe
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 1.2, duration: 0.8, ease: "easeOut" }}
                 >
-                    <span className="inline-block border border-[#C9A063] bg-[#C9A063] px-8 py-3 text-sm font-mono tracking-[0.2em] text-[#1a1a1a] uppercase hover:bg-transparent hover:text-[#C9A063] transition-colors duration-300 cursor-pointer" onClick={() => router.push(targetLink)}>
+                    <span className="inline-block border border-[#C9A063]/40 bg-transparent px-8 py-3 text-sm font-mono tracking-[0.2em] text-[#C9A063] uppercase hover:bg-[#C9A063] hover:text-[#1a1a1a] transition-colors duration-300 cursor-pointer" onClick={() => router.push(targetLink)}>
                         Enter Issue
                     </span>
                 </motion.div>
