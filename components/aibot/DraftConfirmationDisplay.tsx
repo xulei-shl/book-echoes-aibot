@@ -67,9 +67,9 @@ export default function DraftConfirmationDisplay({
         <div className="mb-4">
             {/* 草稿确认头部 */}
             <motion.div
-                className="flex items-center justify-between p-3 border border-[#C9A063]/20 bg-[rgba(201,160,99,0.08)] cursor-pointer"
+                className="flex items-center justify-between p-3 border border-[#C9A063]/30 bg-[#1a1a1a]/90 backdrop-blur-xl cursor-pointer"
                 onClick={() => !isEditing && setIsExpanded(!isExpanded)}
-                whileHover={{ backgroundColor: 'rgba(201, 160, 99, 0.15)' }}
+                whileHover={{ backgroundColor: 'rgba(26, 26, 26, 0.95)' }}
                 transition={{ duration: 0.2 }}
             >
                 <div className="flex items-center gap-3">
@@ -92,7 +92,7 @@ export default function DraftConfirmationDisplay({
                                 e.stopPropagation();
                                 setShowMetadata(!showMetadata);
                             }}
-                            className="text-xs px-2 py-1 border border-[#C9A063]/20 text-[#C9A063]/70 hover:bg-[#C9A063] hover:text-[#1a1a1a] transition-colors font-mono tracking-wider"
+                            className="bg-transparent border border-[#C9A063]/30 text-[#C9A063]/70 hover:bg-[#C9A063] hover:text-[#1a1a1a] transition-colors text-xs px-2 py-1 font-mono tracking-wider"
                         >
                             源数据 ({searchSnippets.length})
                         </button>
@@ -117,7 +117,7 @@ export default function DraftConfirmationDisplay({
                         transition={{ duration: 0.3 }}
                         className="overflow-hidden"
                     >
-                        <div className="border border-[#C9A063]/20 border-t-0 bg-[rgba(26,26,26,0.8)]">
+                        <div className="border border-[#C9A063]/30 border-t-0 bg-[#1a1a1a]/90 backdrop-blur-xl">
                             {/* 源数据展示 */}
                             <AnimatePresence>
                                 {showMetadata && searchSnippets.length > 0 && (

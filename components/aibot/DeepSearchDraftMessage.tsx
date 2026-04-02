@@ -89,20 +89,20 @@ export default function DeepSearchDraftMessage({
         <div className="mb-4">
             {/* 草稿头部 */}
             <motion.div
-                className="flex items-center justify-between p-3 rounded-t-xl border border-[#343434] bg-[rgba(201,160,99,0.1)] cursor-pointer"
+                className="flex items-center justify-between p-3 border border-[#C9A063]/30 bg-[#1a1a1a]/90 backdrop-blur-xl cursor-pointer"
                 onClick={() => !isEditing && setIsExpanded(!isExpanded)}
-                whileHover={{ backgroundColor: 'rgba(201, 160, 99, 0.15)' }}
+                whileHover={{ backgroundColor: 'rgba(26, 26, 26, 0.95)' }}
                 transition={{ duration: 0.2 }}
             >
                 <div className="flex items-center gap-3">
-                    <span className="text-[#C9A063] text-sm font-medium font-body">
+                    <span className="text-[#C9A063] text-sm font-medium font-mono tracking-wider">
                         📝 检索草稿
                     </span>
                     {isStreaming && (
-                        <span className="animate-pulse text-xs text-[#A2A09A] font-body">生成中...</span>
+                        <span className="animate-pulse text-xs text-[#A2A09A] font-mono tracking-wider">生成中...</span>
                     )}
                     {isComplete && !isStreaming && (
-                        <span className="text-xs text-green-400 font-body">
+                        <span className="text-xs text-[#C9A063]/70 font-mono tracking-wider">
                             ✓ 生成完成 ({cleanedDraft.length} 字符)
                         </span>
                     )}
@@ -114,7 +114,7 @@ export default function DeepSearchDraftMessage({
                                 e.stopPropagation();
                                 setShowMetadata(!showMetadata);
                             }}
-                            className="text-xs px-2 py-1 rounded border border-[#343434] text-[#A2A09A] hover:bg-[#1B1B1B] transition-colors font-body"
+                            className="bg-transparent border border-[#C9A063]/30 text-[#C9A063]/70 hover:bg-[#C9A063] hover:text-[#1a1a1a] transition-colors text-xs px-2 py-1 font-mono tracking-wider"
                         >
                             源数据 ({searchSnippets.length})
                         </button>
@@ -139,19 +139,18 @@ export default function DeepSearchDraftMessage({
                         transition={{ duration: 0.3 }}
                         className="overflow-hidden"
                     >
-                        <div className="border border-[#343434] border-t-0 rounded-b-xl bg-[rgba(26,26,26,0.8)]">
+                        <div className="border border-[#C9A063]/30 border-t-0 bg-[#1a1a1a]/90 backdrop-blur-xl">
                             {/* 关键词展示 */}
                             {keywords.length > 0 && (
-                                <div className="p-4 border-b border-[#343434]">
+                                <div className="p-4 border-b border-[#C9A063]/30">
                                     <div className="flex flex-wrap gap-2">
                                         {keywords.map((kw, idx) => (
                                             <span
                                                 key={idx}
-                                                className={`text-xs px-2 py-1 rounded font-body ${
-                                                    kw.priority === 'high' ? 'bg-[#C9A063]/20 text-[#C9A063]' :
-                                                    kw.priority === 'medium' ? 'bg-blue-500/20 text-blue-400' :
-                                                    'bg-[#343434] text-[#A2A09A]'
-                                                }`}
+                                                className={`text-xs px-2 py-1 font-mono tracking-wider ${kw.priority === 'high' ? 'border border-[#C9A063]/30 text-[#C9A063]' :
+                                                        kw.priority === 'medium' ? 'border border-[#C9A063]/20 text-[#C9A063]/80' :
+                                                            'border border-[#C9A063]/10 text-[#C9A063]/50'
+                                                    }`}
                                             >
                                                 {kw.keyword}
                                             </span>
@@ -168,24 +167,24 @@ export default function DeepSearchDraftMessage({
                                         animate={{ height: 'auto', opacity: 1 }}
                                         exit={{ height: 0, opacity: 0 }}
                                         transition={{ duration: 0.3 }}
-                                        className="overflow-hidden border-b border-[#343434]"
+                                        className="overflow-hidden border-b border-[#C9A063]/30"
                                     >
                                         <div className="p-4">
-                                            <h4 className="text-[#C9A063] text-sm font-medium mb-3 font-body">检索源数据</h4>
-                                            <div className="space-y-3 max-h-48 overflow-y-auto aibot-scroll">
+                                            <h4 className="text-[#C9A063] text-sm font-medium mb-3 font-mono tracking-wider">检索源数据</h4>
+                                            <div className="space-y-3 max-h-48 overflow-y-auto about-overlay-scroll">
                                                 {searchSnippets.map((snippet, index) => (
-                                                    <div key={index} className="p-3 bg-[#1B1B1B] rounded-lg border border-[#343434]">
-                                                        <h5 className="text-[#E8E6DC] font-medium text-sm mb-1 truncate font-body">
+                                                    <div key={index} className="p-3 bg-transparent border border-[#C9A063]/20">
+                                                        <h5 className="text-[#E8E6DC] font-medium text-sm mb-1 truncate font-info-content">
                                                             {snippet.title}
                                                         </h5>
-                                                        <p className="text-[#A2A09A] text-xs mb-2 line-clamp-2 font-body">
+                                                        <p className="text-[#A2A09A] text-xs mb-2 line-clamp-2 font-info-content">
                                                             {snippet.snippet}
                                                         </p>
                                                         <a
                                                             href={snippet.url}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
-                                                            className="text-[#C9A063] text-xs hover:underline font-body"
+                                                            className="text-[#C9A063] text-xs hover:underline font-info-content"
                                                         >
                                                             查看原文
                                                         </a>
@@ -205,19 +204,19 @@ export default function DeepSearchDraftMessage({
                                         <textarea
                                             value={editValue}
                                             onChange={(e) => setEditValue(e.target.value)}
-                                            className="w-full h-64 rounded-lg bg-[#1B1B1B] border border-[#343434] text-sm text-[#E8E6DC] p-3 focus:outline-none focus:border-[#C9A063] font-info-content resize-none aibot-scroll"
+                                            className="w-full h-64 bg-transparent border border-[#C9A063]/30 text-sm text-[#E8E6DC] p-3 focus:outline-none focus:border-[#C9A063] font-info-content resize-none about-overlay-scroll"
                                             placeholder="编辑检索草稿..."
                                         />
                                         <div className="flex gap-2 mt-3">
                                             <button
                                                 onClick={handleSaveEdit}
-                                                className="px-3 py-1 bg-[#C9A063] text-black rounded text-sm font-medium hover:bg-[#D4A863] transition-colors font-body"
+                                                className="px-3 py-1 bg-[#C9A063] text-[#1a1a1a] border border-[#C9A063] text-sm hover:bg-transparent hover:text-[#C9A063] transition-colors font-mono tracking-wider"
                                             >
                                                 保存
                                             </button>
                                             <button
                                                 onClick={handleCancelEdit}
-                                                className="px-3 py-1 border border-[#343434] text-[#A2A09A] rounded text-sm hover:bg-[#1B1B1B] transition-colors font-body"
+                                                className="px-3 py-1 bg-transparent border border-[#C9A063]/30 text-[#C9A063]/70 text-sm hover:bg-[#C9A063] hover:text-[#1a1a1a] transition-colors font-mono tracking-wider"
                                             >
                                                 取消
                                             </button>
@@ -225,7 +224,7 @@ export default function DeepSearchDraftMessage({
                                     </div>
                                 ) : (
                                     // 预览模式
-                                    <div className="max-h-80 overflow-y-auto aibot-scroll">
+                                    <div className="max-h-80 overflow-y-auto about-overlay-scroll">
                                         {cleanedDraft ? (
                                             <div
                                                 className="prose prose-invert prose-sm max-w-none font-info-content"
@@ -241,7 +240,7 @@ export default function DeepSearchDraftMessage({
                                             </div>
                                         ) : (
                                             <div className="text-center py-8">
-                                                <p className="text-[#A2A09A] text-sm font-body">等待草稿生成...</p>
+                                                <p className="text-[#A2A09A] text-sm font-info-content">等待草稿生成...</p>
                                             </div>
                                         )}
 
@@ -255,12 +254,12 @@ export default function DeepSearchDraftMessage({
 
                             {/* 操作按钮 - 仅在完成且非编辑模式时显示 */}
                             {isComplete && !isEditing && (
-                                <div className="p-4 border-t border-[#343434] flex items-center justify-between">
+                                <div className="p-4 border-t border-[#C9A063]/30 flex items-center justify-between">
                                     <div className="flex gap-3">
                                         {onCancel && (
                                             <button
                                                 onClick={onCancel}
-                                                className="px-4 py-2 border border-[#343434] text-[#A2A09A] rounded-lg text-sm hover:bg-[#1B1B1B] transition-colors font-body"
+                                                className="px-4 py-2 bg-transparent border border-[#C9A063]/30 text-[#C9A063]/70 text-sm hover:bg-[#C9A063] hover:text-[#1a1a1a] transition-colors font-mono tracking-wider"
                                             >
                                                 取消
                                             </button>
@@ -268,14 +267,14 @@ export default function DeepSearchDraftMessage({
                                         {onRegenerate && (
                                             <button
                                                 onClick={onRegenerate}
-                                                className="px-4 py-2 border border-[#343434] text-[#E8E6DC] rounded-lg text-sm hover:bg-[#1B1B1B] transition-colors font-body"
+                                                className="px-4 py-2 bg-transparent border border-[#C9A063]/30 text-[#C9A063]/70 text-sm hover:bg-[#C9A063] hover:text-[#1a1a1a] transition-colors font-mono tracking-wider"
                                             >
                                                 重新生成
                                             </button>
                                         )}
                                         <button
                                             onClick={handleStartEdit}
-                                            className="px-4 py-2 border border-[#343434] text-[#E8E6DC] rounded-lg text-sm hover:bg-[#1B1B1B] transition-colors font-body"
+                                            className="px-4 py-2 bg-transparent border border-[#C9A063]/30 text-[#C9A063]/70 text-sm hover:bg-[#C9A063] hover:text-[#1a1a1a] transition-colors font-mono tracking-wider"
                                         >
                                             编辑
                                         </button>
@@ -285,7 +284,7 @@ export default function DeepSearchDraftMessage({
                                         <button
                                             onClick={onConfirm}
                                             disabled={!cleanedDraft.trim()}
-                                            className="px-6 py-2 bg-[#C9A063] text-black rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#D4A863] transition-colors font-body"
+                                            className="px-6 py-2 bg-[#C9A063] text-[#1a1a1a] border border-[#C9A063] text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-transparent hover:text-[#C9A063] transition-colors font-mono tracking-wider"
                                         >
                                             确认检索
                                         </button>
@@ -299,15 +298,15 @@ export default function DeepSearchDraftMessage({
 
             {/* 图书检索进度提示 - 放在交叉分析模块底部 */}
             {(deepSearchPhase === 'book-search' || deepSearchPhase === 'book-selection') && (
-                <div className="flex items-center gap-2 text-sm font-medium text-[#E8E6DC]">
+                <div className="flex items-center gap-2 text-sm font-mono tracking-wider text-[#C9A063]/70 mt-4">
                     {deepSearchPhase === 'book-search' ? (
                         <>
-                            <div className="w-3 h-3 border-2 border-[#C9A063] border-t-transparent rounded-full animate-spin"></div>
+                            <div className="w-3 h-3 border border-[#C9A063] border-t-transparent animate-spin"></div>
                             正在检索相关图书...
                         </>
                     ) : (
                         <>
-                            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                            <div className="w-2 h-2 bg-[#C9A063]"></div>
                             图书检索完成
                         </>
                     )}

@@ -40,31 +40,31 @@ export default function DocumentAnalysisDraftMessage({
     return (
         <div className="space-y-4">
             {/* 标题 */}
-            <div className="flex items-center gap-2 text-sm font-medium text-[#E8E6DC]">
+            <div className="flex items-center gap-2 text-sm font-mono tracking-wider text-[#C9A063]/70">
                 {content.isStreaming ? (
                     <>
-                        <div className="w-4 h-4 border-2 border-[#C9A063] border-t-transparent rounded-full animate-spin"></div>
+                        <div className="w-3 h-3 border border-[#C9A063] border-t-transparent animate-spin"></div>
                         正在生成交叉分析报告...
                     </>
                 ) : content.isComplete ? (
                     <>
-                        <div className="w-4 h-4 bg-green-500 rounded-full"></div>
+                        <div className="w-2 h-2 bg-[#C9A063]"></div>
                         交叉分析报告生成完成
                     </>
                 ) : (
                     <>
-                        <div className="w-4 h-4 bg-[#C9A063] rounded-full"></div>
+                        <div className="w-2 h-2 bg-[#C9A063]"></div>
                         交叉分析报告
                     </>
                 )}
             </div>
 
             {/* 文档信息 */}
-            <div className="text-xs text-[#A2A09A] bg-[#111111]/80 border border-[#C9A063]/15 p-3">
+            <div className="text-xs text-[#A2A09A] bg-transparent border border-[#C9A063]/20 p-3">
                 <div className="font-info-content">基于以下文档的分析：</div>
                 <div className="mt-1 text-[#E8E6DC] font-info-content">{content.userInput}</div>
                 {content.documentAnalyses.length > 0 && (
-                    <div className="mt-2 text-[#6F6D68] font-info-content">
+                    <div className="mt-2 text-[#C9A063]/50 font-info-content">
                         共分析了 {content.documentAnalyses.length} 篇文档
                     </div>
                 )}
@@ -82,15 +82,15 @@ export default function DocumentAnalysisDraftMessage({
 
             {/* 图书检索进度提示 - 放在交叉分析模块底部 */}
             {(documentAnalysisPhase === 'book-search' || documentAnalysisPhase === 'book-selection') && (
-                <div className="flex items-center gap-2 text-sm font-medium text-[#E8E6DC]">
+                <div className="flex items-center gap-2 text-sm font-mono tracking-wider text-[#C9A063]/70 mt-4">
                     {documentAnalysisPhase === 'book-search' ? (
                         <>
-                            <div className="w-3 h-3 border-2 border-[#C9A063] border-t-transparent rounded-full animate-spin"></div>
+                            <div className="w-3 h-3 border border-[#C9A063] border-t-transparent animate-spin"></div>
                             正在检索相关图书...
                         </>
                     ) : (
                         <>
-                            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                            <div className="w-2 h-2 bg-[#C9A063]"></div>
                             图书检索完成
                         </>
                     )}

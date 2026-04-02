@@ -146,16 +146,16 @@ export default function ProgressLogDisplay({
                 <div className="mb-4">
                     {/* 进度窗口头部 - 可点击折叠 */}
                     <motion.div
-                        className="flex items-center justify-between p-3 border border-[#C9A063]/20 bg-[rgba(26,26,26,0.8)] cursor-pointer"
+                        className="flex items-center justify-between p-3 border border-[#C9A063]/30 bg-[#1a1a1a]/90 backdrop-blur-xl cursor-pointer"
                         onClick={() => setIsExpanded(!isExpanded)}
-                        whileHover={{ backgroundColor: 'rgba(201, 160, 99, 0.1)' }}
+                        whileHover={{ backgroundColor: 'rgba(26, 26, 26, 0.95)' }}
                         transition={{ duration: 0.2 }}
                     >
                         <div className="flex items-center gap-3">
                             <div className="animate-pulse">
-                                <div className="w-2 h-2 bg-[#C9A063] rounded-full"></div>
+                                <div className="w-2 h-2 bg-[#C9A063]"></div>
                             </div>
-                            <span className="text-[#C9A063] text-sm font-medium">
+                            <span className="text-[#C9A063] text-sm font-mono tracking-wider">
                                 {title}
                             </span>
                             <div className="text-xs text-[#A2A09A]">
@@ -181,7 +181,7 @@ export default function ProgressLogDisplay({
                                 transition={{ duration: 0.3 }}
                                 className="overflow-hidden"
                             >
-                                <div className="border border-[#C9A063]/20 border-t-0 bg-[rgba(26,26,26,0.8)]">
+                                <div className="border border-[#C9A063]/30 border-t-0 bg-[#1a1a1a]/90 backdrop-blur-xl">
                                     {/* 进度条 */}
                                     <div className="p-4 pb-3">
                                         <div className="w-full bg-[#1B1B1B] rounded-full h-1">
@@ -213,9 +213,9 @@ export default function ProgressLogDisplay({
                                                         } : { opacity: 1, x: 0 }}
                                                         transition={isRunning ? { duration: 1.8, repeat: Infinity, ease: 'easeInOut' } : { duration: 0.2 }}
                                                         className={`relative overflow-hidden p-3 border ${log.status === 'error' ? 'border-red-500/30 bg-red-500/5' :
-                                                                log.status === 'running' ? 'border-[#C9A063]/30 bg-[#C9A063]/5' :
-                                                                    log.status === 'completed' ? 'border-[#C9A063]/28 bg-[#C9A063]/8' :
-                                                                        'border-[#C9A063]/15 bg-[#111111]/80'
+                                                            log.status === 'running' ? 'border-[#C9A063]/30 bg-[#C9A063]/5' :
+                                                                log.status === 'completed' ? 'border-[#C9A063]/28 bg-[#C9A063]/8' :
+                                                                    'border-[#C9A063]/15 bg-[#111111]/80'
                                                             }`}
                                                     >
                                                         {isRunning && (
