@@ -1341,7 +1341,8 @@ export default function AIBotOverlay() {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="fixed inset-0 z-[160]"
+                    className="fixed inset-0"
+                    style={{ zIndex: 9999 }}
                     onClick={(e) => {
                         if (e.target === e.currentTarget) {
                             closeOverlay();
@@ -1357,54 +1358,54 @@ export default function AIBotOverlay() {
                     />
                     <motion.div
                         key="aibot-dialog"
-                        className="aibot-shell fixed inset-x-4 top-6 bottom-6 z-[170] flex min-h-0 flex-col overflow-hidden md:inset-x-16 md:top-8 md:bottom-8 lg:inset-x-24 lg:top-10 lg:bottom-10"
+                        className="fixed inset-x-4 md:inset-x-20 lg:inset-x-32 top-12 bottom-12 bg-[#1a1a1a]/90 backdrop-blur-xl border border-[#C9A063]/30 overflow-hidden z-[10000] pointer-events-auto flex flex-col"
+                        style={{ minHeight: 0 }}
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.95 }}
-                        transition={{ type: 'spring', damping: 24, stiffness: 220 }}
+                        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="pointer-events-none absolute inset-0 opacity-[0.035] mix-blend-screen">
-                            <div className="noise-overlay absolute inset-0 !z-0 !opacity-100" />
-                        </div>
-                        <div className="pointer-events-none absolute -right-12 -top-16 h-48 w-48 rounded-full bg-[#C9A063]/10 blur-3xl" />
-                        <div className="pointer-events-none absolute -left-16 bottom-12 h-56 w-56 rounded-full bg-[#7B9DAE]/8 blur-3xl" />
+                        <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-[#C9A063] z-20" />
+                        <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-[#C9A063] z-20" />
+                        <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-[#C9A063] z-20" />
+                        <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-[#C9A063] z-20" />
 
-                        <header className="relative z-10 flex shrink-0 items-start justify-between border-b border-[#C9A063]/12 px-5 py-5 md:px-8 md:py-6">
-                            <div className="space-y-2">
-                                <div className="flex items-center gap-3 text-[#C9A063]">
-                                    <span className="h-2 w-2 rounded-full bg-current shadow-[0_0_18px_rgba(201,160,99,0.45)]" />
-                                    <span className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#C9A063]/80">Local AIBot</span>
-                                </div>
+                        <div className="absolute -bottom-24 -right-12 pointer-events-none select-none opacity-[0.03] z-0">
+                            <span className="font-display text-[16rem] leading-none text-[#C9A063] block transform -rotate-12">
+                                AIBot
+                            </span>
+                        </div>
+
+                        <header className="flex items-center justify-between px-6 md:px-10 py-6 border-b border-[#C9A063]/20 shrink-0 relative z-10 bg-[#1a1a1a]">
+                            <div className="flex items-center gap-4">
+                                <div className="w-2 h-2 bg-[#C9A063]" />
                                 <div>
-                                    <p className="font-accent text-2xl text-[#F1E8D7] md:text-3xl">本地对话工作台</p>
-                                    <p className="mt-1 max-w-2xl font-info-content text-xs leading-5 text-[#AFA79A] md:text-sm">
-                                        保留过程性结果与人工介入节点，让检索、草稿修订和图书选择都更清晰。
-                                    </p>
+                                    <p className="font-mono text-[#C9A063] tracking-[0.3em] text-sm uppercase">AIBot</p>
+                                    <p className="text-xs text-[#C9A063]/50 mt-1">本地对话 · 仅限本地调试，云端默认关闭</p>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-2 self-start">
-                                <div className="hidden items-center gap-2 rounded-full border border-[#C9A063]/14 bg-[#201d18]/70 px-3 py-1 text-[10px] font-mono uppercase tracking-[0.22em] text-[#C9A063]/70 md:flex">
-                                    <span className="h-1.5 w-1.5 rounded-full bg-[#C9A063] animate-pulse" />
-                                    local only
-                                </div>
+                            <div className="flex items-center gap-3">
                                 <button
                                     type="button"
                                     onClick={closeOverlay}
-                                    className="aibot-btn aibot-btn--ghost h-10 w-10 p-0 text-base"
-                                    aria-label="关闭对话框"
+                                    className="group relative w-10 h-10 flex items-center justify-center border border-[#C9A063]/30 hover:bg-[#C9A063] transition-colors duration-300 cursor-pointer"
+                                    aria-label="Close"
                                 >
-                                    ✕
+                                    <span className="font-mono text-[#C9A063] group-hover:text-[#1a1a1a] text-xl transition-colors">×</span>
+                                    <div className="absolute top-0 left-0 w-1 h-1 border-t border-l border-[#C9A063] opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    <div className="absolute bottom-0 right-0 w-1 h-1 border-b border-r border-[#C9A063] opacity-0 group-hover:opacity-100 transition-opacity" />
                                 </button>
                             </div>
                         </header>
 
-                        <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-4 md:px-6 md:pb-6">
-                            <div className="relative flex-1 overflow-hidden pt-4">
-                                <div className="aibot-fade-top" />
-                                <div className="aibot-fade-bottom" />
-                                <div className="h-full min-h-0 overflow-hidden rounded-[1.75rem] border border-[#C9A063]/10 bg-[#12110f]/72">
-                                    <div className="h-full min-h-0 px-2 py-3 md:px-3">
+                        <div className="relative flex-1 overflow-hidden z-10 flex flex-col" style={{ minHeight: '0' }}>
+                            <div className="relative flex-1 overflow-hidden">
+                                <div
+                                    className="h-full flex flex-col gap-6 px-6 md:px-10 py-8 overflow-y-auto about-overlay-scroll"
+                                    style={{ minHeight: '0' }}
+                                >
+                                    <div className="flex-1 min-h-0" style={{ overflow: 'hidden' }}>
                                         <MessageStream
                                             messages={messages}
                                             isStreaming={isStreaming || isGeneratingInterpretation || isDeepSearchDraftStreaming || isDocumentAnalysisDraftStreaming}
@@ -1435,10 +1436,11 @@ export default function AIBotOverlay() {
                                 </div>
                             </div>
 
-                            <form id="aibot-form" className="mt-4 space-y-4 border-t border-[#C9A063]/10 pt-4 md:pt-5" onSubmit={handleSubmit}>
+                            <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-[#1a1a1a] to-transparent pointer-events-none z-10" />
+
+                            <form id="aibot-form" className="space-y-3 px-6 md:px-10 py-4 border-t border-[#C9A063]/20 bg-[#1a1a1a] relative z-10 shrink-0" onSubmit={handleSubmit}>
                                 {/* 文档上传工作流 */}
-                                <div className="aibot-panel relative overflow-hidden p-3 md:p-4" style={{ minHeight: '170px' }}>
-                                    <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-[#C9A063]/6 to-transparent" />
+                                <div className="relative" style={{ minHeight: '150px' }}>
                                     <textarea
                                         value={inputValue}
                                         onChange={(e) => setInputValue(e.target.value)}
@@ -1456,9 +1458,9 @@ export default function AIBotOverlay() {
                                         placeholder={
                                             mode === AIBOT_MODES.DEEP ? '输入检索主题，开始深度检索' :
                                                 mode === AIBOT_MODES.DOCUMENT ? '文档分析模式中，请等待分析完成...' :
-                                                    '描述你的问题、阅读目标或上传文档，让系统先给出可介入的分析过程'
+                                                    '想检索关于什么主题的图书？或点击左下角上传文档分析'
                                         }
-                                        className="aibot-scroll h-28 w-full resize-none rounded-[1.35rem] border border-[#C9A063]/14 bg-[#11100E]/85 px-4 py-4 text-sm leading-6 text-[#E8E6DC] outline-none transition-colors placeholder:text-[#7F786D] focus:border-[#C9A063]/40 font-info-content"
+                                        className="w-full h-24 bg-[#111111]/80 border border-[#C9A063]/20 rounded-none p-4 text-sm text-[#E8E6DC] focus:outline-none focus:border-[#C9A063] font-info-content about-overlay-scroll overflow-y-auto"
                                         disabled={isStreaming || isGeneratingInterpretation || isSearching || isDeepSearchDraftStreaming || isDocumentAnalysisDraftStreaming || mode === AIBOT_MODES.DOCUMENT}
                                     />
 
@@ -1472,8 +1474,8 @@ export default function AIBotOverlay() {
                                     )}
                                 </div>
 
-                                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                                    <div className="flex flex-wrap items-center gap-2 text-xs text-[#7C7A74]">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3 text-xs text-[#7C7A74]">
                                         <DocumentUploadButton
                                             onFilesSelected={documentUploadController.handleFilesSelected}
                                             disabled={
@@ -1490,36 +1492,41 @@ export default function AIBotOverlay() {
                                         <button
                                             type="button"
                                             className={clsx(
-                                                'aibot-btn',
-                                                mode === AIBOT_MODES.DEEP ? 'aibot-btn--secondary border-[#C9A063]/40 text-[#F0DFC0]' : 'aibot-btn--ghost'
+                                                'px-3 py-1 border text-xs font-mono tracking-wider transition-colors duration-300',
+                                                mode === AIBOT_MODES.DEEP
+                                                    ? 'border-[#C9A063] bg-[#C9A063] text-[#1a1a1a]'
+                                                    : 'border-[#C9A063]/30 text-[#C9A063] hover:bg-[#C9A063] hover:text-[#1a1a1a]'
                                             )}
                                             onClick={() => setMode(mode === AIBOT_MODES.DEEP ? AIBOT_MODES.TEXT : AIBOT_MODES.DEEP)}
                                         >
                                             {mode === AIBOT_MODES.DEEP ? '深度检索已开启' : '深度检索关闭'}
                                         </button>
-                                        <div className="aibot-chip">
+                                        {/* 模式指示器 */}
+                                        <div className="flex items-center gap-1 text-xs">
                                             <span className={clsx(
-                                                'h-2 w-2 rounded-full shadow-[0_0_14px_currentColor]',
-                                                displayMode === AIBOT_MODES.TEXT && 'bg-[#7B9DAE] text-[#7B9DAE]',
-                                                displayMode === AIBOT_MODES.DEEP && 'bg-[#C9A063] text-[#C9A063]',
-                                                displayMode === AIBOT_MODES.DOCUMENT && 'bg-[#B8956A] text-[#B8956A]'
+                                                'w-2 h-2 rounded-full',
+                                                displayMode === AIBOT_MODES.TEXT && 'bg-[#3B82F6]',
+                                                displayMode === AIBOT_MODES.DEEP && 'bg-[#C9A063]',
+                                                displayMode === AIBOT_MODES.DOCUMENT && 'bg-[#A855F7]'
                                             )}></span>
-                                            <span className="font-info-content text-[11px] text-[#D6CDBD]">
-                                                {displayMode === AIBOT_MODES.TEXT ? '简单模式' : displayMode === AIBOT_MODES.DEEP ? '深度模式' : '文档模式'}
+                                            <span style={{
+                                                color: displayMode === AIBOT_MODES.TEXT ? '#60A5FA' : displayMode === AIBOT_MODES.DEEP ? '#C9A063' : '#C084FC'
+                                            }}>
+                                                {displayMode === AIBOT_MODES.TEXT ? '简单' : displayMode === AIBOT_MODES.DEEP ? '深度' : '文档'}
                                             </span>
                                         </div>
                                         <button
                                             type="button"
                                             onClick={handleClear}
                                             disabled={isStreaming}
-                                            className="aibot-btn aibot-btn--ghost"
+                                            className="px-3 py-1 border border-[#C9A063]/30 text-[#C9A063] hover:bg-[#C9A063] hover:text-[#1a1a1a] transition-colors duration-300 disabled:cursor-not-allowed disabled:text-[#555] text-xs font-mono tracking-wider"
                                         >
                                             清空
                                         </button>
                                         <button
                                             type="button"
                                             onClick={handleCopy}
-                                            className="aibot-btn aibot-btn--ghost"
+                                            className="px-3 py-1 border border-[#C9A063]/30 text-[#C9A063] hover:bg-[#C9A063] hover:text-[#1a1a1a] transition-colors duration-300 text-xs font-mono tracking-wider"
                                         >
                                             复制
                                         </button>
@@ -1527,7 +1534,7 @@ export default function AIBotOverlay() {
                                     <button
                                         type="submit"
                                         disabled={isStreaming || isSearching || isDeepSearchDraftStreaming || isDocumentAnalysisDraftStreaming || mode === AIBOT_MODES.DOCUMENT || documentUploadController.statusStats.uploading > 0}
-                                        className="aibot-btn aibot-btn--primary min-w-[11rem] self-end lg:self-auto"
+                                        className="px-4 py-2 border border-[#C9A063] bg-[#C9A063] text-[#1a1a1a] text-sm font-mono tracking-wider disabled:opacity-50 transition-colors duration-300 hover:bg-transparent hover:text-[#C9A063]"
                                     >
                                         {mode === AIBOT_MODES.DOCUMENT ? '文档分析模式' :
                                             documentUploadController.statusStats.ready > 0 && documentUploadController.statusStats.uploading === 0 ? `开始分析 (${documentUploadController.statusStats.ready})` :
@@ -1542,11 +1549,21 @@ export default function AIBotOverlay() {
                             </form>
 
                             {error && (
-                                <p className="mt-3 inline-flex items-center gap-2 rounded-full border border-red-400/18 bg-red-400/10 px-3 py-1.5 text-xs text-red-200">
-                                    <span className="h-1.5 w-1.5 rounded-full bg-red-300" />
+                                <p className="px-6 md:px-10 py-3 border-t border-[#C9A063]/10 text-xs text-[#C76B6B] bg-[#1a1a1a] relative z-10">
                                     {error}
                                 </p>
                             )}
+
+                            <div className="px-6 md:px-10 py-3 border-t border-[#C9A063]/20 flex justify-between items-center bg-[#1a1a1a] relative z-10">
+                                <span className="font-mono text-[10px] text-[#C9A063]/40 tracking-widest">
+                                    BOOK ECHOES SHANGHAI LIBRARY
+                                </span>
+                                <div className="flex gap-2">
+                                    <div className="w-1 h-1 bg-[#C9A063]/40 rounded-full animate-pulse" />
+                                    <div className="w-1 h-1 bg-[#C9A063]/40 rounded-full" />
+                                    <div className="w-1 h-1 bg-[#C9A063]/40 rounded-full" />
+                                </div>
+                            </div>
                         </div>
                     </motion.div>
                 </motion.div>

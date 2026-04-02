@@ -156,7 +156,7 @@ export default function DocumentUploadWorkflow({
     }
 
     return (
-        <div className="mt-3 space-y-3">
+        <div className="mt-2 space-y-2">
             {/* 文档列表显示 */}
             <DocumentListDisplay
                 documents={uploadedDocuments}
@@ -166,39 +166,43 @@ export default function DocumentUploadWorkflow({
 
             {/* 错误信息显示 */}
             {documentUploadError && (
-                <div className="flex items-center justify-between rounded-[1.15rem] border border-red-400/18 bg-red-400/10 px-3 py-2 text-xs text-red-200 font-info-content">
-                    <span>{documentUploadError}</span>
-                    <button
-                        type="button"
-                        onClick={() => setDocumentUploadError(undefined)}
-                        className="aibot-btn aibot-btn--ghost h-7 w-7 p-0 text-red-200"
-                        title="关闭错误提示"
-                    >
-                        ×
-                    </button>
+                <div className="p-2 border border-red-500/30 bg-red-500/5 text-xs text-red-300">
+                    <div className="flex items-center justify-between">
+                        <span>{documentUploadError}</span>
+                        <button
+                            type="button"
+                            onClick={() => setDocumentUploadError(undefined)}
+                            className="ml-2 text-red-300 hover:text-red-200 font-mono"
+                            title="关闭错误提示"
+                        >
+                            ×
+                        </button>
+                    </div>
                 </div>
             )}
 
             {/* 状态指示器 */}
-            <div className="flex flex-wrap items-center gap-2 text-xs font-info-content text-[#6F6D68]">
-                {hasUploading && (
-                    <span className="aibot-chip aibot-chip--active">
-                        <span className="h-1.5 w-1.5 rounded-full bg-[#C9A063] animate-pulse" />
-                        上传中 {statusStats.uploading}
-                    </span>
-                )}
-                {hasReadyDocuments && (
-                    <span className="aibot-chip aibot-chip--success">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
-                        就绪 {statusStats.ready}
-                    </span>
-                )}
-                {hasErrorDocuments && (
-                    <span className="aibot-chip aibot-chip--error">
-                        <span className="h-1.5 w-1.5 rounded-full bg-red-300" />
-                        错误 {statusStats.error}
-                    </span>
-                )}
+            <div className="flex items-center justify-between text-xs text-[#C9A063]/70">
+                <div className="flex items-center gap-4">
+                    {hasUploading && (
+                        <span className="flex items-center gap-1">
+                            <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+                            上传中 {statusStats.uploading}
+                        </span>
+                    )}
+                    {hasReadyDocuments && (
+                        <span className="flex items-center gap-1">
+                            <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                            就绪 {statusStats.ready}
+                        </span>
+                    )}
+                    {hasErrorDocuments && (
+                        <span className="flex items-center gap-1">
+                            <div className="w-2 h-2 bg-red-400 rounded-full"></div>
+                            错误 {statusStats.error}
+                        </span>
+                    )}
+                </div>
             </div>
         </div>
     );

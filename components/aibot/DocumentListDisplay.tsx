@@ -32,39 +32,44 @@ export default function DocumentListDisplay({
     };
 
     return (
-        <div className="aibot-panel aibot-scroll max-h-40 overflow-y-auto p-3">
+        <div className="bg-[#1a1a1a]/80 border border-[#C9A063]/20 p-3 max-h-32 overflow-y-auto about-overlay-scroll">
             {/* 文档列表标题 */}
-            <div className="mb-3 flex items-center justify-between text-xs text-[#A2A09A] font-info-content">
-                <span className="text-[#D8CEBD]">已上传文档 ({documents.length}/{maxDocuments})</span>
-                <span className="text-[#6F6D68]">支持 .md 格式</span>
+            <div className="flex items-center justify-between mb-2 text-xs text-[#C9A063]">
+                <span className="font-mono tracking-wider">已上传文档 ({documents.length}/{maxDocuments})</span>
+                <span className="text-[#C9A063]/50">支持 .md 格式</span>
             </div>
 
             {/* 文档网格 */}
-            <div className="grid grid-cols-1 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {documents.map((document) => (
                     <div
                         key={document.id}
-                        className={`relative group flex items-center gap-3 rounded-[1.15rem] border px-3 py-3 transition-colors ${
-                            document.status === 'error'
-                                ? 'border-red-400/18 bg-red-400/8'
-                                : 'border-[#E8E6DC]/8 bg-[#151412] hover:border-[#C9A063]/18'
-                        }`}
+                        className={`
+                            relative group flex items-center bg-[#111111]/80 p-2
+                            border border-[#C9A063]/10 hover:border-[#C9A063]/30 transition-colors
+                            ${document.status === 'error' ? 'border-red-900 bg-red-950/20' : ''}
+                        `}
                     >
                         {/* 文档图标 */}
-                        <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl text-xs ${
-                            document.status === 'ready'
-                                ? 'bg-[#C9A063]/15 text-[#C9A063]'
+                        <div className={`
+                            flex-shrink-0 w-6 h-6 rounded mr-2 flex items-center justify-center text-xs
+                            ${document.status === 'ready'
+                                ? 'bg-[#C9A063]/20 text-[#C9A063]'
                                 : document.status === 'uploading'
-                                ? 'bg-[#7B9DAE]/18 text-[#9DBBCB]'
-                                : 'bg-red-400/12 text-red-300'
-                        }`}>
+                                ? 'bg-blue-500/20 text-blue-400'
+                                : 'bg-red-500/20 text-red-400'
+                            }
+                        `}>
                             {document.status === 'ready' ? (
+                                // MD文档图标
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
                                     <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20M12,11L8,15H10.5V19H13.5V15H16L12,11Z" />
                                 </svg>
                             ) : document.status === 'uploading' ? (
-                                <div className="h-3 w-3 rounded-full border border-current border-t-transparent animate-spin"></div>
+                                // 上传中图标
+                                <div className="w-3 h-3 border border-blue-400 border-t-transparent rounded-full animate-spin"></div>
                             ) : (
+                                // 错误图标
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
                                     <path d="M12,2L1,21H23M12,6L19.53,19H4.47M11,10V14H13V10M11,16V18H13V16" />
                                 </svg>
@@ -72,32 +77,22 @@ export default function DocumentListDisplay({
                         </div>
 
                         {/* 文档信息 */}
-                        <div className="min-w-0 flex-1">
-                            <div className="truncate text-sm font-medium text-[#E8E6DC] font-info-content">
+                        <div className="flex-1 min-w-0">
+                            <div className="text-sm text-[#E8E6DC] truncate font-medium">
                                 {document.name}
                             </div>
-                            <div className="mt-1 flex items-center gap-2 text-xs text-[#7F786D] font-info-content">
+                            <div className="text-xs text-[#6F6D68] flex items-center gap-2">
                                 <span>{formatFileSize(document.size)}</span>
                                 <span>•</span>
                                 <span>{formatUploadTime(document.uploadTime)}</span>
                             </div>
                         </div>
 
-                        <span className={`aibot-chip ${
-                            document.status === 'ready'
-                                ? 'aibot-chip--success'
-                                : document.status === 'uploading'
-                                ? 'aibot-chip--active'
-                                : 'aibot-chip--error'
-                        }`}>
-                            {document.status === 'ready' ? '已就绪' : document.status === 'uploading' ? '上传中' : '错误'}
-                        </span>
-
                         {/* 删除按钮 */}
                         <button
                             type="button"
                             onClick={() => onRemoveDocument(document.id)}
-                            className="aibot-btn aibot-btn--ghost absolute right-2 top-2 h-7 w-7 p-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+                            className="absolute -top-1 -right-1 w-5 h-5 border border-red-500/40 bg-[#1a1a1a] hover:bg-red-500 text-red-400 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center text-xs"
                             title="删除文档"
                         >
                             ×
@@ -105,8 +100,8 @@ export default function DocumentListDisplay({
 
                         {/* 状态指示条 */}
                         {document.status === 'uploading' && (
-                            <div className="absolute bottom-0 left-0 right-0 h-0.5 overflow-hidden rounded-b-[1.15rem] bg-[#7B9DAE]/16">
-                                <div className="h-full animate-pulse bg-[#7B9DAE]"></div>
+                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500/30 overflow-hidden">
+                                <div className="h-full bg-blue-500 animate-pulse"></div>
                             </div>
                         )}
                     </div>
@@ -114,7 +109,7 @@ export default function DocumentListDisplay({
             </div>
 
             {/* 底部提示 */}
-            <div className="mt-3 text-center text-xs text-[#7F786D] font-info-content">
+            <div className="mt-2 text-xs text-[#6F6D68] text-center">
                 {documents.length === maxDocuments
                     ? '已达到最大文档数量限制'
                     : `还可添加 ${maxDocuments - documents.length} 个文档`

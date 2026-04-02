@@ -79,18 +79,21 @@ export default function DocumentUploadButton({
     const hasUploadedDocuments = uploadedCount > 0;
 
     return (
-        <div className="relative flex items-center gap-2">
+        <div className="relative flex items-center">
             <button
                 type="button"
                 onClick={handleClick}
                 disabled={buttonDisabled}
-                className={`aibot-btn ${
-                    buttonDisabled
-                        ? 'aibot-btn--ghost'
+                className={`
+                    px-3 py-1 border text-xs font-mono tracking-wider transition-colors duration-300
+                    flex items-center gap-2
+                    ${buttonDisabled
+                        ? 'border-[#3A3A3A] text-[#555] cursor-not-allowed opacity-60'
                         : hasUploadedDocuments
-                            ? 'aibot-btn--secondary border-[#C9A063]/38 text-[#E8D7BB]'
-                            : 'aibot-btn--ghost'
-                }`}
+                            ? 'border-[#C9A063] bg-[#C9A063] text-[#1a1a1a] hover:bg-transparent hover:text-[#C9A063]'
+                            : 'border-[#C9A063]/30 text-[#C9A063] hover:bg-[#C9A063] hover:text-[#1a1a1a]'
+                    }
+                `}
                 title={buttonDisabled
                     ? `已达到最大文档数量限制（${maxFiles}个）`
                     : `上传Markdown文档（${uploadedCount}/${maxFiles}）`
@@ -111,7 +114,13 @@ export default function DocumentUploadButton({
 
             {/* 数量提示 */}
             {uploadedCount > 0 && (
-                <span className={`aibot-chip ${isNearLimit ? 'aibot-chip--active' : ''}`}>
+                <span className={`
+                    ml-2 px-2 py-0.5 text-[10px] font-mono tracking-wider border
+                    ${isNearLimit
+                        ? 'border-orange-500 text-orange-300 bg-orange-500/10'
+                        : 'border-[#C9A063]/30 text-[#C9A063] bg-[#C9A063]/5'
+                    }
+                `}>
                     {uploadedCount}/{maxFiles}
                 </span>
             )}

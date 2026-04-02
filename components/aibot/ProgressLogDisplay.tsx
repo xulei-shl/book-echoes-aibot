@@ -146,23 +146,20 @@ export default function ProgressLogDisplay({
                 <div className="mb-4">
                     {/* 进度窗口头部 - 可点击折叠 */}
                     <motion.div
-                        className="aibot-workflow-header cursor-pointer"
+                        className="flex items-center justify-between p-3 border border-[#C9A063]/20 bg-[rgba(26,26,26,0.8)] cursor-pointer"
                         onClick={() => setIsExpanded(!isExpanded)}
-                        whileHover={{ backgroundColor: 'rgba(201, 160, 99, 0.16)' }}
+                        whileHover={{ backgroundColor: 'rgba(201, 160, 99, 0.1)' }}
                         transition={{ duration: 0.2 }}
                     >
                         <div className="flex items-center gap-3">
-                            <div className="relative flex h-8 w-8 items-center justify-center rounded-full border border-[#C9A063]/24 bg-[#1A1712]">
-                                <div className="absolute inset-0 rounded-full bg-[#C9A063]/10 animate-pulse" />
-                                <div className="relative h-2 w-2 rounded-full bg-[#C9A063] shadow-[0_0_18px_rgba(201,160,99,0.4)]"></div>
+                            <div className="animate-pulse">
+                                <div className="w-2 h-2 bg-[#C9A063] rounded-full"></div>
                             </div>
-                            <div>
-                                <span className="block font-info-content text-sm font-medium text-[#F0E4D0]">
-                                    {title}
-                                </span>
-                                <div className="text-xs text-[#AFA79A] font-info-content">
-                                    {logs.filter(l => l.status === 'completed').length} / {Math.max(logs.length, 1)} 完成
-                                </div>
+                            <span className="text-[#C9A063] text-sm font-medium">
+                                {title}
+                            </span>
+                            <div className="text-xs text-[#A2A09A]">
+                                {logs.filter(l => l.status === 'completed').length} / {Math.max(logs.length, 1)} 完成
                             </div>
                         </div>
                         <motion.div
@@ -184,72 +181,71 @@ export default function ProgressLogDisplay({
                                 transition={{ duration: 0.3 }}
                                 className="overflow-hidden"
                             >
-                                <div className="aibot-workflow-card rounded-t-none border-t-0">
+                                <div className="border border-[#C9A063]/20 border-t-0 bg-[rgba(26,26,26,0.8)]">
                                     {/* 进度条 */}
-                                    <div className="px-4 pt-4 pb-3 md:px-5">
-                                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#100F0D]">
+                                    <div className="p-4 pb-3">
+                                        <div className="w-full bg-[#1B1B1B] rounded-full h-1">
                                             <motion.div
-                                                className="h-full rounded-full bg-[linear-gradient(90deg,#C9A063,#E4CC9F,#C9A063)] bg-[length:200%_100%]"
-                                                initial={{ width: 0, backgroundPosition: '0% 50%' }}
+                                                className="bg-[#C9A063] h-1 rounded-full"
+                                                initial={{ width: 0 }}
                                                 animate={{
-                                                    width: `${(logs.filter(l => l.status === 'completed').length / Math.max(logs.length, 1)) * 100}%`,
-                                                    backgroundPosition: ['0% 50%', '100% 50%']
+                                                    width: `${(logs.filter(l => l.status === 'completed').length / Math.max(logs.length, 1)) * 100}%`
                                                 }}
-                                                transition={{ width: { duration: 0.5 }, backgroundPosition: { duration: 1.8, repeat: Infinity, ease: 'linear' } }}
+                                                transition={{ duration: 0.5 }}
                                             />
                                         </div>
                                     </div>
 
                                     {/* 日志列表 */}
-                                    <div className="px-4 pb-4 md:px-5 md:pb-5">
-                                        <div className="aibot-scroll space-y-2.5 max-h-40 overflow-y-auto pr-1">
+                                    <div className="px-4 pb-4">
+                                        <div className="space-y-2 max-h-23 overflow-y-auto about-overlay-scroll">
                                             {logs.map((log) => (
                                                 <motion.div
                                                     key={log.id}
                                                     initial={{ opacity: 0, x: -20 }}
                                                     animate={{ opacity: 1, x: 0 }}
                                                     transition={{ duration: 0.2 }}
-                                                    className={`rounded-2xl border px-3 py-3 md:px-4 ${
-                                                        log.status === 'error' ? 'border-red-400/18 bg-red-400/8' :
-                                                        log.status === 'running' ? 'border-[#C9A063]/26 bg-[#C9A063]/10 shadow-[0_0_0_1px_rgba(201,160,99,0.04)]' :
-                                                        log.status === 'completed' ? 'border-emerald-400/18 bg-emerald-400/8' :
-                                                        'border-[#E8E6DC]/8 bg-[#151412]'
+                                                    className={`p-3 border ${
+                                                        log.status === 'error' ? 'border-red-500/30 bg-red-500/5' :
+                                                        log.status === 'running' ? 'border-[#C9A063]/30 bg-[#C9A063]/5' :
+                                                        log.status === 'completed' ? 'border-green-500/30 bg-green-500/5' :
+                                                        'border-[#C9A063]/15 bg-[#111111]/80'
                                                     }`}
                                                 >
                                                     <div className="flex items-start gap-3">
-                                                        <div className="mt-0.5 flex-shrink-0">
+                                                        <div className="flex-shrink-0 mt-0.5">
                                                             {log.status === 'running' ? (
-                                                                <div className="h-3.5 w-3.5 rounded-full border border-[#C9A063] border-t-transparent animate-spin"></div>
+                                                                <div className="animate-spin rounded-full w-3 h-3 border-b border-[#C9A063]"></div>
                                                             ) : log.status === 'error' ? (
-                                                                <span className="text-red-300">●</span>
+                                                                <span className="text-red-400">❌</span>
                                                             ) : log.status === 'completed' ? (
-                                                                <span className="text-emerald-300">●</span>
+                                                                <span className="text-green-400">✓</span>
                                                             ) : (
-                                                                <span className="text-[#8E8679]">○</span>
+                                                                <span className="text-[#A2A09A]">○</span>
                                                             )}
                                                         </div>
-
-                                                        <div className="min-w-0 flex-1">
-                                                            <div className="mb-1 flex items-center gap-2">
-                                                                <span className="font-info-content text-sm text-[#ECE4D7]">
-                                                                    {PHASE_LABELS[log.phase]}
+                                                        
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center gap-2 mb-1">
+                                                                <span className="text-sm">
+                                                                    {PHASE_ICONS[log.phase]} {PHASE_LABELS[log.phase]}
                                                                 </span>
-                                                                <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#8E8679]">
+                                                                <span className="text-xs text-[#A2A09A]">
                                                                     {log.timestamp}
                                                                 </span>
                                                             </div>
-
-                                                            <p className={`font-info-content text-sm leading-6 ${
-                                                                log.status === 'error' ? 'text-red-200' :
-                                                                log.status === 'running' ? 'text-[#F0DEC0]' :
-                                                                log.status === 'completed' ? 'text-emerald-200' :
-                                                                'text-[#B8B0A3]'
+                                                            
+                                                            <p className={`text-sm ${
+                                                                log.status === 'error' ? 'text-red-400' :
+                                                                log.status === 'running' ? 'text-[#C9A063]' :
+                                                                log.status === 'completed' ? 'text-green-400' :
+                                                                'text-[#A2A09A]'
                                                             }`}>
                                                                 {log.message}
                                                             </p>
-
+                                                            
                                                             {log.details && (
-                                                                <p className="mt-1 text-xs leading-5 text-[#7E776C] font-info-content">
+                                                                <p className="text-xs text-[#6F6D68] mt-1">
                                                                     {log.details}
                                                                 </p>
                                                             )}
