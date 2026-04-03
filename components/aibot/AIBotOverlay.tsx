@@ -1298,7 +1298,58 @@ export default function AIBotOverlay() {
             return;
         }
 
-        const blob = new Blob([reportMarkdown], { type: 'text/markdown;charset=utf-8' });
+        // 获取勾选的图书信息
+        const selectedBooks = currentRetrievalResult?.books.filter(book =>
+            selectedBookIds.has(book.id)
+        ) || [];
+
+        // 构建下载内容
+        let downloadContent = '';
+
+        // 添加勾选的图书信息（如果存在）
+        if (selectedBooks.length > 0) {
+            downloadContent += '# 选读书目\n\n';
+            selectedBooks.forEach((book, index) => {
+                downloadContent += `## ${index + 1}. ${book.title || '未知标题'}\n\n`;
+                if (book.author) {
+                    downloadContent += `- **作者**: ${book.author}\n`;
+                }
+                if (book.translator) {
+                    downloadContent += `- **译者**: ${book.translator}\n`;
+                }
+                if (book.publisher) {
+                    downloadContent += `- **出版社**: ${book.publisher}\n`;
+                }
+                if (book.publishYear) {
+                    downloadContent += `- **出版年**: ${book.publishYear}\n`;
+                }
+                if (book.pageCount) {
+                    downloadContent += `- **页数**: ${book.pageCount}\n`;
+                }
+                if (book.isbn) {
+                    downloadContent += `- **ISBN**: ${book.isbn}\n`;
+                }
+                if (book.callNumber) {
+                    downloadContent += `- **索书号**: ${book.callNumber}\n`;
+                }
+                if (book.rating) {
+                    downloadContent += `- **评分**: ${book.rating}\n`;
+                }
+                if (book.tags && book.tags.length > 0) {
+                    downloadContent += `- **标签**: ${book.tags.join(', ')}\n`;
+                }
+                if (book.description) {
+                    downloadContent += `\n**简介**: ${book.description}\n`;
+                }
+                downloadContent += '\n---\n\n';
+            });
+            downloadContent += '\n---\n\n';
+        }
+
+        // 添加报告内容
+        downloadContent += reportMarkdown;
+
+        const blob = new Blob([downloadContent], { type: 'text/markdown;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -1309,7 +1360,7 @@ export default function AIBotOverlay() {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-    }, [documentAnalysisReportContent, deepSearchReportContent, lastAssistant, setError]);
+    }, [documentAnalysisReportContent, deepSearchReportContent, lastAssistant, selectedBookIds, currentRetrievalResult, setError]);
 
     const handleClear = async () => {
         console.log('[AIBotOverlay] 清空聊天记录', {
