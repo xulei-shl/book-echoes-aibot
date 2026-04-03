@@ -172,7 +172,7 @@ export default function DraftConfirmationDisplay({
                                                 <>
                                                     <button
                                                         onClick={handleSaveEdit}
-                                                        className="px-3 py-1 border border-[#C9A063] bg-[#C9A063] text-[#1a1a1a] text-xs font-mono tracking-wider hover:bg-transparent hover:text-[#C9A063] transition-colors"
+                                                        className="px-3 py-1 border border-[#C9A063] bg-[#C9A063] text-[#1a1a1a] text-xs font-mono tracking-wider hover:bg-[#C9A063]/20 hover:text-[#C9A063] transition-colors"
                                                     >
                                                         保存
                                                     </button>
@@ -247,7 +247,7 @@ export default function DraftConfirmationDisplay({
                                 <button
                                     onClick={onConfirm}
                                     disabled={!draftMarkdown.trim() || isGenerating}
-                                    className="px-6 py-2 border border-[#C9A063] bg-[#C9A063] text-[#1a1a1a] text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-transparent hover:text-[#C9A063] transition-colors font-mono tracking-wider"
+                                    className="px-6 py-2 border border-[#C9A063] bg-[#C9A063] text-[#1a1a1a] text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#C9A063]/20 hover:text-[#C9A063] transition-colors font-mono tracking-wider"
                                 >
                                     确认检索
                                 </button>

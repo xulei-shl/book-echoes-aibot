@@ -90,7 +90,7 @@ export default function DocumentUploadButton({
                     ${buttonDisabled
                         ? 'border-[#3A3A3A] text-[#555] cursor-not-allowed opacity-60'
                         : hasUploadedDocuments
-                            ? 'border-[#C9A063] bg-[#C9A063] text-[#1a1a1a] hover:bg-transparent hover:text-[#C9A063]'
+                            ? 'border-[#C9A063] bg-[#C9A063] text-[#1a1a1a] hover:bg-[#C9A063]/20 hover:text-[#C9A063]'
                             : 'border-[#C9A063]/30 text-[#C9A063] hover:bg-[#C9A063] hover:text-[#1a1a1a]'
                     }
                 `}

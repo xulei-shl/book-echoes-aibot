@@ -210,7 +210,7 @@ export default function DeepSearchDraftMessage({
                                         <div className="flex gap-2 mt-3">
                                             <button
                                                 onClick={handleSaveEdit}
-                                                className="px-3 py-1 bg-[#C9A063] text-[#1a1a1a] border border-[#C9A063] text-sm hover:bg-transparent hover:text-[#C9A063] transition-colors font-mono tracking-wider"
+                                                className="px-3 py-1 bg-[#C9A063] text-[#1a1a1a] border border-[#C9A063] text-sm hover:bg-[#C9A063]/20 hover:text-[#C9A063] transition-colors font-mono tracking-wider"
                                             >
                                                 保存
                                             </button>
@@ -284,7 +284,7 @@ export default function DeepSearchDraftMessage({
                                         <button
                                             onClick={onConfirm}
                                             disabled={!cleanedDraft.trim()}
-                                            className="px-6 py-2 bg-[#C9A063] text-[#1a1a1a] border border-[#C9A063] text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-transparent hover:text-[#C9A063] transition-colors font-mono tracking-wider"
+                                            className="px-6 py-2 bg-[#C9A063] text-[#1a1a1a] border border-[#C9A063] text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#C9A063]/20 hover:text-[#C9A063] transition-colors font-mono tracking-wider"
                                         >
                                             确认检索
                                         </button>

@@ -168,7 +168,7 @@ export default function DeepSearchBookList({
                                         <button
                                             onClick={handleGenerateInterpretation}
                                             disabled={selectedBooks.length === 0 || isLoading}
-                                            className="px-4 py-2 bg-[#C9A063] text-[#1a1a1a] border border-[#C9A063] text-sm font-mono tracking-wider disabled:opacity-50 disabled:cursor-not-allowed hover:bg-transparent hover:text-[#C9A063] transition-colors"
+                                            className="px-4 py-2 bg-[#C9A063] text-[#1a1a1a] border border-[#C9A063] text-sm font-mono tracking-wider disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#C9A063]/20 hover:text-[#C9A063] transition-colors"
                                         >
                                             深度解读 {selectedBooks.length > 0 && `(${selectedBooks.length}本)`}
                                         </button>
