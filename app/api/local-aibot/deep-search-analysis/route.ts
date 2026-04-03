@@ -3,7 +3,7 @@ import { assertAIBotEnabled, AIBotDisabledError } from '@/src/utils/aibot-env';
 import { getLogger } from '@/src/utils/logger';
 import { performWebSearch } from '@/src/core/aibot/webSearchService';
 import { loadPrompt } from '@/src/core/aibot/promptLoader';
-import { generateTextWithFallback, getLLMConfigSummary, streamTextWithFallback } from '@/src/core/aibot/llmClient';
+import { generateTextWithFallback, streamTextWithFallback } from '@/src/core/aibot/llmClient';
 import { AIBOT_PROMPT_FILES } from '@/src/core/aibot/constants';
 import { getSearchEngineLabel } from '@/src/core/aibot/searchConfig';
 import type { WebSearchSnippet } from '@/src/core/aibot/types';
@@ -94,15 +94,9 @@ export async function POST(request: Request) {
 
                 logger.info('开始深度检索分析流程', { userInput });
 
-                const llmConfigSummary = getLLMConfigSummary();
-
-                logger.info('深度检索分析使用 LLM 配置', {
-                    llmConfigSummary
-                });
-
                 currentPhase = 'keyword';
                 logger.info('开始生成检索关键词');
-                sendProgress(controller, 'keyword', '正在生成检索关键词...', 'running', llmConfigSummary);
+                sendProgress(controller, 'keyword', '正在生成检索关键词...', 'running');
                 
                 const keywordPrompt = await loadPrompt(AIBOT_PROMPT_FILES.KEYWORD_GENERATION);
                 const keywordResult = await generateTextWithFallback({
