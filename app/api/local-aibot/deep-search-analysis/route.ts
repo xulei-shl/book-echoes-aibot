@@ -5,7 +5,7 @@ import { performWebSearch } from '@/src/core/aibot/webSearchService';
 import { loadPrompt } from '@/src/core/aibot/promptLoader';
 import { generateTextWithFallback, streamTextWithFallback } from '@/src/core/aibot/llmClient';
 import { AIBOT_PROMPT_FILES } from '@/src/core/aibot/constants';
-import { getSearchEngineLabel } from '@/src/core/aibot/searchConfig';
+import { getSearchEngineLabel, shouldUseJinaSearch, hasJinaApiKey } from '@/src/core/aibot/searchConfig';
 import type { WebSearchSnippet } from '@/src/core/aibot/types';
 
 const logger = getLogger('aibot.api.deep-search-analysis');
@@ -158,12 +158,39 @@ export async function POST(request: Request) {
                 sendProgress(controller, 'search', `正在执行${searchEngine}检索...`, 'running');
                 sendProgress(controller, 'analysis', '准备分析检索结果...', 'running');
 
+                // [调试] 记录搜索配置
+                const debugSearchConfig = {
+                    searchEngine,
+                    useJina: shouldUseJinaSearch(),
+                    hasJinaKey: hasJinaApiKey(),
+                    proxyConfigured: !!(process.env.HTTP_PROXY || process.env.HTTPS_PROXY)
+                };
+                logger.info('[DEBUG] 搜索配置', debugSearchConfig);
+                sendProgress(controller, 'search', `搜索引擎: ${searchEngine}`, 'running', JSON.stringify(debugSearchConfig));
+
                 // 并行处理所有关键词的检索和分析
                 const searchAndAnalysisPromises = keywords.map(async (keywordItem, index) => {
                     logger.info('检索关键词', { keyword: keywordItem.keyword });
 
                     currentPhase = 'search';
                     const snippets = await performWebSearch(keywordItem.keyword);
+
+                    // [DEBUG] 记录每个关键词的检索结果
+                    const debugSearchResult = {
+                        keyword: keywordItem.keyword,
+                        resultCount: snippets.length,
+                        firstResultTitle: snippets[0]?.title || '无',
+                        firstResultUrl: snippets[0]?.url || '无',
+                        firstResultSnippet: snippets[0]?.snippet?.slice(0, 100) || '无',
+                        allResults: snippets.map((s, i) => ({
+                            index: i,
+                            title: s.title,
+                            url: s.url,
+                            snippetPreview: s.snippet?.slice(0, 50) || '无'
+                        }))
+                    };
+                    logger.info('[DEBUG] 检索结果', debugSearchResult);
+                    sendProgress(controller, 'search', `关键词"${keywordItem.keyword}"检索完成 (${snippets.length}条)`, 'running', JSON.stringify(debugSearchResult));
 
                     // 更新检索进度
                     searchCompleted++;

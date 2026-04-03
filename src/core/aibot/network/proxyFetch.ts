@@ -98,7 +98,7 @@ const buildResponse = async (response: http.IncomingMessage): Promise<Response> 
         }
     });
 
-    return new Response(body, {
+    return new Response(new Uint8Array(body), {
         status: response.statusCode ?? 500,
         statusText: response.statusMessage,
         headers
