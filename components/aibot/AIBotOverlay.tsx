@@ -1292,31 +1292,27 @@ export default function AIBotOverlay() {
 
 
     const handleDownload = useCallback(() => {
-        const reportMarkdown = documentAnalysisReportContent || deepSearchReportContent || lastAssistant;
+        const simpleSelectedBooks = selectedBookIds.size > 0 && currentRetrievalResult?.books
+            ? currentRetrievalResult.books.filter(book => selectedBookIds.has(book.id))
+            : [];
+
+        let reportMarkdown = '';
+        let selectedBooks: BookInfo[] = [];
+
+        if (documentAnalysisReportContent) {
+            reportMarkdown = documentAnalysisReportContent;
+            selectedBooks = documentAnalysisSelectedBooks;
+        } else if (deepSearchReportContent) {
+            reportMarkdown = deepSearchReportContent;
+            selectedBooks = deepSearchSelectedBooks;
+        } else {
+            reportMarkdown = lastAssistant;
+            selectedBooks = simpleSelectedBooks;
+        }
 
         if (!reportMarkdown) {
             setError('暂无可下载内容');
             return;
-        }
-
-        // 获取勾选的图书信息（优先使用已保存的选中列表）
-        let selectedBooks: BookInfo[] = [];
-        
-        // 简单检索：使用 selectedBookIds 从 currentRetrievalResult 中获取
-        if (selectedBookIds.size > 0 && currentRetrievalResult?.books) {
-            selectedBooks = currentRetrievalResult.books.filter(book =>
-                selectedBookIds.has(book.id)
-            );
-        }
-        
-        // 深度检索：使用 deepSearchSelectedBooks
-        if (selectedBooks.length === 0 && deepSearchSelectedBooks.length > 0) {
-            selectedBooks = deepSearchSelectedBooks;
-        }
-        
-        // 文档分析：使用 documentAnalysisSelectedBooks
-        if (selectedBooks.length === 0 && documentAnalysisSelectedBooks.length > 0) {
-            selectedBooks = documentAnalysisSelectedBooks;
         }
 
         // 构建下载内容
@@ -1455,7 +1451,7 @@ export default function AIBotOverlay() {
 
                         <div className="absolute -bottom-24 -right-12 pointer-events-none select-none opacity-[0.03] z-0">
                             <span className="font-display text-[16rem] leading-none text-[#C9A063] block transform -rotate-12">
-                                AIBot
+                                书海回响
                             </span>
                         </div>
 

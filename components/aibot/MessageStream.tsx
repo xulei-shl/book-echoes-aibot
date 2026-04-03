@@ -424,8 +424,11 @@ export default function MessageStream({
             </AnimatePresence>
 
             {isStreaming && (
-                <div className="text-left text-xs text-[#A2A09A] animate-pulse">
-                    正在生成中，请稍候...
+                <div className="text-left">
+                    <div className="mt-4 flex items-center gap-2 text-sm font-mono tracking-wider text-[#C9A063]/70 animate-pulse">
+                        <div className="w-3 h-3 border border-[#C9A063] border-t-transparent animate-spin"></div>
+                        正在生成中，请稍候...
+                    </div>
                 </div>
             )}
         </div>
