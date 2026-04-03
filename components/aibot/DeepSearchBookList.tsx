@@ -71,25 +71,25 @@ export default function DeepSearchBookList({
         <div className="mb-4">
             {/* 图书列表头部 */}
             <motion.div
-                className="flex items-center justify-between p-3 rounded-t-xl border border-[#343434] bg-[rgba(201,160,99,0.1)] cursor-pointer"
+                className="flex items-center justify-between p-3 border border-[#C9A063]/30 bg-[#1a1a1a]/80 cursor-pointer"
                 onClick={() => setIsExpanded(!isExpanded)}
-                whileHover={{ backgroundColor: 'rgba(201, 160, 99, 0.2)' }}
+                whileHover={{ backgroundColor: 'rgba(201, 160, 99, 0.15)' }}
                 transition={{ duration: 0.2 }}
             >
                 <div className="flex items-center gap-3">
-                    <span className="text-[#C9A063] text-sm font-medium">
+                    <span className="text-[#C9A063] text-sm font-mono tracking-wider">
                         📚 深度检索结果
                     </span>
-                    <span className="text-[#E8E6DC] text-sm">
+                    <span className="text-[#E8E6DC] text-sm font-info-content">
                         找到 {books.length} 本相关图书
                     </span>
                     {selectedBooks.length > 0 && (
-                        <span className="text-[#C9A063] text-xs">
+                        <span className="text-[#C9A063] text-xs font-mono">
                             已选择 {selectedBooks.length} 本
                         </span>
                     )}
                     {isLoading && (
-                        <span className="animate-pulse text-xs text-[#A2A09A]">加载中...</span>
+                        <span className="animate-pulse text-xs text-[#A2A09A] font-info-content">加载中...</span>
                     )}
                 </div>
                 <motion.div
@@ -111,9 +111,9 @@ export default function DeepSearchBookList({
                         transition={{ duration: 0.3 }}
                         className="overflow-hidden"
                     >
-                        <div className="border border-[#343434] border-t-0 rounded-b-xl bg-[rgba(26,26,26,0.8)]">
+                        <div className="border border-[#C9A063]/30 border-t-0 bg-[#1a1a1a]/90 backdrop-blur-xl">
                             {/* 图书列表 */}
-                            <div className="p-4 max-h-96 overflow-y-auto">
+                            <div className="p-4 max-h-96 overflow-y-auto about-overlay-scroll">
                                 {displayBooks.length > 0 ? (
                                     displayBooks.map((book, index) => (
                                         <BookItem
@@ -129,8 +129,7 @@ export default function DeepSearchBookList({
                                     <div className="text-center py-8">
                                         <p className="text-[#A2A09A] text-sm mb-2 font-info-content">未找到相关图书</p>
                                         <p className="text-[#6F6D68] text-xs font-info-content">请尝试调整搜索关键词或搜索条件</p>
-                                        {/* 添加调试信息 */}
-                                        <div className="mt-4 p-2 bg-[#1B1B1B] rounded text-xs text-left">
+                                        <div className="mt-4 p-2 bg-[#1a1a1a]/80 border border-[#C9A063]/20 rounded text-xs text-left">
                                             <p className="text-[#6F6D68] font-info-content">调试信息:</p>
                                             <p className="text-[#6F6D68] font-info-content">总图书数: {books.length}</p>
                                             <p className="text-[#6F6D68] font-info-content">显示图书数: {displayBooks.length}</p>
@@ -146,7 +145,7 @@ export default function DeepSearchBookList({
                                             e.stopPropagation();
                                             setShowAll(!showAll);
                                         }}
-                                        className="w-full py-2 mt-3 text-center text-[#C9A063] text-sm hover:bg-[#1B1B1B] rounded-lg transition-colors border border-[#343434]"
+                                        className="w-full py-2 mt-3 text-center text-[#C9A063] text-sm font-mono tracking-wider hover:bg-[#C9A063]/10 transition-colors border border-[#C9A063]/30"
                                     >
                                         {showAll ? '▲ 收起' : `▼ 显示全部 ${books.length} 本`}
                                     </button>
@@ -154,12 +153,12 @@ export default function DeepSearchBookList({
                             </div>
 
                             {/* 操作按钮 */}
-                            <div className="p-4 border-t border-[#343434]">
+                            <div className="p-4 border-t border-[#C9A063]/30">
                                 <div className="flex items-center justify-between mb-3">
-                                    <div className="text-sm text-[#A2A09A]">
+                                    <div className="text-sm text-[#A2A09A] font-info-content">
                                         选择图书后可生成深度解读
                                     </div>
-                                    <div className="text-sm text-[#E8E6DC]">
+                                    <div className="text-sm text-[#E8E6DC] font-mono tracking-wider">
                                         {selectedBooks.length > 0 && `已选择 ${selectedBooks.length} 本`}
                                     </div>
                                 </div>
@@ -169,13 +168,12 @@ export default function DeepSearchBookList({
                                         <button
                                             onClick={handleGenerateInterpretation}
                                             disabled={selectedBooks.length === 0 || isLoading}
-                                            className="px-4 py-2 bg-[#C9A063] text-black rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#D4A863] transition-colors"
+                                            className="px-4 py-2 bg-[#C9A063] text-[#1a1a1a] border border-[#C9A063] text-sm font-mono tracking-wider disabled:opacity-50 disabled:cursor-not-allowed hover:bg-transparent hover:text-[#C9A063] transition-colors"
                                         >
                                             深度解读 {selectedBooks.length > 0 && `(${selectedBooks.length}本)`}
                                         </button>
-                                        <div className="absolute bottom-full left-0 mb-2 px-3 py-2 bg-[#1B1B1B] text-[#E8E6DC] text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 border border-[#343434] shadow-lg max-w-xs min-w-48">
+                                        <div className="absolute bottom-full left-0 mb-2 px-3 py-2 bg-[#1a1a1a] text-[#E8E6DC] text-xs font-info-content opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 border border-[#C9A063]/20 max-w-xs min-w-48">
                                             基于选中的图书生成深度AI解读内容
-                                            <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-[#343434]"></div>
                                         </div>
                                     </div>
 
@@ -184,13 +182,12 @@ export default function DeepSearchBookList({
                                         <button
                                             onClick={handleSecondaryRetrieval}
                                             disabled={selectedBooks.length === 0 || !onSecondaryRetrieval || isLoading}
-                                            className="px-4 py-2 border border-[#343434] text-[#E8E6DC] rounded-lg text-sm hover:bg-[#1B1B1B] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                            className="px-4 py-2 border border-[#C9A063]/30 text-[#E8E6DC] text-sm font-mono tracking-wider hover:bg-[#C9A063]/10 hover:text-[#C9A063] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
                                             二次检索 {selectedBooks.length > 0 && `(${selectedBooks.length}本)`}
                                         </button>
-                                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-[#1B1B1B] text-[#E8E6DC] text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 border border-[#343434] shadow-lg max-w-xs min-w-48">
+                                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-[#1a1a1a] text-[#E8E6DC] text-xs font-info-content opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 border border-[#C9A063]/20 max-w-xs min-w-48">
                                             基于选中图书进行二次检索，切换到简单检索模式
-                                            <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-[#343434]"></div>
                                         </div>
                                     </div>
 
@@ -198,13 +195,12 @@ export default function DeepSearchBookList({
                                         <button
                                             onClick={handleAutoSelect}
                                             disabled={isLoading}
-                                            className="px-4 py-2 border border-[#343434] text-[#E8E6DC] rounded-lg text-sm hover:bg-[#1B1B1B] transition-colors disabled:opacity-50"
+                                            className="px-4 py-2 border border-[#C9A063]/30 text-[#C9A063]/70 text-sm font-mono tracking-wider hover:bg-[#C9A063]/10 transition-colors disabled:opacity-50"
                                         >
                                             自动筛选
                                         </button>
-                                        <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-[#1B1B1B] text-[#E8E6DC] text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 border border-[#343434] shadow-lg max-w-xs min-w-48">
+                                        <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-[#1a1a1a] text-[#E8E6DC] text-xs font-info-content opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 border border-[#C9A063]/20 max-w-xs min-w-48">
                                             自动选择相似度{'>'}0.4的高相关度图书
-                                            <div className="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-[#343434]"></div>
                                         </div>
                                     </div>
 
@@ -213,7 +209,7 @@ export default function DeepSearchBookList({
                                             setSelectedBookIds(new Set());
                                             onBookSelection([]);
                                         }}
-                                        className="px-4 py-2 border border-[#343434] text-[#A2A09A] rounded-lg text-sm hover:bg-[#1B1B1B] transition-colors"
+                                        className="px-4 py-2 border border-[#C9A063]/30 text-[#A2A09A] text-sm font-mono tracking-wider hover:bg-[#C9A063]/10 hover:text-[#C9A063] transition-colors"
                                     >
                                         清空选择
                                     </button>
