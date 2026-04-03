@@ -7,7 +7,7 @@ import type { DeepSearchLogEntry } from '@/src/core/aibot/types';
 // 阶段标签映射
 const PHASE_LABELS: Record<string, string> = {
     'keyword': '关键词生成',
-    'search': 'MCP检索',
+    'search': '网络检索',
     'analysis': '文章分析',
     'cross-analysis': '交叉分析',
     'book-search': '图书检索',

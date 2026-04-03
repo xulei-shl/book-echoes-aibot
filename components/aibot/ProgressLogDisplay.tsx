@@ -34,7 +34,7 @@ interface ProgressLogDisplayProps {
 const PHASE_LABELS: Record<SearchPhase, string> = {
     // 深度检索阶段
     'keyword': '关键词生成',
-    'search': 'MCP检索',
+    'search': '网络检索',
     'analysis': '文章分析',
     'cross-analysis': '交叉分析',
     'book-search': '图书检索',
