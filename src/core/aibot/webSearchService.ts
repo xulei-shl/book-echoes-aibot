@@ -16,6 +16,21 @@ interface SearchResultItem {
     raw?: unknown;
 }
 
+const UNSUPPORTED_CONTENT_EXTENSIONS = [
+    '.pdf', '.mp3', '.mp4', '.wav', '.avi', '.mov', '.webm', '.m4a',
+    '.doc', '.docx', '.ppt', '.pptx', '.xls', '.xlsx', '.zip', '.rar'
+];
+
+const isContentExtractionSupported = (url: string): boolean => {
+    try {
+        const urlObj = new URL(url);
+        const pathname = urlObj.pathname.toLowerCase();
+        return !UNSUPPORTED_CONTENT_EXTENSIONS.some(ext => pathname.endsWith(ext));
+    } catch {
+        return false;
+    }
+};
+
 const convertToWebSnippet = (item: SearchResultItem): WebSearchSnippet => ({
     title: item.title,
     url: item.url,
@@ -105,12 +120,18 @@ export async function performWebSearch(
     }
 
     const urls = searchResults.map(r => r.url).filter(Boolean);
+    const supportedUrls = urls.filter(isContentExtractionSupported);
+    const skippedUrls = urls.filter(url => !isContentExtractionSupported(url));
     
-    if (urls.length > 0) {
-        logger.info('开始获取网页全文内容', { query, urlsCount: urls.length });
+    if (skippedUrls.length > 0) {
+        logger.info('跳过不支持内容提取的URL', { skippedUrls });
+    }
+    
+    if (supportedUrls.length > 0) {
+        logger.info('开始获取网页全文内容', { query, urlsCount: supportedUrls.length });
         
         try {
-            const extractionResults = await extractContentFromUrls(urls, 3, 15000);
+            const extractionResults = await extractContentFromUrls(supportedUrls, 3, 15000);
             
             searchResults.forEach(result => {
                 const extraction = extractionResults.get(result.url);
