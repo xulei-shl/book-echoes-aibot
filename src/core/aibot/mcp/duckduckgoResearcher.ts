@@ -3,6 +3,7 @@ import { WebSocketClientTransport } from '@modelcontextprotocol/sdk/client/webso
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { getLogger } from '@/src/utils/logger';
 import { MAX_SNIPPETS } from '@/src/core/aibot/constants';
+import { fetchWithOptionalProxy } from '@/src/core/aibot/network/proxyFetch';
 import type { DuckDuckGoOptions, DuckDuckGoSnippet } from '@/src/core/aibot/types';
 
 const logger = getLogger('aibot.duckduckgo');
@@ -218,15 +219,12 @@ const fetchViaHttp = async (query: string, topK: number): Promise<DuckDuckGoSnip
         signal: AbortSignal.timeout(30000)
     };
 
-    // 如果配置了代理，添加代理设置
     const proxyUrl = process.env.HTTP_PROXY || process.env.HTTPS_PROXY;
     if (proxyUrl) {
-        logger.info('使用代理', { proxyUrl });
-        // 注意：Node.js fetch API 不直接支持代理，需要使用代理库
-        // 这里先记录，后续可以考虑使用 node-fetch 或 https-proxy-agent
+        logger.info('DuckDuckGo HTTP 请求将通过代理发送', { proxyUrl });
     }
     
-    const response = await fetch(url, fetchOptions);
+    const response = await fetchWithOptionalProxy(url, fetchOptions);
 
     if (!response.ok) {
         logger.error('DuckDuckGo HTTP 请求失败', { status: response.status });

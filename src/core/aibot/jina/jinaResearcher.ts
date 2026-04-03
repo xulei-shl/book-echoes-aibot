@@ -1,5 +1,6 @@
 import { getLogger } from '@/src/utils/logger';
 import { JINA_SEARCH_PER_KEYWORD, JINA_API_TIMEOUT } from '@/src/core/aibot/constants';
+import { fetchWithOptionalProxy } from '@/src/core/aibot/network/proxyFetch';
 import type { JinaSearchOptions, WebSearchSnippet } from '@/src/core/aibot/types';
 
 const logger = getLogger('aibot.jina');
@@ -61,7 +62,7 @@ export async function searchWithJina(
     logger.info('开始 Jina Search API 请求', { query, topK });
 
     try {
-        const response = await fetch(JINA_SEARCH_URL, {
+        const response = await fetchWithOptionalProxy(JINA_SEARCH_URL, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${apiKey}`,
@@ -131,7 +132,7 @@ export async function fetchPageContent(url: string): Promise<string | null> {
     logger.info('开始 Jina Reader API 请求', { url });
 
     try {
-        const response = await fetch(JINA_READER_URL, {
+        const response = await fetchWithOptionalProxy(JINA_READER_URL, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${apiKey}`,

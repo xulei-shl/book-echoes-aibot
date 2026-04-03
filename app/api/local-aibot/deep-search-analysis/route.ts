@@ -5,6 +5,7 @@ import { performWebSearch } from '@/src/core/aibot/webSearchService';
 import { loadPrompt } from '@/src/core/aibot/promptLoader';
 import { generateTextWithFallback, getLLMConfigSummary, streamTextWithFallback } from '@/src/core/aibot/llmClient';
 import { AIBOT_PROMPT_FILES } from '@/src/core/aibot/constants';
+import { getSearchEngineLabel } from '@/src/core/aibot/searchConfig';
 import type { WebSearchSnippet } from '@/src/core/aibot/types';
 
 const logger = getLogger('aibot.api.deep-search-analysis');
@@ -159,8 +160,7 @@ export async function POST(request: Request) {
                 const totalKeywords = keywords.length;
 
                 currentPhase = 'search';
-                const useJina = process.env.USE_JINA_SEARCH !== 'false';
-                const searchEngine = useJina ? 'Jina' : 'DuckDuckGo';
+                const searchEngine = getSearchEngineLabel();
                 sendProgress(controller, 'search', `正在执行${searchEngine}检索...`, 'running');
                 sendProgress(controller, 'analysis', '准备分析检索结果...', 'running');
 

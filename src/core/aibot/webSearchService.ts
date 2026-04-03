@@ -2,14 +2,10 @@ import { getLogger } from '@/src/utils/logger';
 import { researchWithJina } from '@/src/core/aibot/jina/jinaResearcher';
 import { researchWithDuckDuckGo } from '@/src/core/aibot/mcp/duckduckgoResearcher';
 import { JINA_SEARCH_PER_KEYWORD, DEEP_SEARCH_SNIPPETS_PER_KEYWORD } from '@/src/core/aibot/constants';
+import { hasJinaApiKey, shouldUseJinaSearch } from '@/src/core/aibot/searchConfig';
 import type { WebSearchSnippet, DuckDuckGoSnippet } from '@/src/core/aibot/types';
 
 const logger = getLogger('aibot.webSearch');
-
-// 是否使用 Jina 搜索（默认启用）
-const useJinaSearch = (): boolean => {
-    return process.env.USE_JINA_SEARCH !== 'false';
-};
 
 // 将 DuckDuckGo 结果转换为统一格式
 const convertDuckDuckGoToWebSnippet = (snippet: DuckDuckGoSnippet): WebSearchSnippet => ({
@@ -31,13 +27,14 @@ export async function performWebSearch(
     query: string,
     topK?: number
 ): Promise<WebSearchSnippet[]> {
-    const shouldUseJina = useJinaSearch();
+    const shouldUseJina = shouldUseJinaSearch();
     const effectiveTopK = topK ?? (shouldUseJina ? JINA_SEARCH_PER_KEYWORD : DEEP_SEARCH_SNIPPETS_PER_KEYWORD);
 
     logger.info('执行网络搜索', {
         query,
         topK: effectiveTopK,
-        engine: shouldUseJina ? 'jina' : 'duckduckgo'
+        engine: shouldUseJina ? 'jina' : 'duckduckgo',
+        jinaConfigured: hasJinaApiKey()
     });
 
     if (shouldUseJina) {
