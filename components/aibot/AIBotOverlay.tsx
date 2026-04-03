@@ -1549,7 +1549,7 @@ export default function AIBotOverlay() {
                                     <button
                                         type="submit"
                                         disabled={isStreaming || isSearching || isDeepSearchDraftStreaming || isDocumentAnalysisDraftStreaming || mode === AIBOT_MODES.DOCUMENT || documentUploadController.statusStats.uploading > 0}
-                                        className="px-4 py-2 border border-[#C9A063] bg-[#C9A063] text-[#1a1a1a] text-sm font-mono tracking-wider disabled:opacity-50 transition-colors duration-300 hover:bg-transparent hover:text-[#C9A063]"
+                                        className="px-4 py-2 border border-[#C9A063] bg-[#C9A063] text-[#1a1a1a] text-sm font-mono tracking-wider disabled:opacity-50 transition-colors duration-300 hover:bg-[#C9A063]/20 hover:text-[#C9A063]"
                                     >
                                         {mode === AIBOT_MODES.DOCUMENT ? '文档分析模式' :
                                             documentUploadController.statusStats.ready > 0 && documentUploadController.statusStats.uploading === 0 ? `开始分析 (${documentUploadController.statusStats.ready})` :
