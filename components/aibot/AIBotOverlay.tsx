@@ -97,6 +97,7 @@ export default function AIBotOverlay() {
         setDeepSearchBooks,
         setDeepSearchSelectedBooks,
         setDeepSearchUserInput,
+        deepSearchSelectedBooks,
         addDeepSearchLog,
         clearDeepSearchLogs,
         deepSearchLogs,
@@ -1298,10 +1299,25 @@ export default function AIBotOverlay() {
             return;
         }
 
-        // 获取勾选的图书信息
-        const selectedBooks = currentRetrievalResult?.books.filter(book =>
-            selectedBookIds.has(book.id)
-        ) || [];
+        // 获取勾选的图书信息（优先使用已保存的选中列表）
+        let selectedBooks: BookInfo[] = [];
+        
+        // 简单检索：使用 selectedBookIds 从 currentRetrievalResult 中获取
+        if (selectedBookIds.size > 0 && currentRetrievalResult?.books) {
+            selectedBooks = currentRetrievalResult.books.filter(book =>
+                selectedBookIds.has(book.id)
+            );
+        }
+        
+        // 深度检索：使用 deepSearchSelectedBooks
+        if (selectedBooks.length === 0 && deepSearchSelectedBooks.length > 0) {
+            selectedBooks = deepSearchSelectedBooks;
+        }
+        
+        // 文档分析：使用 documentAnalysisSelectedBooks
+        if (selectedBooks.length === 0 && documentAnalysisSelectedBooks.length > 0) {
+            selectedBooks = documentAnalysisSelectedBooks;
+        }
 
         // 构建下载内容
         let downloadContent = '';
@@ -1360,7 +1376,7 @@ export default function AIBotOverlay() {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-    }, [documentAnalysisReportContent, deepSearchReportContent, lastAssistant, selectedBookIds, currentRetrievalResult, setError]);
+    }, [documentAnalysisReportContent, deepSearchReportContent, lastAssistant, selectedBookIds, currentRetrievalResult, deepSearchSelectedBooks, documentAnalysisSelectedBooks, setError]);
 
     const handleClear = async () => {
         console.log('[AIBotOverlay] 清空聊天记录', {
