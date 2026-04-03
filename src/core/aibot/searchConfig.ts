@@ -1,9 +1,15 @@
-const isEnvEnabled = (value: string | undefined): boolean => value !== 'false';
+export const hasTavilyApiKey = (): boolean => {
+    const apiKey = process.env.TAVILY_API_KEY;
+    return Boolean(apiKey && apiKey.trim().length > 0);
+};
 
-export const hasJinaApiKey = (): boolean => Boolean(process.env.JINA_API_KEY?.trim());
+export const hasExaApiKey = (): boolean => {
+    const apiKey = process.env.EXA_API_KEY;
+    return Boolean(apiKey && apiKey.trim().length > 0);
+};
 
-export const shouldUseJinaSearch = (): boolean => isEnvEnabled(process.env.USE_JINA_SEARCH) && hasJinaApiKey();
+export const shouldUseTavilySearch = (): boolean => hasTavilyApiKey();
 
-export const getSearchEngineLabel = (): 'Jina' | 'DuckDuckGo' => (
-    shouldUseJinaSearch() ? 'Jina' : 'DuckDuckGo'
+export const getSearchEngineLabel = (): 'Tavily' | 'Exa' => (
+    shouldUseTavilySearch() ? 'Tavily' : 'Exa'
 );

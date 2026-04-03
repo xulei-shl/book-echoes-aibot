@@ -31,6 +31,8 @@ const FALLBACK_RESULT: IntentClassificationResult = {
 const normalizeIntent = (value?: string): IntentClassificationResult['intent'] => {
     switch (value) {
         case AIBOT_INTENTS.SEARCH:
+        case AIBOT_INTENTS.SIMPLE_SEARCH:
+        case AIBOT_INTENTS.DEEP_SEARCH:
             return AIBOT_INTENTS.SEARCH;
         case AIBOT_INTENTS.OTHER:
             return AIBOT_INTENTS.OTHER;

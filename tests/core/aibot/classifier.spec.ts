@@ -31,7 +31,7 @@ describe('AIBot question classifier', () => {
             messages: []
         });
 
-        expect(result.intent).toBe(AIBOT_INTENTS.DEEP_SEARCH);
+        expect(result.intent).toBe(AIBOT_INTENTS.SEARCH);
         expect(result.confidence).toBeCloseTo(0.93);
         expect(result.reason).toContain('研究');
         expect(result.suggestedQuery).toContain('粮食');
@@ -48,7 +48,7 @@ describe('AIBot question classifier', () => {
             messages: []
         });
 
-        expect(result.intent).toBe(AIBOT_INTENTS.SIMPLE_SEARCH);
+        expect(result.intent).toBe(AIBOT_INTENTS.SEARCH);
         expect(result.source).toBe('rule');
     });
 

@@ -5,7 +5,7 @@ import { performWebSearch } from '@/src/core/aibot/webSearchService';
 import { loadPrompt } from '@/src/core/aibot/promptLoader';
 import { generateTextWithFallback, streamTextWithFallback } from '@/src/core/aibot/llmClient';
 import { AIBOT_PROMPT_FILES } from '@/src/core/aibot/constants';
-import { getSearchEngineLabel, shouldUseJinaSearch, hasJinaApiKey } from '@/src/core/aibot/searchConfig';
+import { getSearchEngineLabel, shouldUseTavilySearch, hasTavilyApiKey } from '@/src/core/aibot/searchConfig';
 import type { WebSearchSnippet } from '@/src/core/aibot/types';
 
 const logger = getLogger('aibot.api.deep-search-analysis');
@@ -161,8 +161,8 @@ export async function POST(request: Request) {
                 // [调试] 记录搜索配置
                 const debugSearchConfig = {
                     searchEngine,
-                    useJina: shouldUseJinaSearch(),
-                    hasJinaKey: hasJinaApiKey(),
+                    useTavily: shouldUseTavilySearch(),
+                    hasTavilyKey: hasTavilyApiKey(),
                     proxyConfigured: !!(process.env.HTTP_PROXY || process.env.HTTPS_PROXY)
                 };
                 logger.info('[DEBUG] 搜索配置', debugSearchConfig);

@@ -2,7 +2,7 @@ import { AIBOT_MODES, AIBOT_PROMPT_FILES, DEFAULT_MULTI_QUERY_TOP_K, DEFAULT_TOP
 import { loadPrompt } from '@/src/core/aibot/promptLoader';
 import { generateTextWithFallback } from '@/src/core/aibot/llmClient';
 import { multiQuery, textSearch } from '@/src/core/aibot/retrievalService';
-import { researchWithDuckDuckGo } from '@/src/core/aibot/mcp/duckduckgoResearcher';
+import { performWebSearch } from '@/src/core/aibot/webSearchService';
 import type { ChatWorkflowContext, ChatWorkflowInput, DraftWorkflowResult, RetrievalResultData } from '@/src/core/aibot/types';
 import { resolveLLMConfig } from '@/src/utils/aibot-env';
 import { getLogger } from '@/src/utils/logger';
@@ -44,16 +44,16 @@ const buildSystemPrompt = (basePrompt: string, contextPlainText: string, userInp
 };
 
 /**
- * 深度检索草稿生成：DuckDuckGo 摘要 -> article_analysis -> article_cross_analysis。
+ * 深度检索草稿生成：网络搜索摘要 -> article_analysis -> article_cross_analysis。
  */
 export async function runDraftWorkflow(userInput: string): Promise<DraftWorkflowResult> {
-    const snippets = await researchWithDuckDuckGo(userInput, { topK: DEFAULT_TOP_K });
-    const duckduckgoText = joinSnippets(snippets);
+    const snippets = await performWebSearch(userInput, DEFAULT_TOP_K);
+    const searchText = joinSnippets(snippets);
 
     const articlePrompt = await loadPrompt(AIBOT_PROMPT_FILES.ARTICLE_ANALYSIS);
     const analysisResult = await generateTextWithFallback({
         system: articlePrompt,
-        prompt: `# 用户输入\n${userInput}\n\n# DuckDuckGo 摘要\n${duckduckgoText}`
+        prompt: `# 用户输入\n${userInput}\n\n# 网络搜索摘要\n${searchText}`
     });
 
     const crossPrompt = await loadPrompt(AIBOT_PROMPT_FILES.ARTICLE_CROSS_ANALYSIS);

@@ -1,87 +1,132 @@
 import { getLogger } from '@/src/utils/logger';
-import { researchWithJina } from '@/src/core/aibot/jina/jinaResearcher';
-import { researchWithDuckDuckGo } from '@/src/core/aibot/mcp/duckduckgoResearcher';
+import { researchWithTavily } from '@/src/core/aibot/tavily/tavilyResearcher';
+import { researchWithExaMcp } from '@/src/core/aibot/exa/exaMcpResearcher';
+import { extractContentFromUrls } from '@/src/core/aibot/jina/jinaContentExtractor';
 import { JINA_SEARCH_PER_KEYWORD, DEEP_SEARCH_SNIPPETS_PER_KEYWORD } from '@/src/core/aibot/constants';
-import { hasJinaApiKey, shouldUseJinaSearch } from '@/src/core/aibot/searchConfig';
-import type { WebSearchSnippet, DuckDuckGoSnippet } from '@/src/core/aibot/types';
+import { hasTavilyApiKey, shouldUseTavilySearch, getSearchEngineLabel } from '@/src/core/aibot/searchConfig';
+import type { WebSearchSnippet } from '@/src/core/aibot/types';
 
 const logger = getLogger('aibot.webSearch');
 
-// 将 DuckDuckGo 结果转换为统一格式
-const convertDuckDuckGoToWebSnippet = (snippet: DuckDuckGoSnippet): WebSearchSnippet => ({
-    title: snippet.title,
-    url: snippet.url,
-    snippet: snippet.snippet,
-    source: 'duckduckgo',
-    raw: snippet.raw
+interface SearchResultItem {
+    title: string;
+    url: string;
+    snippet: string;
+    source: 'tavily' | 'exa';
+    raw?: unknown;
+}
+
+const convertToWebSnippet = (item: SearchResultItem): WebSearchSnippet => ({
+    title: item.title,
+    url: item.url,
+    snippet: item.snippet,
+    source: item.source as 'tavily' | 'exa',
+    raw: item.raw
 });
 
-/**
- * 统一的网络搜索入口
- *
- * 1. 优先使用 Jina Search API（USE_JINA_SEARCH=true 或未设置）
- * 2. Jina 失败时自动回退到 DuckDuckGo
- * 3. USE_JINA_SEARCH=false 时直接使用 DuckDuckGo
- */
 export async function performWebSearch(
     query: string,
     topK?: number
 ): Promise<WebSearchSnippet[]> {
-    const shouldUseJina = shouldUseJinaSearch();
-    const effectiveTopK = topK ?? (shouldUseJina ? JINA_SEARCH_PER_KEYWORD : DEEP_SEARCH_SNIPPETS_PER_KEYWORD);
+    const shouldUseTavily = shouldUseTavilySearch();
+    const effectiveTopK = topK !== undefined 
+        ? topK 
+        : (shouldUseTavily ? JINA_SEARCH_PER_KEYWORD : DEEP_SEARCH_SNIPPETS_PER_KEYWORD);
 
     logger.info('执行网络搜索', {
         query,
         topK: effectiveTopK,
-        engine: shouldUseJina ? 'jina' : 'duckduckgo',
-        jinaConfigured: hasJinaApiKey()
+        engine: shouldUseTavily ? 'tavily' : 'exa',
+        tavilyConfigured: hasTavilyApiKey()
     });
 
-    if (shouldUseJina) {
+    const searchResults: SearchResultItem[] = [];
+
+    if (shouldUseTavily) {
         try {
-            const jinaResults = await researchWithJina(query, { topK: effectiveTopK });
+            logger.info('尝试 Tavily 搜索', { query });
+            const tavilyResults = await researchWithTavily(query, { topK: effectiveTopK });
 
-            if (jinaResults.length > 0) {
-                logger.info('Jina 搜索成功', {
+            if (tavilyResults.length > 0) {
+                logger.info('Tavily 搜索成功', {
                     query,
-                    resultCount: jinaResults.length
+                    resultCount: tavilyResults.length
                 });
-                return jinaResults;
-            }
 
-            logger.info('Jina 搜索返回空结果，尝试 DuckDuckGo 回退', { query });
+                searchResults.push(...tavilyResults.map(r => ({
+                    title: r.title,
+                    url: r.url,
+                    snippet: r.content,
+                    source: 'tavily' as const,
+                    raw: r.raw
+                })));
+            } else {
+                logger.info('Tavily 返回空结果，尝试 Exa MCP 回退', { query });
+            }
         } catch (error) {
-            logger.info('Jina 搜索失败，回退到 DuckDuckGo', {
+            logger.info('Tavily 搜索失败，尝试 Exa MCP 回退', {
                 query,
                 error: error instanceof Error ? error.message : String(error)
             });
         }
     }
 
-    // 回退到 DuckDuckGo
-    try {
-        const ddgResults = await researchWithDuckDuckGo(query, { topK: effectiveTopK });
-        const converted = ddgResults.map(convertDuckDuckGoToWebSnippet);
+    if (searchResults.length === 0) {
+        try {
+            logger.info('使用 Exa MCP 搜索', { query });
+            const exaResults = await researchWithExaMcp(query, { topK: effectiveTopK });
 
-        logger.info('DuckDuckGo 搜索完成', {
-            query,
-            resultCount: converted.length
-        });
+            searchResults.push(...exaResults.map(r => ({
+                title: r.title,
+                url: r.url,
+                snippet: r.snippet,
+                source: 'exa' as const,
+                raw: r.raw
+            })));
 
-        return converted;
-    } catch (error) {
-        logger.error('DuckDuckGo 搜索也失败了', {
-            query,
-            error: error instanceof Error ? error.message : String(error)
-        });
+            logger.info('Exa MCP 搜索完成', {
+                query,
+                resultCount: searchResults.length
+            });
+        } catch (error) {
+            logger.error('Exa MCP 搜索也失败了', {
+                query,
+                error: error instanceof Error ? error.message : String(error)
+            });
 
-        // 返回错误占位结果
-        return [{
-            title: '搜索服务暂时不可用',
-            url: '',
-            snippet: `无法完成对"${query}"的搜索，请稍后重试。`,
-            source: 'duckduckgo',
-            raw: { error: 'All search engines failed' }
-        }];
+            return [{
+                title: '搜索服务暂时不可用',
+                url: '',
+                snippet: `无法完成对"${query}"的搜索，请稍后重试。`,
+                source: 'tavily',
+                raw: { error: 'All search engines failed' }
+            }];
+        }
     }
+
+    const urls = searchResults.map(r => r.url).filter(Boolean);
+    
+    if (urls.length > 0) {
+        logger.info('开始获取网页全文内容', { query, urlsCount: urls.length });
+        
+        try {
+            const extractionResults = await extractContentFromUrls(urls, 3, 15000);
+            
+            searchResults.forEach(result => {
+                const extraction = extractionResults.get(result.url);
+                if (extraction?.success && extraction.content) {
+                    (result as any).content = extraction.content;
+                }
+            });
+            
+            logger.info('网页内容提取完成', { query, successCount: [...extractionResults.values()].filter(r => r.success).length });
+        } catch (error) {
+            logger.error('网页内容提取失败', { 
+                query, 
+                error: error instanceof Error ? error.message : String(error) 
+            });
+        }
+    }
+
+    return searchResults.map(convertToWebSnippet);
 }

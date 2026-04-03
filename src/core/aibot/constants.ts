@@ -17,6 +17,8 @@ export type AIBotMode = (typeof AIBOT_MODES)[keyof typeof AIBOT_MODES];
 
 export const AIBOT_INTENTS = {
     SEARCH: 'search',
+    SIMPLE_SEARCH: 'simple_search',
+    DEEP_SEARCH: 'deep_search',
     OTHER: 'other'
 } as const;
 
@@ -28,7 +30,7 @@ export const STREAM_EVENTS = {
     DONE: 'aibot:done'
 } as const;
 
-export const DEFAULT_TOP_K = 8;
+export const DEFAULT_TOP_K = 5;
 export const DEFAULT_MULTI_QUERY_TOP_K = 12;
 export const MAX_SNIPPETS = 8;
 export const DEEP_SEARCH_SNIPPETS_PER_KEYWORD = 5;

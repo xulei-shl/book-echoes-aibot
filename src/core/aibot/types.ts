@@ -16,6 +16,33 @@ export interface DuckDuckGoSnippet {
     raw?: unknown;
 }
 
+export interface TavilySnippet {
+    title: string;
+    url: string;
+    content: string;
+    score: number;
+    raw?: unknown;
+}
+
+export interface ExaSnippet {
+    title: string;
+    url: string;
+    snippet: string;
+    raw?: unknown;
+}
+
+export interface TavilySearchOptions {
+    topK?: number;
+    searchDepth?: 'basic' | 'advanced' | 'fast' | 'ultra-fast';
+    includeAnswer?: boolean;
+    includeRawContent?: boolean;
+    topic?: 'general' | 'news' | 'finance';
+}
+
+export interface ExaSearchOptions {
+    topK?: number;
+}
+
 export interface DraftPayload {
     userInput: string;
     searchSnippets: DuckDuckGoSnippet[];
@@ -65,9 +92,9 @@ export interface JinaSearchOptions {
 export interface WebSearchSnippet {
     title: string;
     url: string;
-    snippet: string;       // 摘要
-    content?: string;      // 全文（可选）
-    source: 'jina' | 'duckduckgo';
+    snippet: string;
+    content?: string;
+    source: 'tavily' | 'exa';
     raw?: unknown;
 }
 
