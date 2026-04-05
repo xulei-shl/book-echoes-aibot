@@ -141,7 +141,7 @@ async function processArchiveItem(
       vol
     };
   } catch (e) {
-    console.warn(`Could not load metadata for ${id} in ${dirPath}:`, e);
+    // Next.js 16 Turbopack source map bug: cannot use console in catch blocks
     return null;
   }
 }
@@ -264,7 +264,7 @@ export async function getArchiveData(): Promise<YearArchiveData[]> {
       });
     }
   } catch (e) {
-    console.error("Error reading archive data:", e);
+    // Next.js 16 Turbopack source map bug: cannot use console in catch blocks
   }
 
   return years;
@@ -295,7 +295,7 @@ export async function getAboutContent() {
   try {
     return await fs.readFile(aboutPath, 'utf8');
   } catch (e) {
-    console.warn('Failed to load About content:', e);
+    // Next.js 16 Turbopack source map bug: cannot use console in catch blocks
     return '';
   }
 }
@@ -352,7 +352,7 @@ async function loadRandomIndex(): Promise<RandomIndexItem[]> {
     randomIndexCache = { loadedAt: Date.now(), items };
     return items;
   } catch (error) {
-    console.warn('随机索引读取失败:', error);
+    // Next.js 16 Turbopack source map bug: cannot use console in catch blocks
     return [];
   }
 }
