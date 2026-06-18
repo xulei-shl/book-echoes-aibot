@@ -3,7 +3,7 @@
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { MonthData } from '@/lib/content';
 
 interface MagazineCardProps {
@@ -15,7 +15,22 @@ interface MagazineCardProps {
 export default function MagazineCard({ month, isLatest = false, className = '' }: MagazineCardProps) {
     const router = useRouter();
     const [isHovered, setIsHovered] = useState(false);
+    const [mainLandscape, setMainLandscape] = useState<boolean | null>(null);
     const previewCards = month.previewCards;
+
+    const onMainLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
+        const img = e.currentTarget;
+        setMainLandscape(img.naturalWidth > img.naturalHeight);
+    }, []);
+
+    const isLandscape = mainLandscape ?? false;
+
+    const mainW = isLandscape ? 'w-[70%]' : 'w-3/5';
+    const mainH = isLandscape ? 'h-[60%]' : 'h-[85%]';
+
+    const mainImgClass = isLandscape
+        ? 'w-full h-full object-cover rounded-sm'
+        : 'w-auto h-auto max-h-full max-w-full object-contain rounded-sm';
 
     return (
         <motion.div
@@ -27,18 +42,12 @@ export default function MagazineCard({ month, isLatest = false, className = '' }
             transition={{ duration: 0.3 }}
         >
             <div className="relative w-full h-full overflow-hidden">
-                {/* Book Cover Collage */}
                 {previewCards.length > 0 ? (
                     <div className="absolute inset-0 flex items-center justify-center px-4 pt-8 pb-20">
-                        {/* Stacked Books */}
                         {previewCards.length >= 4 && (
                             <div
-                                className="absolute w-1/3 aspect-[2/3] rounded-sm shadow-lg bg-[#E8E6DC]"
-                                style={{
-                                    zIndex: 1,
-                                    transform: 'translate(50%, -25%) rotate(18deg)',
-                                    opacity: 0.5
-                                }}
+                                className="absolute w-1/3 aspect-[3/4] rounded-sm shadow-lg overflow-hidden"
+                                style={{ zIndex: 1, transform: 'translate(50%, -25%) rotate(18deg)', opacity: 0.5 }}
                             >
                                 <Image src={previewCards[3]} alt="Book 4" fill className="object-cover rounded-sm" sizes="150px" />
                             </div>
@@ -46,12 +55,8 @@ export default function MagazineCard({ month, isLatest = false, className = '' }
 
                         {previewCards.length >= 3 && (
                             <div
-                                className="absolute w-1/3 aspect-[2/3] rounded-sm shadow-lg bg-[#E8E6DC]"
-                                style={{
-                                    zIndex: 2,
-                                    transform: 'translate(-50%, -20%) rotate(-15deg)',
-                                    opacity: 0.6
-                                }}
+                                className="absolute w-1/3 aspect-[3/4] rounded-sm shadow-lg overflow-hidden"
+                                style={{ zIndex: 2, transform: 'translate(-50%, -20%) rotate(-15deg)', opacity: 0.6 }}
                             >
                                 <Image src={previewCards[2]} alt="Book 3" fill className="object-cover rounded-sm" sizes="150px" />
                             </div>
@@ -59,36 +64,29 @@ export default function MagazineCard({ month, isLatest = false, className = '' }
 
                         {previewCards.length >= 2 && (
                             <div
-                                className="absolute w-2/5 aspect-[2/3] rounded-sm shadow-xl bg-[#E8E6DC]"
-                                style={{
-                                    zIndex: 3,
-                                    transform: 'translate(25%, -5%) rotate(8deg)',
-                                    opacity: 0.75
-                                }}
+                                className="absolute w-2/5 aspect-[3/4] rounded-sm shadow-xl overflow-hidden"
+                                style={{ zIndex: 3, transform: 'translate(25%, -5%) rotate(8deg)', opacity: 0.75 }}
                             >
                                 <Image src={previewCards[1]} alt="Book 2" fill className="object-cover rounded-sm" sizes="150px" />
                             </div>
                         )}
 
-                        {/* Main Cover */}
                         <motion.div
-                            className="relative w-3/5 aspect-[2/3] rounded-sm shadow-2xl bg-[#E8E6DC]"
-                            animate={{
-                                scale: isHovered ? 1.05 : 1,
-                                rotate: isHovered ? 0 : -2
-                            }}
+                            className={`relative ${mainW} ${mainH} rounded-sm shadow-2xl overflow-hidden flex items-center justify-center`}
+                            animate={{ scale: isHovered ? 1.05 : 1, rotate: isHovered ? 0 : -2 }}
                             transition={{ duration: 0.4 }}
                             style={{ zIndex: 10 }}
                         >
                             <Image
                                 src={previewCards[0]}
                                 alt={month.label}
-                                fill
-                                className="object-cover rounded-sm"
+                                width={300}
+                                height={400}
+                                className={mainImgClass}
                                 priority
                                 sizes="(max-width: 768px) 60vw, 300px"
+                                onLoad={onMainLoad}
                             />
-                            {/* Border Highlight */}
                             <div className="absolute inset-0 rounded-sm border border-white/20" />
                         </motion.div>
                     </div>
@@ -100,7 +98,6 @@ export default function MagazineCard({ month, isLatest = false, className = '' }
                     </div>
                 )}
 
-                {/* Text Info - Bottom Aligned */}
                 <div className="absolute inset-0 flex flex-col justify-end p-6 pointer-events-none z-30">
                     {isLatest && (
                         <div className="inline-flex items-center gap-2 mb-2 w-fit">
@@ -109,7 +106,6 @@ export default function MagazineCard({ month, isLatest = false, className = '' }
                             </span>
                         </div>
                     )}
-
                     <div className="flex items-center justify-between border-t border-[#C9A063]/30 pt-2">
                         <span className="font-body text-lg text-[#E8E6DC]/80">{month.vol}</span>
                         {month.bookCount > 0 && (

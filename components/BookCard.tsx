@@ -104,7 +104,7 @@ export default function BookCard({ book, state, index = 0, dockConfig }: BookCar
 
     // 预览图片源
     const previewImageSrc = state === 'dock'
-        ? (book.cardThumbnailUrl || book.cardImageUrl || book.coverThumbnailUrl || book.coverUrl)
+        ? (book.originalThumbnailUrl || book.cardThumbnailUrl || book.cardImageUrl || book.coverThumbnailUrl || book.coverUrl)
         : (book.cardImageUrl || book.coverUrl);
 
     // 根据状态渲染不同的卡片
