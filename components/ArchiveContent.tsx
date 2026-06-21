@@ -97,7 +97,7 @@ export default function ArchiveContent({ years, archiveData }: ArchiveContentPro
                 </aside>
 
                 {/* Right Content - Cover Grid */}
-                <main className="md:col-span-10 min-h-[60vh]">
+                <section className="md:col-span-10 min-h-[60vh]">
                     <div className="mb-8 border-b border-[#C9A063]/20 pb-4 flex flex-col md:flex-row md:items-end gap-4 justify-between">
                         {/* Tab Switcher - Left Side */}
                         {(hasMonths || hasSubjects || hasSleepingBeauties || hasLiteratures) && (
@@ -187,7 +187,14 @@ export default function ArchiveContent({ years, archiveData }: ArchiveContentPro
                                     COMING SOON
                                 </div>
                             ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10">
+                                <motion.div
+                                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10"
+                                    variants={{
+                                        visible: { transition: { staggerChildren: 0.08 } }
+                                    }}
+                                    initial="hidden"
+                                    animate="visible"
+                                >
                                     {itemsToShow.map((item, index) => {
                                         // 月份牌和睡美人都按月份排列，使用繁体汉字；主题卡和文学FM使用label首字符
                                         const monthChar = activeTab === 'subject' || activeTab === 'literature'
@@ -195,31 +202,18 @@ export default function ArchiveContent({ years, archiveData }: ArchiveContentPro
                                             : getMonthCharacter(item.id);
 
                                         return (
-                                            <div
+                                            <motion.div
                                                 key={item.id}
                                                 className="relative group p-6 border border-[#C9A063]/20 bg-[#1a1a1a]/50 hover:border-[#C9A063]/60 hover:bg-[#C9A063]/5 transition-all duration-500 overflow-hidden"
+                                                variants={{
+                                                    hidden: { opacity: 0, y: 20 },
+                                                    visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] } }
+                                                }}
                                             >
                                                 {/* 大型繁体汉字背景 - 右下角位置 */}
-                                                <div className="absolute -bottom-14 -right-10 pointer-events-none select-none">
+                                                <div className="absolute -bottom-8 -right-6 pointer-events-none select-none">
                                                     <span
-                                                        className="font-display text-[16rem] md:text-[18rem] leading-none text-[#C9A063] transition-all duration-700 ease-out block"
-                                                        style={{
-                                                            opacity: 0.12,
-                                                            transform: 'rotate(-5deg)',
-                                                        }}
-                                                    >
-                                                        {monthChar}
-                                                    </span>
-                                                </div>
-
-                                                {/* 悬停时的汉字动画效果 */}
-                                                <div className="absolute -bottom-14 -right-10 pointer-events-none select-none opacity-0 group-hover:opacity-100 transition-opacity duration-700">
-                                                    <span
-                                                        className="font-display text-[16rem] md:text-[18rem] leading-none text-[#C9A063] transition-all duration-700 ease-out block"
-                                                        style={{
-                                                            opacity: 0.18,
-                                                            transform: 'rotate(-5deg) scale(1.05)',
-                                                        }}
+                                                        className="font-display text-[10rem] md:text-[12rem] leading-none text-[#C9A063] block transition-all duration-700 ease-out opacity-[0.12] group-hover:opacity-[0.18] rotate-[-5deg] group-hover:rotate-[-12deg]"
                                                     >
                                                         {monthChar}
                                                     </span>
@@ -238,15 +232,15 @@ export default function ArchiveContent({ years, archiveData }: ArchiveContentPro
 
                                                 {/* Card Content */}
                                                 {/* MagazineCard expects MonthData, which is compatible with ArchiveItem */}
-                                                <MagazineCard month={item} className="h-[360px] relative z-10" />
-                                            </div>
+                                                <MagazineCard month={item} className="h-[280px] md:h-[320px] relative z-10" />
+                                            </motion.div>
                                         );
                                     })}
-                                </div>
+                                </motion.div>
                             )}
                         </motion.div>
                     </AnimatePresence>
-                </main>
+                </section>
             </div>
         </div>
     );
