@@ -37,7 +37,6 @@ export default function MagazineCard({ month, isLatest = false, className = '' }
                                 priority
                                 sizes="(max-width: 768px) 60vw, 300px"
                             />
-                            <div className="absolute inset-0 rounded-sm border border-white/20" />
                         </motion.div>
                     </div>
                 ) : (
