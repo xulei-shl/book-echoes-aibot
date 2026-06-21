@@ -27,7 +27,7 @@ export default function MagazineCard({ month, isLatest = false, className = '' }
                 {previewCards.length > 0 ? (
                     <div className="absolute inset-0 flex items-center justify-center">
                         <motion.div
-                            className="relative w-[90%] h-[85%] rounded-sm shadow-2xl bg-[#E8E6DC]"
+                            className="relative w-[90%] h-[85%] rounded-sm shadow-2xl"
                         >
                             <Image
                                 src={previewCards[0]}
