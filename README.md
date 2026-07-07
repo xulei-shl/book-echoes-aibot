@@ -120,7 +120,16 @@ systemctl enable book-echoes.service
 systemctl start book-echoes.service
 ```
 
-### 4. 常用命令
+### 4. 更新内容流程
+
+修改 `public/content/` 下的内容后，按顺序执行：
+
+```bash
+npm run build                          # 重新构建静态页面
+systemctl restart book-echoes.service  # 重启服务使新构建生效
+```
+
+### 5. 常用命令
 
 ```bash
 systemctl status book-echoes.service    # 查看状态
