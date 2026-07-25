@@ -7,6 +7,15 @@ type FontVarStyle = CSSProperties & Record<string, string>;
 export const metadata: Metadata = {
   title: "书海回响",
   description: "基于上海图书馆借阅数据的书目推荐项目",
+  icons: {
+    icon: [
+      { url: "/ico_64.ico", sizes: "64x64", type: "image/x-icon" },
+      { url: "/ico_48.ico", sizes: "48x48", type: "image/x-icon" },
+      { url: "/ico_32.ico", sizes: "32x32", type: "image/x-icon" },
+      { url: "/ico_16.ico", sizes: "16x16", type: "image/x-icon" },
+    ],
+    apple: "/logo_shl.png",
+  },
 };
 
 export default function RootLayout({
