@@ -182,6 +182,11 @@ export default function RandomMasonry({ initialBooks, initialCursor, seed }: Ran
                 />
             </div>
 
+            {/* Logo - Top Left */}
+            <a href="/" className="fixed top-6 left-6 md:top-8 md:left-8 z-[60] pointer-events-auto opacity-70 hover:opacity-100 transition-opacity duration-300">
+                <img src="/favicon.png" alt="Logo" className="h-8 md:h-10 w-auto" />
+            </a>
+
             {/* Header Navigation */}
             <div className="fixed top-0 left-0 right-0 z-50 flex justify-center items-start pt-6 pointer-events-none">
                 <div className="flex items-center gap-3 pointer-events-auto">

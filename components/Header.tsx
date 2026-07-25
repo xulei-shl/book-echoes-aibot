@@ -135,22 +135,9 @@ export default function Header({ showHomeButton = false, aboutContent, theme = '
         <header className="fixed top-0 left-0 right-0 z-50 pointer-events-none">
             <div className="relative flex items-center justify-between px-6 py-6 md:px-8 md:py-8">
                 {/* Logo - Left */}
-                {/* <motion.div
-                    className="pointer-events-auto"
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5 }}
-                >
-                    <div className="relative w-32 h-20 md:w-40 md:h-24 lg:w-48 lg:h-28 opacity-60 hover:opacity-75 transition-all duration-300">
-                        <Image
-                            src="/logozi_shl.jpg"
-                            alt="机构Logo"
-                            fill
-                            className={`object-contain object-left grayscale-[30%] sepia-[15%] brightness-110 contrast-90 ${theme === 'dark' ? 'invert opacity-80' : ''}`}
-                            priority
-                        />
-                    </div>
-                </motion.div> */}
+                <a href="/" className="pointer-events-auto opacity-70 hover:opacity-100 transition-opacity duration-300">
+                    <img src="/favicon.png" alt="Logo" className="h-8 md:h-10 w-auto" />
+                </a>
 
                 {/* Spacer for center alignment */}
                 <div className="flex-1" />
