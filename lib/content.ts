@@ -83,6 +83,11 @@ async function processArchiveItem(
 ): Promise<ArchiveItem | null> {
   try {
     const metadataPath = path.join(dirPath, 'metadata.json');
+    try {
+      await fs.access(metadataPath);
+    } catch {
+      return null;
+    }
     const metadataContent = await fs.readFile(metadataPath, 'utf8');
     const books: Book[] = JSON.parse(metadataContent);
 
@@ -140,8 +145,7 @@ async function processArchiveItem(
       books,
       vol
     };
-  } catch (e) {
-    console.warn(`Could not load metadata for ${id} in ${dirPath}:`, e);
+  } catch {
     return null;
   }
 }
