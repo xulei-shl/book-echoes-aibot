@@ -373,7 +373,8 @@ async function postBookApi<T>(
     const response = await fetch(endpoint, {
         method: 'POST',
         headers: JSON_HEADERS,
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(30000)
     });
 
     if (!response.ok) {
