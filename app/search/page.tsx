@@ -1,4 +1,4 @@
-import Header from '@/components/Header';
+import TopNav from '@/components/TopNav';
 import SemanticSearchPage from '@/components/search/SemanticSearchPage';
 import { getAboutContent, getSearchCovers } from '@/lib/content';
 
@@ -9,7 +9,7 @@ export default async function SearchPage() {
 
   return (
     <div className="relative min-h-screen bg-[#0e0d0c] text-[#E8E6DC] overflow-x-hidden">
-      <Header showHomeButton aboutContent={aboutContent} theme="dark" />
+      <TopNav aboutContent={aboutContent} theme="dark" />
       <SemanticSearchPage covers={covers} />
     </div>
   );

@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { useRef } from 'react';
+import TopNav from './TopNav';
 
 interface RandomMasonryProps {
     initialBooks: RandomBook[];
@@ -182,28 +182,8 @@ export default function RandomMasonry({ initialBooks, initialCursor, seed }: Ran
                 />
             </div>
 
-            {/* Logo - Top Left */}
-            <a href="/" className="fixed top-6 left-6 md:top-8 md:left-8 z-[60] pointer-events-auto opacity-70 hover:opacity-100 transition-opacity duration-300">
-                <img src="/favicon.png" alt="Logo" className="h-8 md:h-10 w-auto" />
-            </a>
-
-            {/* Header Navigation */}
-            <div className="fixed top-0 left-0 right-0 z-50 flex justify-center items-start pt-6 pointer-events-none">
-                <div className="flex items-center gap-3 pointer-events-auto">
-                    <Link href="/" className="flex items-center justify-center gap-2 border border-[#C9A063]/30 bg-transparent px-4 py-2 md:px-5 md:py-2.5 text-sm md:text-base font-mono tracking-wider text-[#C9A063]/80 hover:bg-[#C9A063] hover:text-[#1a1a1a] transition-colors duration-300">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                        </svg>
-                        <span>首页</span>
-                    </Link>
-                    <Link href="/archive" className="flex items-center justify-center gap-2 border border-[#C9A063]/30 bg-transparent px-4 py-2 md:px-5 md:py-2.5 text-sm md:text-base font-mono tracking-wider text-[#C9A063]/80 hover:bg-[#C9A063] hover:text-[#1a1a1a] transition-colors duration-300">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                        </svg>
-                        <span>往期</span>
-                    </Link>
-                </div>
-            </div>
+            {/* Header Navigation（全站统一顶部导航） */}
+            <TopNav theme="dark" />
 
             {/* Main Content */}
             <div className="relative z-10 w-full px-6 md:px-10 lg:px-16 py-32 mx-auto max-w-6xl">

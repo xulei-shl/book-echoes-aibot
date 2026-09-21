@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { Book } from '@/types';
 import BookCard from './BookCard';
 import InfoPanel from './InfoPanel';
 import Dock from './Dock';
-import Header from './Header';
+import TopNav from './TopNav';
 import { useStore } from '@/store/useStore';
 import { AnimatePresence } from 'framer-motion';
 import { useSearchParams } from 'next/navigation';
@@ -25,8 +25,7 @@ export default function Canvas({ books, month, subjectLabel }: CanvasProps) {
         setFocusedBookId
     } = useStore();
 
-    // 添加一个状态来跟踪最后选中的主题卡/文学FM
-    const [lastSubjectBook, setLastSubjectBook] = useState<Book | null>(null);
+
     const searchParams = useSearchParams();
     const focusId = searchParams?.get('focus');
     const appliedFocusRef = useRef<string | null>(null);
@@ -114,15 +113,8 @@ export default function Canvas({ books, month, subjectLabel }: CanvasProps) {
 
     const focusedBook = books.find(b => b.id === focusedBookId);
 
-    // 当有书籍被选中时，检查是否是主题卡或文学FM
-    useEffect(() => {
-        if (focusedBook && (focusedBook.month?.includes('-subject-') || focusedBook.month?.includes('-literature-'))) {
-            setLastSubjectBook(focusedBook);
-        }
-    }, [focusedBook]);
-
-    // 传递最后选中的主题卡/文学FM给Header
-    const currentBookForHeader = focusedBook || lastSubjectBook;
+    // 传递选中的主题卡/文学FM给TopNav（直接派生，无 effect 中转，避免级联渲染）
+    const currentBookForHeader = focusedBook;
 
     return (
         <div className="relative w-screen h-screen overflow-hidden bg-[#1a1a1a]">
@@ -148,8 +140,8 @@ export default function Canvas({ books, month, subjectLabel }: CanvasProps) {
 
             <div className="noise-overlay" />
 
-            {/* Header with Logo and Home Button */}
-            <Header showHomeButton={true} theme="dark" currentBook={currentBookForHeader} month={month} />
+            {/* TopNav with Logo and Navigation Buttons */}
+            <TopNav theme="dark" currentBook={currentBookForHeader} month={month} />
             
   
             {/* Books Layer */}

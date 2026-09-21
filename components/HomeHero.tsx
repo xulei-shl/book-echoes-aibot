@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import TopNav from './TopNav';
 
 interface HomeHeroProps {
     images: string[];
@@ -22,16 +23,8 @@ const VERTICAL_LINES = [...Array(13)].map((_, i) => ({
     delay: i * 0.15
 }));
 
-// 背景线条装饰组件
+// 背景线条装饰组件（内容确定性渲染，动画初始态为透明，无水合风险）
 function HeroLineDecoration() {
-    const [mounted, setMounted] = useState(false);
-
-    useEffect(() => {
-        setMounted(true);
-    }, []);
-
-    if (!mounted) return null;
-
     return (
         <div className="absolute inset-0 z-[5] overflow-hidden pointer-events-none">
             {/* 基础暗色渐变背景 - 增强文字可读性 */}
@@ -95,10 +88,8 @@ export default function HomeHero({ images, targetLink, title, subtitle }: HomeHe
     return (
         <div className="relative w-full h-screen overflow-hidden flex flex-col items-center justify-center bg-[#1a1a1a]">
 
-            {/* Logo - Top Left */}
-            <a href="/" className="fixed top-6 left-6 md:top-8 md:left-8 z-[60] pointer-events-auto opacity-70 hover:opacity-100 transition-opacity duration-300">
-                <img src="/favicon.png" alt="Logo" className="h-8 md:h-10 w-auto" />
-            </a>
+            {/* Logo - Top Left（全站统一顶部导航，首页仅显示 Logo） */}
+            <TopNav showButtons={false} />
 
             {/* 抽象线条装饰层 - 最底层 */}
             <HeroLineDecoration />

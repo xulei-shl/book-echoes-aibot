@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
-import Header from './Header';
+import TopNav from './TopNav';
 
 interface Month {
     id: string;
@@ -68,8 +68,8 @@ export default function ArchiveGrid({ months, aboutContent }: ArchiveGridProps) 
             {/* Noise Texture for High-end Feel */}
             <div className="noise-overlay" />
 
-            {/* Header with Logo */}
-            <Header showHomeButton={true} aboutContent={aboutContent} />
+            {/* TopNav with Logo */}
+            <TopNav aboutContent={aboutContent} />
 
             {/* 
                 Main Grid - High-end "Double Line" Design

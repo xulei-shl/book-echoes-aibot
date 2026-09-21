@@ -1,5 +1,5 @@
 import { getArchiveData, getAboutContent } from '@/lib/content';
-import Header from '@/components/Header';
+import TopNav from '@/components/TopNav';
 import ArchiveContent from '@/components/ArchiveContent';
 
 export const metadata = {
@@ -17,7 +17,7 @@ export default async function ArchivePage() {
 
     return (
         <main className="relative min-h-screen bg-[#1a1a1a] overflow-hidden">
-            <Header showHomeButton={true} aboutContent={aboutContent} theme="dark" />
+            <TopNav aboutContent={aboutContent} theme="dark" />
 
             {/* Background Grid System */}
             <div className="fixed inset-0 z-0 pointer-events-none">
