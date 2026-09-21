@@ -129,10 +129,16 @@ export default function Header({ showHomeButton = false, aboutContent, theme = '
         return () => window.removeEventListener('scroll', handleScroll);
     }, [lastScrollY]);
 
-    const buttonStyles = "flex items-center justify-center gap-2 border border-[#C9A063]/30 bg-transparent px-4 py-2 md:px-5 md:py-2.5 text-sm md:text-base font-mono tracking-wider text-[#C9A063]/80 hover:bg-[#C9A063] hover:text-[#1a1a1a] transition-colors duration-300";
+    const isDark = theme === 'dark';
+    const buttonStyles = isDark
+        ? "group flex items-center justify-center gap-2 rounded-xl border border-[#C9A063]/40 bg-[#161514]/90 px-4 py-2 md:px-5 md:py-2.5 text-sm md:text-base font-mono tracking-wider text-[#F2F0E9] shadow-[0_4px_16px_rgba(0,0,0,0.5)] backdrop-blur-md hover:bg-[#C9A063] hover:text-[#161514] transition-all duration-300"
+        : "flex items-center justify-center gap-2 border border-[#C9A063]/30 bg-transparent px-4 py-2 md:px-5 md:py-2.5 text-sm md:text-base font-mono tracking-wider text-[#C9A063]/80 hover:bg-[#C9A063] hover:text-[#1a1a1a] transition-colors duration-300";
 
     return (
         <header className="fixed top-0 left-0 right-0 z-50 pointer-events-none">
+            {isDark && (
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-[#0e0d0c]/90 via-[#0e0d0c]/60 to-transparent" />
+            )}
             <div className="relative flex items-center justify-between px-6 py-6 md:px-8 md:py-8">
                 {/* Logo - Left */}
                 <a href="/" className="pointer-events-auto opacity-70 hover:opacity-100 transition-opacity duration-300">

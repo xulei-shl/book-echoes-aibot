@@ -59,6 +59,7 @@ export function transformMetadataToBook(item: MetadataEntry, month: string): Boo
         authorIntro: String(item[FIELDS.authorIntro] || ''),
         catalog: String(item[FIELDS.catalog] || ''),
         coverUrl: resolveImageUrl(String(item.coverImageUrl || item[FIELDS.coverBackup] || ''), legacyCoverImagePath(month, id)),
+        coverImageUrl: resolveImageUrl(String(item.coverImageUrl || item[FIELDS.coverBackup] || ''), legacyCoverImagePath(month, id)),
         coverThumbnailUrl: resolveImageUrl(item.coverThumbnailUrl ? String(item.coverThumbnailUrl) : undefined, legacyCoverThumbnailPath(month, id)),
         cardImageUrl: resolveImageUrl(item.cardImageUrl ? String(item.cardImageUrl) : undefined, legacyCardImagePath(month, id)),
         cardThumbnailUrl: resolveImageUrl(item.cardThumbnailUrl ? String(item.cardThumbnailUrl) : undefined, legacyCardThumbnailPath(month, id)),

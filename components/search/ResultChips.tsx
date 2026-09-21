@@ -46,31 +46,31 @@ export default function ResultChips({ intent, mode, degraded }: ResultChipsProps
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="rounded-full border border-[#C9A063]/40 bg-[#C9A063]/10 px-3 py-1 font-mono text-[11px] tracking-wider text-[#C9A063]">
+      <span className="rounded-full border border-[#C9A063]/50 bg-[#161514]/95 px-3 py-1 font-mono text-[11px] font-medium tracking-wider text-[#C9A063] shadow-md backdrop-blur-md">
         {INTENT_LABELS[intent.type] ?? intent.type}
       </span>
-      <span className="rounded-full border border-[#6F6D68]/40 px-3 py-1 font-mono text-[11px] tracking-wider text-[#A2A09A]">
+      <span className="rounded-full border border-white/10 bg-[#161514]/90 px-3 py-1 font-mono text-[11px] tracking-wider text-[#F2F0E9] shadow-sm backdrop-blur-md">
         {mode === 'deep' ? '深入模式' : '快速模式'}
       </span>
-      <span className="rounded-full border border-[#6F6D68]/40 px-3 py-1 font-mono text-[11px] tracking-wider text-[#A2A09A]">
+      <span className="rounded-full border border-white/10 bg-[#161514]/90 px-3 py-1 font-mono text-[11px] tracking-wider text-[#DCD9D0] shadow-sm backdrop-blur-md">
         召回 {intent.retrieval.lexicalHits} 词法 / {intent.retrieval.denseHits} 语义
       </span>
       {intent.needsWiderRecall > 0.5 && (
-        <span className="rounded-full border border-[#8B3A3A]/50 px-3 py-1 font-mono text-[11px] tracking-wider text-[#D4A574]">
+        <span className="rounded-full border border-[#8B3A3A]/60 bg-[#2A1515]/90 px-3 py-1 font-mono text-[11px] tracking-wider text-[#F5C2C2] shadow-sm backdrop-blur-md">
           需要全库语义扫描
         </span>
       )}
       {facetChips.map(chip => (
         <span
           key={chip}
-          className="rounded-full border border-[#6F6D68]/30 px-3 py-1 font-body text-[11px] text-[#A2A09A]"
+          className="rounded-full border border-white/10 bg-[#161514]/90 px-3 py-1 font-body text-[11px] text-[#DCD9D0] shadow-sm backdrop-blur-md"
         >
           {chip}
         </span>
       ))}
 
       {degraded.length > 0 && (
-        <span className="w-full font-mono text-[11px] leading-relaxed text-[#D4A574]">
+        <span className="mt-1 w-full rounded-lg border border-[#8B3A3A]/40 bg-[#2A1515]/85 px-3 py-1.5 font-mono text-[11px] leading-relaxed text-[#F5C2C2] shadow-sm backdrop-blur-md">
           {degraded.slice(0, 3).map(describeDegraded).join(' · ')}
         </span>
       )}

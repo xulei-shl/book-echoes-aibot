@@ -3,18 +3,19 @@
 import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import type { RandomIndexItem } from '@/lib/content';
+import type { SearchCoverItem } from '@/lib/content';
 import type { SearchMode, SearchResultItem, SemanticSearchResponse } from '@/lib/search/types';
+import BookDetailModal from './BookDetailModal';
 import CoverTunnel from './CoverTunnel';
 import ResultChips from './ResultChips';
 import ResultGallery from './ResultGallery';
 import SearchBox from './SearchBox';
 
-/** idle → searching → results / abstained → idle（图 5 状态机） */
+/** idle → searching → results / abstained → idle */
 type View = 'idle' | 'searching' | 'results' | 'abstained';
 
 interface SemanticSearchPageProps {
-  covers: RandomIndexItem[];
+  covers: SearchCoverItem[];
 }
 
 export default function SemanticSearchPage({ covers }: SemanticSearchPageProps) {
@@ -25,6 +26,7 @@ export default function SemanticSearchPage({ covers }: SemanticSearchPageProps) 
   const [isFocused, setIsFocused] = useState(false);
   const [response, setResponse] = useState<SemanticSearchResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [activeDetailItem, setActiveDetailItem] = useState<SearchResultItem | null>(null);
 
   const showTop = view !== 'idle';
 
@@ -65,33 +67,52 @@ export default function SemanticSearchPage({ covers }: SemanticSearchPageProps) 
     setView('idle');
   };
 
-  const open = (item: SearchResultItem) => router.push(item.deepLink);
+  const handleOpenDetail = (item: SearchResultItem) => {
+    setActiveDetailItem(item);
+  };
+
+  const handleNavigate = (deepLink: string) => {
+    router.push(deepLink);
+  };
+
+  // 获取结果命中的图书ID列表，联动 3D 背景进行光影高亮呼应
+  const matchedIds = response?.results.map(r => r.book.id);
 
   return (
     <>
-      <CoverTunnel covers={covers} dimmed={isFocused || view === 'searching'} />
+      <CoverTunnel
+        covers={covers}
+        dimmed={isFocused || view !== 'idle'}
+        highlightIds={matchedIds}
+      />
 
-      <main
-        className={`relative z-10 mx-auto flex min-h-screen w-full max-w-6xl flex-col px-5 transition-[padding] duration-500 md:px-8 ${
-          showTop ? 'justify-start pb-24 pt-[5vh]' : 'justify-center pb-[14vh]'
-        }`}
-      >
+      {/*
+        容器采用固定稳健内边距 pt-24 md:pt-28，
+        留出顶部 Header 导航栏的绝对安全高度（64px~80px），杜绝重叠！
+      */}
+      <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-6xl flex-col items-center px-5 pt-24 pb-24 md:px-8 md:pt-28">
+        {/*
+          检索枢纽区：通过纯 GPU 合成层 translateY 驱动初始居中 (20vh) 与 常驻顶部 (0)，
+          彻底消除父级 Flex 切换引发的重排与卡顿，实现 120fps 极度丝滑物理过渡！
+        */}
         <motion.div
-          layout
-          transition={{ layout: { duration: 0.55, ease: [0.22, 1, 0.36, 1] } }}
-          className="mx-auto w-full max-w-2xl"
+          animate={{ y: showTop ? 0 : '18vh' }}
+          transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+          className="w-full max-w-2xl"
         >
           <AnimatePresence>
             {!showTop && (
-              <motion.h1
-                initial={{ opacity: 0, scale: 0.92, y: 12 }}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.94, y: 10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, y: -12 }}
-                transition={{ type: 'spring', stiffness: 220, damping: 24 }}
-                className="mb-8 text-center font-hero-title text-3xl tracking-wide text-[#E8E6DC] drop-shadow-[0_4px_24px_rgba(0,0,0,0.6)] md:text-4xl"
+                exit={{ opacity: 0, scale: 0.95, y: -14, height: 0 }}
+                transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                className="overflow-hidden"
               >
-                在馆藏里找一本书
-              </motion.h1>
+                <h1 className="mb-6 text-center font-hero-title text-3xl tracking-wider text-[#F2F0E9] drop-shadow-[0_4px_24px_rgba(0,0,0,0.85)] md:text-4xl">
+                  在馆藏里找一本书
+                </h1>
+              </motion.div>
             )}
           </AnimatePresence>
 
@@ -109,28 +130,32 @@ export default function SemanticSearchPage({ covers }: SemanticSearchPageProps) 
         </motion.div>
 
         {error && (
-          <p className="mx-auto mt-8 max-w-2xl text-center font-body text-sm text-[#D4A574]">
+          <motion.p
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-6 rounded-xl border border-[#D4A574]/40 bg-[#161514]/90 px-4 py-2 text-center font-body text-sm text-[#E5BE82] shadow-lg backdrop-blur-md"
+          >
             {error}
-          </p>
+          </motion.p>
         )}
 
         <AnimatePresence mode="wait">
           {view === 'abstained' && (
             <motion.section
               key="abstained"
-              initial={{ opacity: 0, y: 16 }}
+              initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
+              exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-              className="mx-auto mt-16 max-w-xl rounded-2xl border border-[#C9A063]/25 bg-[#1a1a1a]/50 p-8 text-center backdrop-blur-xl"
+              className="mt-12 w-full max-w-xl rounded-2xl border border-[#C9A063]/40 bg-[#161514]/95 p-8 text-center shadow-2xl backdrop-blur-xl"
             >
-              <p className="font-display text-lg text-[#E8E6DC]">馆藏里没有合适的</p>
-              <p className="mt-3 font-body text-sm leading-relaxed text-[#A2A09A]">
-                这次没有找到真正相关的书，所以没有硬塞结果。可以换一个说法，或补充主题、人物、年代等线索再试。
+              <p className="font-display text-lg text-[#F2F0E9]">馆藏里没有高度契合的书籍</p>
+              <p className="mt-3 font-body text-sm leading-relaxed text-[#DCD9D0]">
+                这次没有检索到真正相关的藏书，因此没有勉强提供不精准的结果。建议补充作者、主题背景或时代线索再试。
               </p>
               {response && response.degraded.length > 0 && (
-                <p className="mt-4 font-mono text-[11px] text-[#6F6D68]">
-                  部分能力已降级：{response.degraded.join('、')}
+                <p className="mt-4 font-mono text-[11px] text-[#A8A59E]">
+                  部分辅助通道已降级：{response.degraded.join('、')}
                 </p>
               )}
             </motion.section>
@@ -139,22 +164,30 @@ export default function SemanticSearchPage({ covers }: SemanticSearchPageProps) 
           {view === 'results' && response && response.results.length > 0 && (
             <motion.section
               key="results"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.4 }}
-              className="mt-10"
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 16 }}
+              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+              className="mt-8 w-full"
             >
-              <ResultChips intent={response.intent} mode={response.mode} degraded={response.degraded} />
-              <div className="mt-8">
-                <ResultGallery results={response.results} onOpen={open} />
+              <div className="mb-6 flex justify-center">
+                <ResultChips intent={response.intent} mode={response.mode} degraded={response.degraded} />
               </div>
+              <ResultGallery results={response.results} onOpen={handleOpenDetail} />
             </motion.section>
           )}
         </AnimatePresence>
       </main>
 
+      {/* 单本详读无缝展开画卷 */}
+      <BookDetailModal
+        item={activeDetailItem}
+        onClose={() => setActiveDetailItem(null)}
+        onNavigate={handleNavigate}
+      />
+
       <div className="noise-overlay" style={{ zIndex: 20 }} />
     </>
   );
 }
+

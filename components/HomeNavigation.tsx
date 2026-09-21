@@ -37,7 +37,7 @@ export default function HomeNavigation({ aboutContent }: HomeNavigationProps) {
                         href="/search"
                         className="font-display text-lg md:text-xl text-[#E8E6DC] hover:text-[#D4A574] hover:drop-shadow-[0_0_12px_rgba(212,165,116,0.6)] transition-all duration-300 hover:scale-105"
                     >
-                        语义检索 →
+                        语义检索
                     </Link>
                 )}
 

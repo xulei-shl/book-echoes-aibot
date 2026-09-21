@@ -1,51 +1,70 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import type { RandomIndexItem } from '@/lib/content';
+import { useEffect, useMemo, useRef } from 'react';
+import type { SearchCoverItem } from '@/lib/content';
 
-/** 基础滚动速度（px/s）。悬停时平滑降到 0，移开后缓动恢复。 */
-const BASE_VELOCITY = 22;
+/** 基础慢速巡航速度（px/s）：沉稳悠扬的书香漫游感，不受鼠标悬停干扰 */
+const CRUISE_SPEED = 12;
+
+/** 8 列交错位移序列（px），打破横平竖直的表格感，营造如同杂志展廊般的流动波浪律动 */
+const COLUMN_OFFSETS = [0, 68, 20, 84, 32, 76, 12, 52];
 
 interface CoverTunnelProps {
-  covers: RandomIndexItem[];
-  /** 聚焦检索框时背景退让（Blur + 压暗） */
+  covers: SearchCoverItem[];
+  /** 聚焦检索框或检索中时背景退让（Blur + 压暗） */
   dimmed: boolean;
+  /** 可选：当外部有高亮图书时的 ID 列表 */
+  highlightIds?: string[];
 }
 
 /**
- * 3D 沉浸式动态背景层：perspective + rotateX 形成星战片头视场，
- * 底→顶无限循环 Marquee，四周羽化 Mask，每张封面叠加微弱 Float。
- *
- * 性能：rAF 里**只写** transform；持续动画元素预置 will-change。
+ * 3D 沉浸式动态背景书墙：
+ * - 近似垂直立墙视场（rotateX: 10deg, perspective: 1600px），全面铺满屏幕，杜绝顶部与两侧死黑空白
+ * - 恒速持续巡航：移除鼠标悬停停止逻辑，以 12px/s 极慢从容速度永恒向上漫游
+ * - 真正的数学级双段无缝无限循环：Block A + Spacer + Block B，精确按周期像素复位，0 像素视觉跳动
+ * - 8 列错位瀑布流（Staggered Waterfall Columns），呈现杂志级高级排版审美
  */
-export default function CoverTunnel({ covers, dimmed }: CoverTunnelProps) {
+export default function CoverTunnel({ covers, dimmed, highlightIds }: CoverTunnelProps) {
   const trackRef = useRef<HTMLDivElement>(null);
+  const firstBlockRef = useRef<HTMLDivElement>(null);
+  const periodRef = useRef(0);
   const offsetRef = useRef(0);
-  const velocityRef = useRef(BASE_VELOCITY);
-  const halfHeightRef = useRef(0);
   const lastTimeRef = useRef<number | null>(null);
-  const hoveredRef = useRef(false);
-  const [hovered, setHovered] = useState(false);
 
-  const loop = covers.length > 0 ? [...covers, ...covers] : [];
+  // 将全量封面平均分流到 8 个纵向流中
+  const columns = useMemo(() => {
+    if (!covers || covers.length === 0) return [];
+    const count = Math.floor(covers.length / 8) * 8;
+    const pool = count > 0 ? covers.slice(0, count) : covers;
+    const cols: SearchCoverItem[][] = Array.from({ length: 8 }, () => []);
+    pool.forEach((item, i) => {
+      cols[i % 8].push(item);
+    });
+    return cols;
+  }, [covers]);
 
+  // 动态监听并精确测量第一段 Block 的高度 + gap，构成严丝合缝的单轮周期
   useEffect(() => {
-    hoveredRef.current = hovered;
-  }, [hovered]);
+    const el = firstBlockRef.current;
+    if (!el) return;
 
-  // 只在挂载 / 封面变更 / 尺寸变化时测量一次，绝不在 rAF 循环里读 layout
-  useEffect(() => {
     const measure = () => {
-      if (trackRef.current) halfHeightRef.current = trackRef.current.scrollHeight / 2;
+      const spacer = el.nextElementSibling as HTMLElement | null;
+      const gap = spacer ? spacer.offsetHeight : 24;
+      periodRef.current = el.offsetHeight + gap;
     };
-    const raf = requestAnimationFrame(measure);
+
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
     window.addEventListener('resize', measure);
     return () => {
-      cancelAnimationFrame(raf);
+      ro.disconnect();
       window.removeEventListener('resize', measure);
     };
-  }, [loop.length]);
+  }, [columns]);
 
+  // 60fps~120fps 恒速平滑循环流动（移除悬停减速停止，实现无间断漫游）
   useEffect(() => {
     let raf = 0;
     const step = (time: number) => {
@@ -53,14 +72,18 @@ export default function CoverTunnel({ covers, dimmed }: CoverTunnelProps) {
       const dt = Math.min(0.05, (time - last) / 1000);
       lastTimeRef.current = time;
 
-      const target = hoveredRef.current ? 0 : BASE_VELOCITY;
-      // 帧率无关的指数缓动，避免急刹车
-      velocityRef.current += (target - velocityRef.current) * (1 - Math.exp(-dt * 4));
-      offsetRef.current -= velocityRef.current * dt;
+      offsetRef.current -= CRUISE_SPEED * dt;
 
-      const half = halfHeightRef.current;
-      if (half > 0 && -offsetRef.current >= half) offsetRef.current += half;
-      if (offsetRef.current > 0) offsetRef.current -= half;
+      const period = periodRef.current;
+      if (period > 0) {
+        // 达到一个周期高度即无缝回绕，Block B 完全覆盖 Block A，视觉跳动为 0
+        if (-offsetRef.current >= period) {
+          offsetRef.current += period;
+        }
+        if (offsetRef.current > 0) {
+          offsetRef.current -= period;
+        }
+      }
 
       if (trackRef.current) {
         trackRef.current.style.transform = `translate3d(0, ${offsetRef.current}px, 0)`;
@@ -71,65 +94,128 @@ export default function CoverTunnel({ covers, dimmed }: CoverTunnelProps) {
     return () => cancelAnimationFrame(raf);
   }, []);
 
+  const renderBookItem = (item: SearchCoverItem, colIdx: number, itemIdx: number) => {
+    const isHighlighted = highlightIds?.includes(item.id);
+    const coverSrc = item.coverThumbnailUrl || item.coverImageUrl;
+
+    return (
+      <div key={`${item.id}-${itemIdx}`} className="relative">
+        <div
+          className="cover-float relative aspect-[2/3] overflow-hidden rounded-md bg-[#18181b] transition-all duration-300"
+          style={
+            {
+              '--float-i': (colIdx * 3 + itemIdx) % 9,
+              outline: isHighlighted
+                ? '1.5px solid rgba(201, 160, 99, 0.95)'
+                : '1px solid rgba(255, 255, 255, 0.08)',
+              boxShadow: isHighlighted
+                ? '0 16px 36px -6px rgba(0,0,0,0.85), 0 0 20px rgba(201,160,99,0.3)'
+                : '0 8px 20px -4px rgba(0,0,0,0.55)',
+              transform: isHighlighted
+                ? 'translateZ(16px) scale(1.03)'
+                : 'translateZ(0px) scale(1)'
+            } as React.CSSProperties
+          }
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={coverSrc}
+            alt={item.title || ''}
+            loading={itemIdx < 4 ? 'eager' : 'lazy'}
+            decoding="async"
+            draggable={false}
+            className={`h-full w-full object-cover transition-opacity duration-500 ${
+              isHighlighted ? 'opacity-100' : 'opacity-85'
+            }`}
+          />
+
+          {/* 书脊立体微光微阴影 */}
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-white/10 via-transparent to-black/25" />
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div
-      className="fixed inset-0 z-0 overflow-hidden bg-[#0b0b0b]"
-      style={{
-        perspective: '1200px',
-        // 四周羽化 Mask：不占布局、无额外 DOM
-        WebkitMaskImage:
-          'linear-gradient(to bottom, transparent, #000 12%, #000 88%, transparent), linear-gradient(to right, transparent, #000 10%, #000 90%, transparent)',
-        WebkitMaskComposite: 'source-in',
-        maskImage:
-          'linear-gradient(to bottom, transparent, #000 12%, #000 88%, transparent), linear-gradient(to right, transparent, #000 10%, #000 90%, transparent)',
-        maskComposite: 'intersect'
-      }}
-      onPointerEnter={() => setHovered(true)}
-      onPointerLeave={() => setHovered(false)}
+      className="fixed inset-0 z-0 overflow-hidden bg-[#0e0d0c] select-none pointer-events-none"
       aria-hidden="true"
     >
+      {/* 空间暗角与柔和书香暖金色径向光 */}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(201,160,99,0.06),transparent_70%)]" />
+
+      {/* 退让景深层：聚焦检索框或检索中时触发平滑 GPU 模糊与微弱压暗 */}
       <div
-        className="absolute inset-0 transition-[filter] duration-700 ease-out"
+        className="absolute inset-0 transition-[filter,opacity] duration-700 ease-out"
         style={{
-          filter: dimmed ? 'blur(7px) brightness(0.6)' : 'blur(0px) brightness(1)',
-          willChange: 'filter'
+          filter: dimmed ? 'blur(6px) brightness(0.55)' : 'blur(0px) brightness(0.95)',
+          opacity: dimmed ? 0.7 : 1,
+          willChange: 'filter, opacity'
         }}
       >
+        {/*
+          3D 垂直近景视口：
+          - rotateX: 10deg 近乎垂直立墙，彻底告别原先 52deg 的卧倒地面感
+          - perspective: 1600px 消除近大远小的梯形夹角，保持书墙两翼平挺开阔
+          - 视口覆盖范围为 -10vw 到 110vw，消除左右两侧死黑三角区
+          - 上部羽化 Mask 仅在最顶部 8% 处轻微淡出，让书墙自然贯穿全屏
+        */}
         <div
-          className="absolute inset-0"
+          className="absolute -inset-x-[10vw] -inset-y-[12vh] w-[120vw] h-[124vh]"
           style={{
-            transform: 'rotateX(22deg) scale(1.6)',
-            transformOrigin: '50% 50%',
-            willChange: 'transform'
+            perspective: '1600px',
+            perspectiveOrigin: '50% 45%',
+            WebkitMaskImage:
+              'linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.5) 4%, #000 10%, #000 92%, transparent 100%)',
+            maskImage:
+              'linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.5) 4%, #000 10%, #000 92%, transparent 100%)'
           }}
         >
           <div
-            ref={trackRef}
-            className="grid grid-cols-4 gap-[clamp(3rem,6vw,7rem)] px-[8vw] md:grid-cols-6 lg:grid-cols-8"
-            style={{ willChange: 'transform' }}
+            className="absolute inset-0 flex justify-center"
+            style={{
+              transform: 'rotateX(10deg)',
+              transformOrigin: '50% 45%',
+              transformStyle: 'preserve-3d',
+              willChange: 'transform'
+            }}
           >
-            {loop.map((item, index) => (
-              <div
-                key={`${item.id}-${index}`}
-                className="cover-float aspect-[2/3] overflow-hidden rounded-sm bg-[#1a1a1a]"
-                style={
-                  {
-                    '--float-i': index % 9,
-                    animationPlayState: hovered ? 'paused' : 'running'
-                  } as React.CSSProperties
-                }
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={item.thumbnailUrl || item.imageUrl}
-                  alt=""
-                  loading={index < 16 ? 'eager' : 'lazy'}
-                  decoding="async"
-                  draggable={false}
-                  className="h-full w-full object-cover opacity-75"
-                />
-              </div>
-            ))}
+            {/* 8 列错位瀑布流阵列：各列纵向交错落差，双段 Block 保证无限无缝闭环 */}
+            <div
+              ref={trackRef}
+              className="grid grid-cols-4 gap-4 sm:gap-5 md:grid-cols-6 lg:gap-6 xl:grid-cols-8 px-6 w-full max-w-[1920px] justify-center"
+              style={{ willChange: 'transform' }}
+            >
+              {columns.map((colItems, colIdx) => (
+                <div
+                  key={colIdx}
+                  className={`flex flex-col ${
+                    colIdx >= 6 ? 'hidden xl:flex' : colIdx >= 4 ? 'hidden md:flex' : 'flex'
+                  }`}
+                  style={{
+                    transform: `translate3d(0, ${COLUMN_OFFSETS[colIdx]}px, 0)`
+                  }}
+                >
+                  {/* 第一段 Block A */}
+                  <div
+                    ref={colIdx === 0 ? firstBlockRef : undefined}
+                    className="flex flex-col gap-5 sm:gap-6 lg:gap-7"
+                  >
+                    {colItems.map((item, index) => renderBookItem(item, colIdx, index))}
+                  </div>
+
+                  {/* 中间无缝过渡间距，高度严格对齐 gap */}
+                  <div className="h-5 sm:h-6 lg:h-7 shrink-0" />
+
+                  {/* 第二段 Block B（完全相同的内容，确保循环时零跳动无缝衔接） */}
+                  <div className="flex flex-col gap-5 sm:gap-6 lg:gap-7">
+                    {colItems.map((item, index) =>
+                      renderBookItem(item, colIdx, index + colItems.length)
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>

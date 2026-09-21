@@ -21,6 +21,7 @@ export interface Book {
     authorIntro: string;
     catalog: string;
     coverUrl: string;
+    coverImageUrl?: string;
     coverThumbnailUrl?: string;
     cardImageUrl?: string;
     cardThumbnailUrl?: string;

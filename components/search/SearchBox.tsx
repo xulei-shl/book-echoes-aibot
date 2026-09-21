@@ -1,14 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import type { SearchMode } from '@/lib/search/types';
 
 /** 打字机文案循环（真实阶段事件在 NDJSON 流式版本接入，此处与后端等待期对齐） */
 const STAGE_MESSAGES = [
-  '正在理解你的问题…',
-  '正在提取语义特征…',
-  '正在比对馆藏…',
-  '正在生成排序…'
+  '正在理解检索意图…',
+  '正在提取多维语义特征…',
+  '正在与全馆 443 本藏书空间比对…',
+  '正在由 Jev 进行语义判定与排序…'
 ];
 
 function Typewriter({ messages }: { messages: string[] }) {
@@ -28,9 +29,9 @@ function Typewriter({ messages }: { messages: string[] }) {
         clearInterval(timer);
         advance = setTimeout(() => {
           if (!cancelled) setIndex(value => value + 1);
-        }, 900);
+        }, 1200);
       }
-    }, 80);
+    }, 70);
     return () => {
       cancelled = true;
       clearInterval(timer);
@@ -39,9 +40,9 @@ function Typewriter({ messages }: { messages: string[] }) {
   }, [index, messages]);
 
   return (
-    <span className="font-mono text-xs tracking-wider text-[#C9A063]">
-      {text}
-      <span className="animate-pulse">▍</span>
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C9A063]/30 bg-[#141312]/90 px-3 py-1 font-body text-xs tracking-wider text-[#E5BE82] shadow-md backdrop-blur-md">
+      <span>{text}</span>
+      <span className="inline-block h-3 w-1 bg-[#C9A063] animate-pulse" />
     </span>
   );
 }
@@ -70,105 +71,112 @@ export default function SearchBox({
   onModeChange
 }: SearchBoxProps) {
   return (
-    <div className="w-full">
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95, y: 14 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 26 }}
+      className="w-full"
+    >
       <form
         onSubmit={event => {
           event.preventDefault();
           onSubmit();
         }}
-        className={`relative flex items-center gap-3 rounded-3xl border bg-[#1a1a1a]/55 px-5 py-4 backdrop-blur-xl transition-all duration-500 md:px-6 md:py-5 ${
+        className={`relative flex items-center gap-3.5 rounded-2xl border px-5 py-3.5 backdrop-blur-2xl transition-all duration-300 md:px-6 md:py-4.5 ${
           isFocused
-            ? 'border-[#C9A063]/70 shadow-[0_24px_70px_rgba(0,0,0,0.55)] ring-2 ring-[#C9A063]/40'
-            : 'border-[#C9A063]/30 shadow-[0_20px_60px_rgba(0,0,0,0.45)]'
+            ? 'border-[#C9A063] bg-[#181716]/90 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.85),0_0_28px_rgba(201,160,99,0.22)] ring-1 ring-[#C9A063]/50'
+            : 'border-[#C9A063]/30 bg-[#161514]/80 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.7),0_0_20px_rgba(201,160,99,0.06)] hover:border-[#C9A063]/50'
         }`}
       >
-        <svg
-          className="h-5 w-5 shrink-0 text-[#C9A063]"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          aria-hidden="true"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z"
-          />
-        </svg>
+        {/* 借阅卡铜标纹章 / 搜索微标 */}
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#C9A063]/10 text-[#C9A063]">
+          <svg
+            className="h-4.5 w-4.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.75}
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z"
+            />
+          </svg>
+        </div>
 
         <input
           value={value}
           onChange={event => onChange(event.target.value)}
           onFocus={() => onFocusChange(true)}
           onBlur={() => onFocusChange(false)}
-          placeholder="描述你想读的书，或输入书名 / 作者 / 索书号"
+          placeholder="描述你想读的书，或输入书名 / 作者 / 主题线索"
           maxLength={300}
-          aria-label="语义检索"
-          className="min-w-0 flex-1 bg-transparent font-body text-base text-[#E8E6DC] outline-none placeholder:text-[#6F6D68] md:text-lg"
+          aria-label="图书语义检索"
+          className="min-w-0 flex-1 bg-transparent font-body text-base text-[#F2F0E9] outline-none placeholder:text-[#A8A59E] md:text-lg"
         />
 
         {value.length > 0 && !isSearching && (
-          <button
+          <motion.button
+            whileTap={{ scale: 0.96 }}
             type="button"
             onClick={onClear}
-            aria-label="清空"
-            className="shrink-0 text-[#6F6D68] transition-colors hover:text-[#E8E6DC]"
+            aria-label="清空输入"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#B8B5AD] transition-colors hover:bg-white/10 hover:text-[#F2F0E9]"
           >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
-          </button>
+          </motion.button>
         )}
 
-        <button
+        {/* 提交动作胶囊按钮 */}
+        <motion.button
+          whileTap={{ scale: 0.96 }}
           type="submit"
           disabled={isSearching || value.trim().length === 0}
-          aria-label="检索"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#C9A063] text-[#1a1a1a] transition-all duration-300 hover:bg-[#D4A574] disabled:cursor-not-allowed disabled:opacity-40"
+          aria-label="开始语义检索"
+          className="flex h-9.5 w-9.5 shrink-0 items-center justify-center rounded-xl bg-[#C9A063] text-[#161514] shadow-md transition-all duration-200 hover:bg-[#D4A574] disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-[#C9A063]"
         >
           {isSearching ? (
-            <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <svg className="h-4.5 w-4.5 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
             </svg>
           ) : (
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M13 6l6 6-6 6" />
+            <svg className="h-4.5 w-4.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M13 6l6 6-6 6" />
             </svg>
           )}
-        </button>
+        </motion.button>
       </form>
 
-      <div className="mt-3 flex min-h-6 items-center justify-between gap-4 px-1">
-        <div>
-          {isSearching ? (
-            <Typewriter messages={STAGE_MESSAGES} />
-          ) : (
-            <span className="font-mono text-xs tracking-wider text-[#6F6D68]">
-              词法 + 稠密双 lane 召回 · Jev 逐本判定
-            </span>
-          )}
+      {/* 底部状态微调栏：打字机反馈与模式胶囊 */}
+      <div className="mt-3.5 flex min-h-6 items-center justify-between gap-4 px-2 text-xs">
+        <div className="min-w-0 flex-1">
+          {isSearching && <Typewriter messages={STAGE_MESSAGES} />}
         </div>
 
-        <div className="flex items-center gap-1 rounded-full border border-[#C9A063]/25 p-0.5">
+        <div className="flex items-center gap-1 rounded-lg border border-[#C9A063]/40 bg-[#141312]/90 p-0.5 shadow-md backdrop-blur-md">
           {(['fast', 'deep'] as const).map(option => (
-            <button
+            <motion.button
               key={option}
+              whileTap={{ scale: 0.96 }}
               type="button"
               onClick={() => onModeChange(option)}
-              className={`rounded-full px-3 py-1 font-mono text-[11px] tracking-wider transition-colors duration-300 ${
+              className={`rounded-md px-2.5 py-0.5 font-mono text-[11px] tracking-wider transition-all duration-200 ${
                 mode === option
-                  ? 'bg-[#C9A063] text-[#1a1a1a]'
-                  : 'text-[#A2A09A] hover:text-[#E8E6DC]'
+                  ? 'bg-[#C9A063] font-medium text-[#161514] shadow-sm'
+                  : 'text-[#DCD9D0] hover:text-[#F2F0E9]'
               }`}
-              title={option === 'fast' ? '快速：2 次语义判定' : '深入：补发全库语义宽召回'}
+              title={option === 'fast' ? '快速模式：两阶段语义判定' : '深入模式：补发全馆宽召回'}
             >
               {option === 'fast' ? '快速' : '深入'}
-            </button>
+            </motion.button>
           ))}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

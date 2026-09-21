@@ -404,3 +404,26 @@ export async function getRandomBooks(limit: number, cursor?: string, seed?: numb
   const items = await loadRandomIndex();
   return getRandomBooksFromIndex(items, limit, cursor, seed);
 }
+
+export interface SearchCoverItem {
+  id: string;
+  title: string;
+  coverThumbnailUrl: string;
+  coverImageUrl: string;
+}
+
+/**
+ * 获取搜索背景专用的真实图书封面数组
+ * 优先严格采用 metadata 中的 coverThumbnailUrl 和 coverImageUrl
+ */
+export async function getSearchCovers(limit = 120): Promise<SearchCoverItem[]> {
+  const books = await getAllBooksRandomized();
+  const valid = books.filter(b => b.coverThumbnailUrl || b.coverImageUrl);
+  return valid.slice(0, limit).map(b => ({
+    id: String(b['书目条码']),
+    title: String(b['豆瓣书名'] || ''),
+    coverThumbnailUrl: b.coverThumbnailUrl || b.coverImageUrl || '',
+    coverImageUrl: b.coverImageUrl || b.coverThumbnailUrl || ''
+  }));
+}
+

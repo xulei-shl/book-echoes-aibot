@@ -5,13 +5,6 @@ import { motion } from 'framer-motion';
 import type { SearchResultItem } from '@/lib/search/types';
 import WhyPopover from './WhyPopover';
 
-/** ≥70 金 / ≥40 灰金 / 其余灰 */
-function dotColor(relevancePct: number): string {
-  if (relevancePct >= 70) return '#C9A063';
-  if (relevancePct >= 40) return '#D4A574';
-  return '#6F6D68';
-}
-
 interface ResultCardProps {
   item: SearchResultItem;
   onOpen: (item: SearchResultItem) => void;
@@ -20,11 +13,9 @@ interface ResultCardProps {
 export default function ResultCard({ item, onOpen }: ResultCardProps) {
   const [whyOpen, setWhyOpen] = useState(false);
   const cover =
-    item.book.cardThumbnailUrl ||
     item.book.coverThumbnailUrl ||
-    item.book.cardImageUrl ||
+    item.book.coverImageUrl ||
     item.book.coverUrl;
-  const color = dotColor(item.relevancePct);
 
   return (
     <div className="group relative">
@@ -36,7 +27,7 @@ export default function ResultCard({ item, onOpen }: ResultCardProps) {
         transition={{ type: 'spring', stiffness: 420, damping: 30 }}
         className="w-full text-left"
       >
-        <div className="aspect-[2/3] overflow-hidden rounded-sm bg-[#1a1a1a] shadow-[0_10px_30px_rgba(0,0,0,0.4)]">
+        <div className="aspect-[2/3] overflow-hidden rounded-md bg-[#18181b] shadow-[0_12px_32px_rgba(0,0,0,0.5)] outline outline-1 outline-white/10 transition-all duration-300 group-hover:shadow-[0_18px_40px_rgba(0,0,0,0.7)] group-hover:outline-[#C9A063]/50">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={cover}
@@ -47,23 +38,15 @@ export default function ResultCard({ item, onOpen }: ResultCardProps) {
           />
         </div>
 
-        <div className="mt-3 flex items-start gap-2">
-          <span
-            className="mt-1.5 h-2 w-2 shrink-0 rounded-full"
-            style={{ backgroundColor: color }}
-            aria-hidden="true"
-          />
-          <div className="min-w-0">
-            <p className="truncate font-display text-sm text-[#E8E6DC]">{item.book.title}</p>
-            <p className="truncate font-body text-xs text-[#A2A09A]">
-              {item.book.author}
-              {item.book.pubYear ? ` · ${item.book.pubYear}` : ''}
-            </p>
-            <p className="mt-1 font-mono text-[11px] text-[#A2A09A]">
-              {item.ranked ? `${item.relevancePct}% 相关` : '待语义排序'}
-              {item.lanes.length > 0 ? ` · ${item.lanes.join('/')}` : ''}
-            </p>
-          </div>
+        {/* 底部信息区：仅保留题名与作者，配黑曜石毛玻璃底板与高对比度文字 */}
+        <div className="mt-2.5 rounded-lg border border-white/5 bg-[#141312]/85 px-2.5 py-1.5 backdrop-blur-md transition-colors group-hover:border-[#C9A063]/40">
+          <p className="truncate font-display text-sm font-medium text-[#F2F0E9] drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+            {item.book.title}
+          </p>
+          <p className="mt-0.5 truncate font-body text-xs text-[#DCD9D0] drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+            {item.book.author}
+            {item.book.pubYear ? ` · ${item.book.pubYear}` : ''}
+          </p>
         </div>
       </motion.button>
 
@@ -71,7 +54,7 @@ export default function ResultCard({ item, onOpen }: ResultCardProps) {
         type="button"
         onClick={() => setWhyOpen(open => !open)}
         aria-label="查看判定依据"
-        className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full border border-[#C9A063]/40 bg-[#0b0b0b]/70 font-mono text-[11px] text-[#C9A063] opacity-0 transition-opacity duration-300 group-hover:opacity-100 focus:opacity-100"
+        className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full border border-[#C9A063]/50 bg-[#121212]/90 font-mono text-[11px] text-[#C9A063] shadow-md backdrop-blur-md opacity-0 transition-opacity duration-200 group-hover:opacity-100 focus:opacity-100"
       >
         i
       </button>
