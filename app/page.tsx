@@ -26,7 +26,6 @@ export default async function Home() {
         <HomeHero
           images={images}
           targetLink={`/${latestMonth.id}`}
-          title="书海回响"
           subtitle={latestMonth.label}
         />
       ) : (

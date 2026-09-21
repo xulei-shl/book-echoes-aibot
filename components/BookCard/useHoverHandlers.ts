@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useRef } from 'react';
 
 /**
  * 自定义 Hook 用于管理悬停事件处理
@@ -40,15 +40,13 @@ export function useHoverHandlers(
         }
     }, [isHovered, updatePreviewPosition, cardRef]);
 
-    const handlePointerMove = useMemo(() => {
-        let rafId: number | null = null;
-        return (event: React.PointerEvent) => {
-            if (rafId) return;
-            rafId = requestAnimationFrame(() => {
-                handlePointerMoveThrottled(event);
-                rafId = null;
-            });
-        };
+    const rafIdRef = useRef<number | null>(null);
+    const handlePointerMove = useCallback((event: React.PointerEvent) => {
+        if (rafIdRef.current !== null) return;
+        rafIdRef.current = requestAnimationFrame(() => {
+            handlePointerMoveThrottled(event);
+            rafIdRef.current = null;
+        });
     }, [handlePointerMoveThrottled]);
 
     return {

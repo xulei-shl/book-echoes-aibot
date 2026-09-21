@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import DocumentListDisplay from './DocumentListDisplay';
 import { useAIBotStore } from '@/store/aibot/useAIBotStore';
 import type { UploadedDocument } from '@/src/core/aibot/types';
@@ -114,21 +114,16 @@ export function useDocumentUploadController(
 
 interface DocumentUploadWorkflowProps {
     controller: DocumentUploadController;
-    disabled?: boolean;
-    isAnalyzing?: boolean;
 }
 
 export default function DocumentUploadWorkflow({
-    controller,
-    disabled = false,
-    isAnalyzing = false
+    controller
 }: DocumentUploadWorkflowProps) {
     const {
         uploadedDocuments,
         documentUploadError,
         setDocumentUploadError,
         handleRemoveDocument,
-        handleSubmitDocuments,
         statusStats
     } = controller;
 
@@ -136,22 +131,7 @@ export default function DocumentUploadWorkflow({
     const hasReadyDocuments = statusStats.ready > 0;
     const hasErrorDocuments = statusStats.error > 0;
 
-    const [isListVisible, setIsListVisible] = useState(true);
-
-    useEffect(() => {
-        if (uploadedDocuments.length > 0) {
-            setIsListVisible(true);
-        }
-    }, [uploadedDocuments.length]);
-
-    const handleStartAnalysis = useCallback(() => {
-        const started = handleSubmitDocuments();
-        if (started) {
-            setIsListVisible(false);
-        }
-    }, [handleSubmitDocuments]);
-
-    if (uploadedDocuments.length === 0 || !isListVisible) {
+    if (uploadedDocuments.length === 0) {
         return null;
     }
 

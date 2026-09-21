@@ -26,7 +26,6 @@ export default function BookCard({ book, state, index = 0, dockConfig }: BookCar
     const { focusedBookId, scatterPositions, setScatterPosition } = useStore();
     const [windowSize, setWindowSize] = useState({ width: 0, height: 0 });
     const cardRef = useRef<HTMLDivElement>(null);
-    const [dragConstraints, setDragConstraints] = useState({ left: 0, right: 0, top: 0, bottom: 0 });
 
 
     // 窗口尺寸监听
@@ -64,7 +63,7 @@ export default function BookCard({ book, state, index = 0, dockConfig }: BookCar
     const [randX, randY, randRot] = seededRandoms(book.id, 3);
     const initialScatterPosition = useMemo(() => {
         let x = randX * maxW;
-        let y = randY * maxH;
+        const y = randY * maxH;
 
         // 避开左下角 Dock 区域
         const isBottomLeft = x < maxW * 0.4 && y > maxH * 0.6;
@@ -81,16 +80,17 @@ export default function BookCard({ book, state, index = 0, dockConfig }: BookCar
 
     const storedScatterPosition = scatterPositions[book.id];
 
-    // 计算拖拽约束
-    useEffect(() => {
-        if (state === 'scatter' && typeof window !== 'undefined') {
-            setDragConstraints({
-                left: 0,
-                right: window.innerWidth - CARD_WIDTH,
-                top: 0,
-                bottom: window.innerHeight - CARD_HEIGHT
-            });
+    // 计算拖拽约束（仅散落态生效，随状态派生，避免在 effect 中回写状态）
+    const dragConstraints = useMemo(() => {
+        if (state !== 'scatter' || typeof window === 'undefined') {
+            return { left: 0, right: 0, top: 0, bottom: 0 };
         }
+        return {
+            left: 0,
+            right: window.innerWidth - CARD_WIDTH,
+            top: 0,
+            bottom: window.innerHeight - CARD_HEIGHT
+        };
     }, [state]);
 
     // 初始化散落位置

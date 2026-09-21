@@ -83,7 +83,8 @@ export const fetchViaMcp = async (query: string, topK: number): Promise<ExaSnipp
         });
 
         if (result.isError) {
-            logger.error('Exa MCP 调用失败', { query, message: (result.content as any)?.[0]?.text });
+            const failureMessage = (result.content as McpContentItem[] | undefined)?.[0]?.text;
+            logger.error('Exa MCP 调用失败', { query, message: failureMessage });
             throw new Error('Exa MCP 调用失败');
         }
 

@@ -12,14 +12,14 @@ export async function GET(
     // Check for subject ID format: YYYY-subject-NAME
     const subjectMatch = month.match(/^(\d{4})-subject-(.+)$/);
     if (subjectMatch) {
-        const [_, year, name] = subjectMatch;
+        const [, year, name] = subjectMatch;
         // Decode URI component for subject name in case it contains special chars
         baseDir = path.join(process.cwd(), 'public', 'content', year, 'subject', decodeURIComponent(name), id);
     } else {
         // Check for sleeping beauty ID format: YYYY-sleeping-NAME
         const sleepingMatch = month.match(/^(\d{4})-sleeping-(.+)$/);
         if (sleepingMatch) {
-            const [_, year, name] = sleepingMatch;
+            const [, year, name] = sleepingMatch;
             baseDir = path.join(process.cwd(), 'public', 'content', year, 'new', decodeURIComponent(name), id);
         } else {
             // Check for month ID format: YYYY-MM

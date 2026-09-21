@@ -15,7 +15,7 @@ export interface Book {
   coverThumbnailUrl?: string;
   originalImageUrl?: string;
   originalThumbnailUrl?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface ArchiveItem {
@@ -68,7 +68,7 @@ async function extractSubjectLabelFromMd(dirPath: string): Promise<string | null
       const mainTitle = fileName.split(/[：:]/)[0].trim();
       return mainTitle || fileName;
     }
-  } catch (e) {
+  } catch {
     // 忽略错误，返回null使用默认label
   }
   return null;
@@ -78,8 +78,7 @@ async function extractSubjectLabelFromMd(dirPath: string): Promise<string | null
 async function processArchiveItem(
   dirPath: string,
   id: string,
-  type: 'month' | 'subject' | 'sleeping_beauty' | 'literature',
-  year: string
+  type: 'month' | 'subject' | 'sleeping_beauty' | 'literature'
 ): Promise<ArchiveItem | null> {
   try {
     const metadataPath = path.join(dirPath, 'metadata.json');
@@ -103,7 +102,7 @@ async function processArchiveItem(
     });
 
     let label = id;
-    let vol = undefined;
+    const vol = undefined;
 
     if (type === 'month') {
       const parts = id.split('-');
@@ -188,8 +187,7 @@ export async function getArchiveData(): Promise<YearArchiveData[]> {
           subjectPromises.push(processArchiveItem(
             path.join(subjectPath, subEntry.name),
             subjectId,
-            'subject',
-            year
+            'subject'
           ));
         }
       }
@@ -211,8 +209,7 @@ export async function getArchiveData(): Promise<YearArchiveData[]> {
           sleepingPromises.push(processArchiveItem(
             path.join(sleepingPath, subEntry.name),
             sleepingId,
-            'sleeping_beauty',
-            year
+            'sleeping_beauty'
           ));
         }
       }
@@ -234,8 +231,7 @@ export async function getArchiveData(): Promise<YearArchiveData[]> {
           literaturePromises.push(processArchiveItem(
             path.join(literaturePath, subEntry.name),
             literatureId,
-            'literature',
-            year
+            'literature'
           ));
         }
       }
@@ -249,8 +245,7 @@ export async function getArchiveData(): Promise<YearArchiveData[]> {
         monthPromises.push(processArchiveItem(
           path.join(yearPath, entry.name),
           entry.name,
-          'month',
-          year
+          'month'
         ));
       });
 
@@ -278,7 +273,7 @@ export async function getMonths(): Promise<MonthData[]> {
   const archiveData = await getArchiveData();
 
   // Flatten all months from all years
-  let allMonths: ArchiveItem[] = [];
+  const allMonths: ArchiveItem[] = [];
   archiveData.forEach(yearData => {
     allMonths.push(...yearData.months);
   });

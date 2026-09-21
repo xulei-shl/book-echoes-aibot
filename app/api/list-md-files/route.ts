@@ -21,7 +21,7 @@ export async function GET(request: Request) {
         // 检查目录是否存在
         try {
             await fs.access(subjectDir);
-        } catch (accessError) {
+        } catch {
             return Response.json({ error: 'Directory not found' }, { status: 404 });
         }
         

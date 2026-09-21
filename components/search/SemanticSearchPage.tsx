@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { SearchCoverItem } from '@/lib/content';
 import type { SearchMode, SearchResultItem, SemanticSearchResponse } from '@/lib/search/types';
-import BookDetailModal from './BookDetailModal';
+import SearchBookDetail from './SearchBookDetail';
 import CoverTunnel from './CoverTunnel';
 import ResultChips from './ResultChips';
 import ResultGallery from './ResultGallery';
@@ -26,7 +26,7 @@ export default function SemanticSearchPage({ covers }: SemanticSearchPageProps) 
   const [isFocused, setIsFocused] = useState(false);
   const [response, setResponse] = useState<SemanticSearchResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [activeDetailItem, setActiveDetailItem] = useState<SearchResultItem | null>(null);
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
   const showTop = view !== 'idle';
 
@@ -36,6 +36,7 @@ export default function SemanticSearchPage({ covers }: SemanticSearchPageProps) 
     setView('searching');
     setError(null);
     setResponse(null);
+    setActiveIndex(null);
     try {
       const res = await fetch('/api/semantic-search', {
         method: 'POST',
@@ -65,10 +66,12 @@ export default function SemanticSearchPage({ covers }: SemanticSearchPageProps) 
     setResponse(null);
     setError(null);
     setView('idle');
+    setActiveIndex(null);
   };
 
   const handleOpenDetail = (item: SearchResultItem) => {
-    setActiveDetailItem(item);
+    const index = response?.results.findIndex(r => r.book.id === item.book.id) ?? -1;
+    setActiveIndex(index >= 0 ? index : null);
   };
 
   const handleNavigate = (deepLink: string) => {
@@ -179,11 +182,13 @@ export default function SemanticSearchPage({ covers }: SemanticSearchPageProps) 
         </AnimatePresence>
       </main>
 
-      {/* 单本详读无缝展开画卷 */}
-      <BookDetailModal
-        item={activeDetailItem}
-        onClose={() => setActiveDetailItem(null)}
-        onNavigate={handleNavigate}
+      {/* 单本详读：复用画板同款右侧详情面板，上一条/下一条切换检索结果 */}
+      <SearchBookDetail
+        results={response?.results ?? []}
+        activeIndex={activeIndex}
+        onClose={() => setActiveIndex(null)}
+        onSelectIndex={setActiveIndex}
+        onOpenArchive={handleNavigate}
       />
 
       <div className="noise-overlay" style={{ zIndex: 20 }} />

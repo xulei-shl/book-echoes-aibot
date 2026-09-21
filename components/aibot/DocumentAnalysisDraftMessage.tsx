@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import DraftConfirmationDisplay from './DraftConfirmationDisplay';
 import type { DocumentAnalysisDraftContent } from '@/src/core/aibot/types';
 import { useAIBotStore } from '@/store/aibot/useAIBotStore';
@@ -20,20 +20,13 @@ export default function DocumentAnalysisDraftMessage({
     onDraftRegenerate,
     onDraftCancel
 }: DocumentAnalysisDraftMessageProps) {
-    const [isEditing, setIsEditing] = useState(false);
     const { documentAnalysisPhase } = useAIBotStore();
 
-    const handleEdit = () => {
-        setIsEditing(true);
-    };
-
     const handleSave = () => {
-        setIsEditing(false);
         onDraftConfirm();
     };
 
     const handleCancel = () => {
-        setIsEditing(false);
         onDraftCancel();
     };
 

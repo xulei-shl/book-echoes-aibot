@@ -53,10 +53,10 @@ function parseExpansionResult(rawOutput: string, originalQuery: string): QueryEx
             throw new Error('解析结果缺少expanded_probes数组');
         }
 
-        const probes: ExpandedProbe[] = parsed.expanded_probes.map((probe: any, index: number) => ({
-            type: probe.type || `probe_${index}`,
-            label: probe.label || `探针${index + 1}`,
-            text: probe.text || ''
+        const probes: ExpandedProbe[] = (parsed.expanded_probes as Array<Record<string, unknown>>).map((probe, index) => ({
+            type: typeof probe.type === 'string' ? probe.type : `probe_${index}`,
+            label: typeof probe.label === 'string' ? probe.label : `探针${index + 1}`,
+            text: typeof probe.text === 'string' ? probe.text : ''
         }));
 
         // 过滤掉空文本的探针

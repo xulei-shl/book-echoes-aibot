@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ArchiveYearNav from './ArchiveYearNav';
 import MagazineCard from './MagazineCard';
@@ -53,11 +53,11 @@ export default function ArchiveContent({ years, archiveData }: ArchiveContentPro
     const [activeYear, setActiveYear] = useState(getInitialYear(years));
     const [activeTab, setActiveTab] = useState<'month' | 'subject' | 'sleeping_beauty' | 'literature'>('month');
 
-    // Reset tab to month when year changes
-    // Reset tab to month when year changes
-    useEffect(() => {
+    // 切换年份时同步重置到「月份牌」标签
+    const handleYearSelect = (year: string) => {
+        setActiveYear(year);
         setActiveTab('month');
-    }, [activeYear]);
+    };
 
     const currentYearData = archiveData.find(d => d.year === activeYear);
     const months = currentYearData?.months || [];
@@ -92,7 +92,7 @@ export default function ArchiveContent({ years, archiveData }: ArchiveContentPro
                     <ArchiveYearNav
                         years={years}
                         activeYear={activeYear}
-                        onYearSelect={setActiveYear}
+                        onYearSelect={handleYearSelect}
                     />
                 </aside>
 
@@ -195,7 +195,7 @@ export default function ArchiveContent({ years, archiveData }: ArchiveContentPro
                                     initial="hidden"
                                     animate="visible"
                                 >
-                                    {itemsToShow.map((item, index) => {
+                                    {itemsToShow.map((item) => {
                                         // 月份牌和睡美人都按月份排列，使用繁体汉字；主题卡和文学FM使用label首字符
                                         const monthChar = activeTab === 'subject' || activeTab === 'literature'
                                             ? item.label.charAt(0)

@@ -108,7 +108,7 @@ async function main() {
     if (uploadedFonts.length > 0) {
       printUsageGuide(uploadedFonts);
     }
-  } catch (error) {
+  } catch {
     console.error('\n❌ 字体初始化失败:', error.message);
     console.error(error.stack);
     process.exit(1);
@@ -144,7 +144,7 @@ async function scanFontFiles() {
     }
 
     return fontFiles;
-  } catch (error) {
+  } catch {
     throw new Error(`扫描字体文件失败: ${error.message}`);
   }
 }
@@ -207,7 +207,7 @@ async function convertFonts(fontFiles) {
           converted: false
         });
       }
-    } catch (error) {
+    } catch {
       console.error(`  ✗ ${font.filename} 转换出错: ${error.message}`);
     }
   }
@@ -230,7 +230,7 @@ async function tryConvertFont(inputPath, outputPath, inputExt) {
       await execFileAsync('python', ['-m', 'fontTools.ttLib.woff2', 'compress', inputPath, '-o', outputPath]);
       return true;
     }
-  } catch (error) {
+  } catch {
     // fonttools 不可用，尝试其他方法
   }
 
@@ -243,7 +243,7 @@ async function tryConvertFont(inputPath, outputPath, inputExt) {
       await fs.rename(autoWoff2Path, outputPath);
       return true;
     }
-  } catch (error) {
+  } catch {
     // woff2_compress 不可用
   }
 
@@ -296,7 +296,7 @@ async function uploadFonts(fonts, r2Config) {
       } else {
         console.warn(`  ⚠️  ${font.filename} 上传失败，将使用本地路径`);
       }
-    } catch (error) {
+    } catch {
       console.error(`  ✗ ${font.filename} 上传出错: ${error.message}`);
     }
   }
@@ -346,7 +346,7 @@ async function loadMetadata() {
   try {
     const content = await fs.readFile(METADATA_FILE, 'utf-8');
     return JSON.parse(content);
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -445,7 +445,7 @@ async function uploadFileToR2(r2Config, filePath, key, contentType) {
     if (publicBase) {
       return `${publicBase}/${key}`;
     }
-  } catch (error) {
+  } catch {
     console.warn(`⚠️  上传 ${key} 失败: ${error.message}`);
   }
 

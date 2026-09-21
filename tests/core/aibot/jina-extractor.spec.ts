@@ -23,7 +23,7 @@ describe('Jina Content Extractor', () => {
         vi.mocked(fetchWithOptionalProxy).mockResolvedValue({
             ok: true,
             text: vi.fn().mockResolvedValue('Extracted full article content here...')
-        } as any);
+        } as unknown as Response);
 
         const result = await extractContentFromUrl('https://example.com/article');
 
@@ -36,7 +36,7 @@ describe('Jina Content Extractor', () => {
         vi.mocked(fetchWithOptionalProxy).mockResolvedValue({
             ok: false,
             status: 404
-        } as any);
+        } as unknown as Response);
 
         const result = await extractContentFromUrl('https://example.com/notfound');
 
@@ -48,7 +48,7 @@ describe('Jina Content Extractor', () => {
         vi.mocked(fetchWithOptionalProxy).mockResolvedValue({
             ok: true,
             text: vi.fn().mockResolvedValue('')
-        } as any);
+        } as unknown as Response);
 
         const result = await extractContentFromUrl('https://example.com/empty');
 
@@ -61,11 +61,11 @@ describe('Jina Content Extractor', () => {
             .mockResolvedValueOnce({
                 ok: true,
                 text: vi.fn().mockResolvedValue('Content 1')
-            } as any)
+            } as unknown as Response)
             .mockResolvedValueOnce({
                 ok: true,
                 text: vi.fn().mockResolvedValue('Content 2')
-            } as any);
+            } as unknown as Response);
 
         const results = await extractContentFromUrls([
             'https://example.com/1',

@@ -68,7 +68,7 @@ async function readMetadata(filePath) {
     const content = await fs.readFile(filePath, 'utf8');
     const data = JSON.parse(content);
     return Array.isArray(data) ? data : [];
-  } catch (error) {
+  } catch {
     console.warn(`⚠️  读取失败: ${filePath}`);
     return [];
   }
@@ -196,7 +196,7 @@ async function buildRandomIndex() {
 async function main() {
   try {
     await buildRandomIndex();
-  } catch (error) {
+  } catch {
     console.error('❌ 随机索引生成失败:', error?.message || error);
     process.exit(1);
   }

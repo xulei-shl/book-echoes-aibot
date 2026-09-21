@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import BookItem from './BookItem';
 import type { BookInfo } from '@/src/core/aibot/types';
@@ -27,16 +27,13 @@ export default function DeepSearchBookListMessage({
     isLoading = false,
     autoCollapseOnReportStart = false
 }: DeepSearchBookListMessageProps) {
-    const [isExpanded, setIsExpanded] = useState(true);
     const [showAll, setShowAll] = useState(false);
     const [selectedBookIds, setSelectedBookIds] = useState<Set<string>>(new Set());
 
-    // 当报告开始生成时自动折叠
-    useEffect(() => {
-        if (autoCollapseOnReportStart) {
-            setIsExpanded(false);
-        }
-    }, [autoCollapseOnReportStart]);
+    // 报告开始生成时默认折叠；用户手动展开/收起后以用户选择为准（避免在 effect 中回写状态）
+    const [userExpanded, setUserExpanded] = useState<boolean | null>(null);
+    const isExpanded = userExpanded ?? !autoCollapseOnReportStart;
+    const toggleExpanded = () => setUserExpanded(prev => !(prev ?? !autoCollapseOnReportStart));
 
     // 显示的图书列表
     const displayBooks = showAll ? books : books.slice(0, 3);
@@ -106,7 +103,7 @@ export default function DeepSearchBookListMessage({
             {/* 头部 */}
             <motion.div
                 className="flex items-center justify-between p-3 rounded-t-xl border border-[#343434] bg-[rgba(201,160,99,0.15)] cursor-pointer"
-                onClick={() => setIsExpanded(!isExpanded)}
+                onClick={toggleExpanded}
                 whileHover={{ backgroundColor: 'rgba(201, 160, 99, 0.2)' }}
                 transition={{ duration: 0.2 }}
             >

@@ -28,25 +28,13 @@ const PHASE_ICONS: Record<string, string> = {
     'error': '❌'
 };
 
-// 预定义的深度检索阶段顺序（用于计算总进度）
-const DEEP_SEARCH_PHASES_ORDER = [
-    'keyword',
-    'search',
-    'analysis',
-    'cross-analysis',
-    'book-search',
-    'report-generation'
-];
-
 interface DeepSearchProgressMessageProps {
     logs: DeepSearchLogEntry[];
-    currentPhase: string;
     title?: string;
 }
 
 export default function DeepSearchProgressMessage({
     logs,
-    currentPhase,
     title = '深度检索进度'
 }: DeepSearchProgressMessageProps) {
     const [isExpanded, setIsExpanded] = useState(true);

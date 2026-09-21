@@ -4,7 +4,7 @@ import { motion, PanInfo } from 'framer-motion';
 import Image from 'next/image';
 import { Book } from '@/types';
 import { useStore } from '@/store/useStore';
-import { useRef, useState, useEffect, useMemo } from 'react';
+import { useRef, useState, useEffect } from 'react';
 
 interface ScatterCardProps {
     book: Book;
@@ -20,9 +20,6 @@ interface ScatterCardProps {
     onHoverEnd: () => void;
     onPointerMove: (event: React.PointerEvent) => void;
 }
-
-const CARD_WIDTH = 192;
-const CARD_HEIGHT = 288;
 
 export default function ScatterCard({
     book,
@@ -45,7 +42,7 @@ export default function ScatterCard({
 
     useEffect(() => {
         latestScatterPosition.current = scatterTarget;
-    }, [scatterTarget.x, scatterTarget.y, scatterTarget.rotation]);
+    }, [scatterTarget]);
 
     const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
@@ -91,6 +88,7 @@ export default function ScatterCard({
         <motion.div
             ref={cardRef}
             layoutId={`book-${book.id}`}
+            data-book-card=""
             className="absolute w-48 h-72 cursor-grab active:cursor-grabbing shadow-lg hover:shadow-2xl"
             drag
             dragConstraints={dragConstraints}

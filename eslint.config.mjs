@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Non-app code: a detached git worktree copy and vendored documentation samples
+    ".kilo/**",
+    "docs/**",
+    "coverage/**",
   ]),
 ]);
 

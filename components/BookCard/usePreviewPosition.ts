@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 
 const PREVIEW_WIDTH = 480;
 const PREVIEW_HEIGHT = 680;

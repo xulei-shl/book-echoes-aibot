@@ -169,7 +169,7 @@ export async function POST(request: Request) {
                 sendProgress(controller, 'search', `搜索引擎: ${searchEngine}`, 'running', JSON.stringify(debugSearchConfig));
 
                 // 并行处理所有关键词的检索和分析
-                const searchAndAnalysisPromises = keywords.map(async (keywordItem, index) => {
+                const searchAndAnalysisPromises = keywords.map(async (keywordItem) => {
                     logger.info('检索关键词', { keyword: keywordItem.keyword });
 
                     currentPhase = 'search';

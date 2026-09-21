@@ -9,7 +9,6 @@ import TopNav from './TopNav';
 interface HomeHeroProps {
     images: string[];
     targetLink: string;
-    title: string;
     subtitle: string;
 }
 
@@ -67,7 +66,7 @@ function HeroLineDecoration() {
     );
 }
 
-export default function HomeHero({ images, targetLink, title, subtitle }: HomeHeroProps) {
+export default function HomeHero({ images, targetLink, subtitle }: HomeHeroProps) {
     const router = useRouter();
     const [currentIndex, setCurrentIndex] = useState(0);
 

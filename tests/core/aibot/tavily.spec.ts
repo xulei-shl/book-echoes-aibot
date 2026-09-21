@@ -51,7 +51,7 @@ describe('Tavily Researcher', () => {
             vi.mocked(fetchWithOptionalProxy).mockResolvedValue({
                 ok: true,
                 json: vi.fn().mockResolvedValue({ results: [] })
-            } as any);
+            } as unknown as Response);
 
             const results = await researchWithTavily('empty query');
             expect(results).toEqual([]);
@@ -69,7 +69,7 @@ describe('Tavily Researcher', () => {
                         { title: 'Result 2', url: 'https://example.com/2', content: 'Content 2', score: 0.8 }
                     ]
                 })
-            } as any);
+            } as unknown as Response);
 
             const results = await researchWithTavily('test query', { topK: 5 });
 
@@ -89,7 +89,7 @@ describe('Tavily Researcher', () => {
                 ok: false,
                 status: 401,
                 text: vi.fn().mockResolvedValue('Unauthorized')
-            } as any);
+            } as unknown as Response);
 
             await expect(researchWithTavily('test query')).rejects.toThrow('Tavily API 请求失败: 401');
         });

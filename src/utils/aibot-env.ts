@@ -62,13 +62,6 @@ export interface LLMHintMetadata {
     suggested_temperature?: number;
 }
 
-const readEnv = (key?: string): string | undefined => {
-    if (!key) {
-        return undefined;
-    }
-    return process.env[key];
-};
-
 const resolveCandidateFromPrefix = (prefix: string): LLMConfig | null => {
     const baseURL = process.env[`${prefix}_BASE_URL`];
     const apiKey = process.env[`${prefix}_API_KEY`];

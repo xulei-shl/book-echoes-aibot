@@ -13,8 +13,8 @@ export default function DocumentAnalysisProgressMessage({ content }: DocumentAna
     const logEntries = content.logs.map(log => ({
         id: log.id,
         timestamp: log.timestamp,
-        phase: log.phase as any, // 类型转换
-        status: log.status as any,
+        phase: log.phase,
+        status: log.status,
         message: log.message,
         details: log.details
     }));

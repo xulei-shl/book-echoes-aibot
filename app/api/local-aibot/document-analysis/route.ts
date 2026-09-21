@@ -8,9 +8,6 @@ import type { DocumentAnalysisRequest } from '@/src/core/aibot/types';
 
 const logger = getLogger('aibot.api.document-analysis');
 
-// 进度回调函数类型
-type ProgressCallback = (phase: string, message: string, status: 'running' | 'completed' | 'error', details?: string) => void;
-
 // 发送SSE进度更新
 const sendProgress = (controller: ReadableStreamDefaultController, phase: string, message: string, status: 'running' | 'completed' | 'error', details?: string) => {
     const progressData = {
@@ -65,7 +62,7 @@ export async function POST(request: Request) {
                 const totalDocuments = documents.length;
 
                 // 并行分析所有文档
-                const analysisPromises = documents.map(async (document, index) => {
+                const analysisPromises = documents.map(async (document) => {
                     logger.info('分析文档', { documentName: document.name });
 
                     try {

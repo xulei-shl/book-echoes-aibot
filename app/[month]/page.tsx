@@ -45,14 +45,14 @@ async function getMonthData(month: string): Promise<MonthDataResult> {
     const literatureMatch = month.match(/^(\d{4})-literature-(.+)$/);
 
     if (subjectMatch) {
-        const [_, year, name] = subjectMatch;
+        const [, year, name] = subjectMatch;
         // name is already decoded from the URL parameter, no need to decode again
         subjectDirPath = path.join(process.cwd(), 'public', 'content', year, 'subject', name);
         filePath = path.join(subjectDirPath, 'metadata.json');
 
         try {
             await fs.access(filePath);
-        } catch (_accessError) {
+        } catch {
             const encodedName = encodeURIComponent(name);
             const encodedDirPath = path.join(process.cwd(), 'public', 'content', year, 'subject', encodedName);
             const encodedPath = path.join(encodedDirPath, 'metadata.json');
@@ -65,18 +65,18 @@ async function getMonthData(month: string): Promise<MonthDataResult> {
             }
         }
     } else if (sleepingMatch) {
-        const [_, year, name] = sleepingMatch;
+        const [, year, name] = sleepingMatch;
         // name is already decoded from the URL parameter, no need to decode again
         filePath = path.join(process.cwd(), 'public', 'content', year, 'new', name, 'metadata.json');
     } else if (literatureMatch) {
-        const [_, year, name] = literatureMatch;
+        const [, year, name] = literatureMatch;
         // name is already decoded from the URL parameter, no need to decode again
         subjectDirPath = path.join(process.cwd(), 'public', 'content', year, 'literature', name);
         filePath = path.join(subjectDirPath, 'metadata.json');
 
         try {
             await fs.access(filePath);
-        } catch (_accessError) {
+        } catch {
             const encodedName = encodeURIComponent(name);
             const encodedDirPath = path.join(process.cwd(), 'public', 'content', year, 'literature', encodedName);
             const encodedPath = path.join(encodedDirPath, 'metadata.json');
@@ -106,7 +106,7 @@ async function getMonthData(month: string): Promise<MonthDataResult> {
     try {
         const fileContents = await fs.readFile(filePath, 'utf8');
         const data = JSON.parse(fileContents);
-        const books = data.map((item: any) => transformMetadataToBook(item, month));
+        const books = data.map((item: Record<string, string | number | undefined>) => transformMetadataToBook(item, month));
 
         // 如果是主题卡，提取md文件中的中文标题
         let subjectLabel: string | undefined;

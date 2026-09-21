@@ -65,7 +65,7 @@ async function main() {
     let context;
     try {
         context = parseBuildContext(positionalArgs);
-    } catch (error) {
+    } catch {
         console.error(`❌ ${error.message}`);
         printUsage();
         process.exit(1);
@@ -104,7 +104,7 @@ async function main() {
         }
 
         console.log(`\n✨ Build completed successfully for ${context.logLabel}!\n`);
-    } catch (error) {
+    } catch {
         console.error(`\n❌ Build failed:`, error.message);
         console.error(error.stack);
         process.exit(1);
@@ -197,7 +197,7 @@ async function refreshSearchVectors() {
     console.log('🧠 正在为新增/变更书目生成向量...\n');
     try {
         await buildSearchVectors();
-    } catch (error) {
+    } catch {
         console.error(`\n⚠️  向量化失败：${error?.message || error}`);
         console.error('   前面两步的产物已经写好，内容立即可用；可稍后单独补跑：npm run build:vectors\n');
     }
@@ -212,7 +212,7 @@ async function cleanTargetDirectory(month) {
     try {
         await fs.rm(targetDir, { recursive: true, force: true });
         console.log(`🧹 Cleaned directory: content/${month}`);
-    } catch (error) {
+    } catch {
         console.log(`🧹 Target directory doesn't exist yet: content/${month}`);
     }
 
@@ -364,7 +364,7 @@ async function migrateResources(month, books, r2Config) {
             successCount++;
             assetsMap.set(barcode, assetRecord);
             console.log(`✅ Processed: ${barcode}`);
-        } catch (error) {
+        } catch {
             console.error(`❌ Error processing ${barcode}:`, error.message);
             errorCount++;
         }
@@ -412,7 +412,7 @@ async function processImageAsset(asset, month, barcode, r2Config, assetRecord) {
                 const relativePath = buildLocalContentPath(month, barcode, path.basename(asset.targetPath));
                 assetRecord[asset.urlField] = buildLocalPublicUrl(relativePath);
             }
-        } catch (error) {
+        } catch {
             console.error(`❌ Failed to copy ${asset.name} to local: ${error.message}`);
             return;
         }
@@ -443,7 +443,7 @@ async function processImageAsset(asset, month, barcode, r2Config, assetRecord) {
                     await fs.writeFile(asset.thumbnailTargetPath, thumbnailBuffer);
                     const relativePath = buildLocalContentPath(month, barcode, path.basename(asset.thumbnailTargetPath));
                     assetRecord[asset.thumbnailUrlField] = buildLocalPublicUrl(relativePath);
-                } catch (error) {
+                } catch {
                     console.error(`❌ Failed to save ${asset.name} thumbnail to local: ${error.message}`);
                 }
             }
@@ -460,7 +460,7 @@ async function generateThumbnail(sourcePath) {
             .resize(400, null, { withoutEnlargement: true })
             .jpeg({ quality: 85 })
             .toBuffer();
-    } catch (error) {
+    } catch {
         console.warn(`⚠️  Could not generate thumbnail for ${sourcePath}: ${error.message}`);
         return null;
     }
@@ -489,7 +489,7 @@ async function uploadFileToR2WithRetry(r2Config, filePath, key, contentType, max
                 return `${publicBase}/${key}`;
             }
             return null;
-        } catch (error) {
+        } catch {
             if (attempt === maxRetries) {
                 console.warn(`⚠️  Failed to upload ${key} after ${maxRetries} attempts: ${error.message}`);
                 return null;
@@ -524,7 +524,7 @@ async function uploadBufferToR2WithRetry(r2Config, buffer, key, contentType, max
                 return `${publicBase}/${key}`;
             }
             return null;
-        } catch (error) {
+        } catch {
             if (attempt === maxRetries) {
                 console.warn(`⚠️  Failed to upload buffer ${key} after ${maxRetries} attempts: ${error.message}`);
                 return null;
@@ -671,13 +671,13 @@ async function copyMdFiles(relativePath) {
             try {
                 await fs.copyFile(sourcePath, targetPath);
                 console.log(`📝 Copied MD file: ${mdFile}`);
-            } catch (error) {
+            } catch {
                 console.error(`❌ Failed to copy MD file ${mdFile}:`, error.message);
             }
         }
         
         console.log(`✅ Copied ${mdFiles.length} MD file(s) to content/${relativePath}`);
-    } catch (error) {
+    } catch {
         console.log(`📝 Source directory not found or inaccessible: sources_data/${relativePath}`);
     }
 }

@@ -4,7 +4,7 @@ import { getLogger } from '@/src/utils/logger';
 import { streamTextWithFallback } from '@/src/core/aibot/llmClient';
 import { loadPrompt } from '@/src/core/aibot/promptLoader';
 import { AIBOT_PROMPT_FILES } from '@/src/core/aibot/constants';
-import type { BookInfo, ChatMessage, GenerateInterpretationRequest } from '@/src/core/aibot/types';
+import type { BookInfo, GenerateInterpretationRequest } from '@/src/core/aibot/types';
 
 const logger = getLogger('aibot.api.generate-interpretation');
 
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
 
     try {
         const payload = (await request.json()) as GenerateInterpretationRequest;
-        const { originalQuery, selectedBooks, messages = [] } = payload;
+        const { originalQuery, selectedBooks } = payload;
 
         if (!originalQuery?.trim() || !selectedBooks?.length) {
             return NextResponse.json({ message: '缺少必要参数' }, { status: 400 });

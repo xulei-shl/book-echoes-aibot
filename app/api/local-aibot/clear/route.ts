@@ -5,7 +5,7 @@ import { clearPromptCache } from '@/src/core/aibot/promptLoader';
 
 const logger = getLogger('aibot.api.clear');
 
-export async function POST(request: Request) {
+export async function POST() {
     try {
         assertAIBotEnabled();
     } catch (error) {

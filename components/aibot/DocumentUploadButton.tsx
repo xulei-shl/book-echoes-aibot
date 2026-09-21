@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useRef } from 'react';
-import type { UploadedDocument } from '@/src/core/aibot/types';
 
 interface DocumentUploadButtonProps {
     onFilesSelected: (files: File[]) => void | Promise<void>;

@@ -1,5 +1,6 @@
 'use client';
 
+import type { ComponentProps } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import type { Components } from 'react-markdown';
@@ -99,7 +100,7 @@ const markdownComponents: Components = {
     td: (props) => (
         <td className="px-4 py-3 text-sm text-[#D4D4D4] align-top tracking-normal font-info-content" {...props} />
     ),
-    code: ({ inline, className, children, ...props }: any) => {
+    code: ({ inline, className, children, ...props }: ComponentProps<'code'> & { inline?: boolean }) => {
         if (inline) {
             return (
                 <code

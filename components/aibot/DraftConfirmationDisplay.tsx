@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -39,17 +39,14 @@ export default function DraftConfirmationDisplay({
     const [isExpanded, setIsExpanded] = useState(true);
     const [showMetadata, setShowMetadata] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
-    const [editValue, setEditValue] = useState('');
+    const [draftEditValue, setDraftEditValue] = useState('');
     const cleanedDraft = cleanMarkdownCodeBlock(draftMarkdown || '');
 
-    useEffect(() => {
-        if (!isEditing) {
-            setEditValue(cleanedDraft);
-        }
-    }, [cleanedDraft, isEditing]);
+    // 编辑中以本地输入为准，非编辑态始终跟随最新草稿（避免在 effect 中同步）
+    const editValue = isEditing ? draftEditValue : cleanedDraft;
 
     const handleStartEdit = () => {
-        setEditValue(cleanedDraft);
+        setDraftEditValue(cleanedDraft);
         setIsEditing(true);
     };
 
@@ -59,7 +56,7 @@ export default function DraftConfirmationDisplay({
     };
 
     const handleCancelEdit = () => {
-        setEditValue(cleanedDraft);
+        setDraftEditValue(cleanedDraft);
         setIsEditing(false);
     };
 
@@ -198,7 +195,7 @@ export default function DraftConfirmationDisplay({
                                 {isEditing ? (
                                     <textarea
                                         value={editValue}
-                                        onChange={(e) => setEditValue(e.target.value)}
+                                        onChange={(e) => setDraftEditValue(e.target.value)}
                                         className="w-full h-64 bg-[#111111]/80 border border-[#C9A063]/20 text-sm text-[#E8E6DC] p-3 focus:outline-none focus:border-[#C9A063] font-info-content resize-none about-overlay-scroll"
                                         placeholder="检索草稿将在此显示..."
                                     />

@@ -3,7 +3,6 @@
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { Book } from '@/types';
-import { useStore } from '@/store/useStore';
 import { seededRandoms } from '@/lib/seededRandom';
 
 interface FocusedCardProps {
@@ -12,12 +11,11 @@ interface FocusedCardProps {
 }
 
 export default function FocusedCard({ book, isFocused }: FocusedCardProps) {
-    const { focusedBookId } = useStore();
-
     if (isFocused) {
         return (
             <motion.div
                 layoutId={`book-${book.id}`}
+                data-book-card=""
                 className="absolute left-[10%] top-[10%] w-[30%] h-[80%] z-50 shadow-2xl"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1, x: 0, y: 0, rotate: 0, scale: 1 }}

@@ -1,6 +1,5 @@
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { generateText, streamText } from 'ai';
-import type { GenerateTextResult, StreamTextResult } from 'ai';
 import { resolveLLMCandidates, type LLMConfig } from '@/src/utils/aibot-env';
 import { getLogger } from '@/src/utils/logger';
 
@@ -97,7 +96,7 @@ export function getLLMConfigSummary(): string {
 
 export async function generateTextWithFallback(
     options: Omit<Parameters<typeof generateText>[0], 'model'>
-): Promise<GenerateTextResult<any, any>> {
+): Promise<Awaited<ReturnType<typeof generateText>>> {
     const candidates = resolveLLMCandidates();
     const attempts: LLMCallAttempt[] = [];
 
@@ -150,7 +149,7 @@ export async function generateTextWithFallback(
 
 export async function streamTextWithFallback(
     options: Omit<Parameters<typeof streamText>[0], 'model'>
-): Promise<StreamTextResult<any, any>> {
+): Promise<Awaited<ReturnType<typeof streamText>>> {
     const candidates = resolveLLMCandidates();
     const attempts: LLMCallAttempt[] = [];
 
@@ -201,7 +200,13 @@ export async function streamTextWithFallback(
     throw createFailure(attempts, new Error('没有可用的 LLM 候选配置'));
 }
 
-export async function postChatCompletionsWithFallback(body: Record<string, unknown>): Promise<any> {
+/** OpenAI 兼容 chat/completions 响应的最小结构 */
+export interface ChatCompletionResponse {
+    choices?: Array<{ message?: { content?: string | null } }>;
+    [key: string]: unknown;
+}
+
+export async function postChatCompletionsWithFallback(body: Record<string, unknown>): Promise<ChatCompletionResponse> {
     const candidates = resolveLLMCandidates();
     const attempts: LLMCallAttempt[] = [];
 

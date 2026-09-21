@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { assertAIBotEnabled, AIBotDisabledError } from '@/src/utils/aibot-env';
 import { getLogger } from '@/src/utils/logger';
 import { multiQuery } from '@/src/core/aibot/retrievalService';
-import type { BookInfo } from '@/src/core/aibot/types';
 
 const logger = getLogger('aibot.api.deep-search');
 

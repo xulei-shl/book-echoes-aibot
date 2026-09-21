@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // 深度检索阶段
@@ -23,9 +23,21 @@ export interface LogEntry {
     details?: string;
 }
 
+/** 外部传入日志的最小结构：id/timestamp 缺失时由组件在渲染时补齐 */
+interface ProgressLogInput {
+    id?: string;
+    timestamp?: string;
+    phase?: string;
+    status?: LogEntry['status'];
+    message?: string;
+    details?: string;
+}
+
+const EMPTY_LOGS: ProgressLogInput[] = [];
+
 interface ProgressLogDisplayProps {
     isVisible: boolean;
-    logs?: any[];
+    logs?: ProgressLogInput[];
     currentPhase?: string;
     onComplete?: () => void;
     title?: string; // 支持自定义标题
@@ -73,72 +85,23 @@ const PHASE_ICONS: Record<SearchPhase, string> = {
 
 export default function ProgressLogDisplay({
     isVisible,
-    logs: externalLogs = [],
-    currentPhase: externalCurrentPhase = '',
-    onComplete,
+    logs: externalLogs = EMPTY_LOGS,
     title = '检索进度'
 }: ProgressLogDisplayProps) {
-    const [logs, setLogs] = useState<LogEntry[]>([]);
-    const [currentPhase, setCurrentPhase] = useState<string>('');
     const [isExpanded, setIsExpanded] = useState(true);
 
-    // 添加日志条目
-    const addLog = (entry: Omit<LogEntry, 'id' | 'timestamp'>) => {
-        const newLog: LogEntry = {
-            ...entry,
-            id: `${Date.now()}-${Math.random()}`,
-            timestamp: new Date().toLocaleTimeString('zh-CN')
-        };
-
-        setLogs(prev => {
-            const existingIndex = prev.findIndex(log => log.phase === entry.phase);
-            if (existingIndex >= 0) {
-                const updated = [...prev];
-                updated[existingIndex] = newLog;
-                return updated;
-            }
-            return [...prev, newLog];
-        });
-
-        setCurrentPhase(entry.phase);
-
-        if (entry.phase === 'completed' && entry.status === 'completed') {
-            setTimeout(() => {
-                onComplete?.();
-            }, 1000);
-        }
-    };
-
-    // 清空日志
-    const clearLogs = () => {
-        setLogs([]);
-        setCurrentPhase('');
-    };
-
-    // 监听可见性变化和外部logs变化
-    useEffect(() => {
-        if (isVisible) {
-            clearLogs();
-        }
-    }, [isVisible]);
-
-    // 同步外部logs
-    useEffect(() => {
-        if (externalLogs.length > 0) {
-            setLogs(externalLogs.map(log => ({
-                ...log,
-                id: log.id || `${Date.now()}-${Math.random()}`,
-                timestamp: log.timestamp || new Date().toLocaleTimeString('zh-CN')
-            })));
-        }
-    }, [externalLogs]);
-
-    // 同步外部currentPhase
-    useEffect(() => {
-        if (externalCurrentPhase) {
-            setCurrentPhase(externalCurrentPhase);
-        }
-    }, [externalCurrentPhase]);
+    // 日志完全由外部 props 驱动：渲染时补齐缺失的 id/timestamp，避免在 effect 中回写状态
+    const logs: LogEntry[] = useMemo(
+        () => externalLogs.map((log, index) => ({
+            id: log.id || `${log.phase ?? 'log'}-${index}`,
+            timestamp: log.timestamp || '',
+            phase: log.phase as SearchPhase,
+            status: log.status ?? 'pending',
+            message: log.message ?? '',
+            details: log.details
+        })),
+        [externalLogs]
+    );
 
     return (
         <AnimatePresence>

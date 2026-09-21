@@ -6,7 +6,7 @@ import { streamTextWithFallback } from '@/src/core/aibot/llmClient';
 import { buildChatWorkflowContext } from '@/src/core/aibot/researchWorkflow';
 import { classifyUserIntent, hasPromptInjectionRisk } from '@/src/core/aibot/classifier';
 import { AIBOT_INTENTS, AIBOT_MODES, type AIBotMode } from '@/src/core/aibot/constants';
-import type { ChatMessage, IntentClassificationResult } from '@/src/core/aibot/types';
+import type { ChatMessage, DraftPayload, IntentClassificationResult, RetrievalResultData } from '@/src/core/aibot/types';
 
 const logger = getLogger('aibot.api.chat');
 const ALLOWED_MODES = new Set<string>(Object.values(AIBOT_MODES));
@@ -19,10 +19,7 @@ interface ChatRequestPayload {
     mode?: string;
     messages?: CoreMessage[];
     draft_markdown?: string;
-    deep_metadata?: {
-        draftMarkdown?: string;
-        [key: string]: unknown;
-    } & Record<string, unknown>;
+    deep_metadata?: DraftPayload;
     [key: string]: unknown;
 }
 
@@ -126,7 +123,7 @@ const streamHeaders = (
 const streamHeadersWithRetrieval = (
     classification: IntentClassificationResult,
     mode: AIBotMode,
-    retrievalResultData?: any
+    retrievalResultData?: RetrievalResultData
 ): Record<string, string> => {
     const headers: Record<string, string> = {
         'X-AIBot-Mode': mode,
@@ -220,7 +217,7 @@ export async function POST(request: Request) {
             mode: resolvedMode,
             messages: chatMessages,
             draftMarkdown: typeof payload?.draft_markdown === 'string' ? payload.draft_markdown : undefined,
-            deepMetadata: payload?.deep_metadata as any
+            deepMetadata: payload?.deep_metadata
         });
         logger.info('工作流上下文构建完成', {
             hasSystemPrompt: !!workflowContext.systemPrompt,
@@ -247,7 +244,7 @@ export async function POST(request: Request) {
         
         const result = await streamTextWithFallback({
             system: workflowContext.systemPrompt,
-            messages: chatMessages as any
+            messages: chatMessages as CoreMessage[]
         });
 
         return result.toTextStreamResponse({

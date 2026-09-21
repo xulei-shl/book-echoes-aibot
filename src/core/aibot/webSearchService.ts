@@ -3,7 +3,7 @@ import { researchWithTavily } from '@/src/core/aibot/tavily/tavilyResearcher';
 import { researchWithExaMcp } from '@/src/core/aibot/exa/exaMcpResearcher';
 import { extractContentFromUrls } from '@/src/core/aibot/jina/jinaContentExtractor';
 import { JINA_SEARCH_PER_KEYWORD, DEEP_SEARCH_SNIPPETS_PER_KEYWORD } from '@/src/core/aibot/constants';
-import { hasTavilyApiKey, shouldUseTavilySearch, getSearchEngineLabel } from '@/src/core/aibot/searchConfig';
+import { hasTavilyApiKey, shouldUseTavilySearch } from '@/src/core/aibot/searchConfig';
 import type { WebSearchSnippet } from '@/src/core/aibot/types';
 
 const logger = getLogger('aibot.webSearch');
@@ -14,6 +14,8 @@ interface SearchResultItem {
     snippet: string;
     source: 'tavily' | 'exa';
     raw?: unknown;
+    /** 由 Jina 提取的网页全文，附加在已抓取的结果上 */
+    content?: string;
 }
 
 const UNSUPPORTED_CONTENT_EXTENSIONS = [
@@ -136,7 +138,7 @@ export async function performWebSearch(
             searchResults.forEach(result => {
                 const extraction = extractionResults.get(result.url);
                 if (extraction?.success && extraction.content) {
-                    (result as any).content = extraction.content;
+                    result.content = extraction.content;
                 }
             });
             

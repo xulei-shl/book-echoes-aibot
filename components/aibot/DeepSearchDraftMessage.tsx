@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -32,7 +32,6 @@ interface DeepSearchDraftMessageProps {
     isComplete: boolean;
     searchSnippets: DuckDuckGoSnippet[];
     keywords: KeywordResult[];
-    userInput: string;
     onDraftChange?: (value: string) => void;
     onConfirm?: () => void;
     onRegenerate?: () => void;
@@ -45,7 +44,6 @@ export default function DeepSearchDraftMessage({
     isComplete,
     searchSnippets,
     keywords,
-    userInput,
     onDraftChange,
     onConfirm,
     onRegenerate,
@@ -54,22 +52,18 @@ export default function DeepSearchDraftMessage({
     const [isExpanded, setIsExpanded] = useState(true);
     const [showMetadata, setShowMetadata] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
-    const [editValue, setEditValue] = useState('');
+    const [draftEditValue, setDraftEditValue] = useState('');
     const { deepSearchPhase } = useAIBotStore();
-
-    // 当草稿完成时，初始化编辑值
-    useEffect(() => {
-        if (isComplete && draftMarkdown) {
-            setEditValue(cleanMarkdownCodeBlock(draftMarkdown));
-        }
-    }, [isComplete, draftMarkdown]);
 
     // 清理后的草稿内容
     const cleanedDraft = cleanMarkdownCodeBlock(draftMarkdown);
 
+    // 编辑中以本地输入为准，非编辑态始终跟随最新草稿（避免在 effect 中同步）
+    const editValue = isEditing ? draftEditValue : cleanedDraft;
+
     // 进入编辑模式
     const handleStartEdit = () => {
-        setEditValue(cleanedDraft);
+        setDraftEditValue(cleanedDraft);
         setIsEditing(true);
     };
 
@@ -81,7 +75,7 @@ export default function DeepSearchDraftMessage({
 
     // 取消编辑
     const handleCancelEdit = () => {
-        setEditValue(cleanedDraft);
+        setDraftEditValue(cleanedDraft);
         setIsEditing(false);
     };
 
@@ -203,7 +197,7 @@ export default function DeepSearchDraftMessage({
                                     <div>
                                         <textarea
                                             value={editValue}
-                                            onChange={(e) => setEditValue(e.target.value)}
+                                            onChange={(e) => setDraftEditValue(e.target.value)}
                                             className="w-full h-64 bg-transparent border border-[#C9A063]/30 text-sm text-[#E8E6DC] p-3 focus:outline-none focus:border-[#C9A063] font-info-content resize-none about-overlay-scroll"
                                             placeholder="编辑检索草稿..."
                                         />
@@ -229,7 +223,6 @@ export default function DeepSearchDraftMessage({
                                             <div
                                                 className="prose prose-invert prose-sm max-w-none font-info-content"
                                                 suppressHydrationWarning
-                                                key={`draft-markdown-${Date.now()}`}
                                             >
                                                 <ReactMarkdown
                                                     remarkPlugins={[remarkGfm]}

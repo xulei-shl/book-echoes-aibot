@@ -113,6 +113,17 @@ export default function Canvas({ books, month, subjectLabel }: CanvasProps) {
 
     const focusedBook = books.find(b => b.id === focusedBookId);
 
+    // 点击画布空白处关闭详情面板；点在书籍卡片上则交给卡片自身的聚焦逻辑
+    const handleBackgroundClick = (event: React.MouseEvent<HTMLDivElement>) => {
+        if (!focusedBookId) {
+            return;
+        }
+        if ((event.target as HTMLElement).closest('[data-book-card]')) {
+            return;
+        }
+        setFocusedBookId(null);
+    };
+
     // 传递选中的主题卡/文学FM给TopNav（直接派生，无 effect 中转，避免级联渲染）
     const currentBookForHeader = focusedBook;
 
@@ -145,7 +156,7 @@ export default function Canvas({ books, month, subjectLabel }: CanvasProps) {
             
   
             {/* Books Layer */}
-            <div className="absolute inset-0 z-10">
+            <div className="absolute inset-0 z-10" onClick={handleBackgroundClick}>
                 {books.map((book, index) => (
                     <BookCard
                         key={book.id}

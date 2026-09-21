@@ -1,6 +1,5 @@
-import ReactMarkdown from 'react-markdown';
+import type { ComponentProps } from 'react';
 import type { Components } from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import clsx from 'clsx';
 
 export const markdownComponents: Components = {
@@ -89,7 +88,7 @@ export const markdownComponents: Components = {
     td: (props) => (
         <td className="px-4 py-3 text-sm text-[#D4D4D4] align-top tracking-normal font-info-content" {...props} />
     ),
-    code: ({ inline, className, children, ...props }: any) => {
+    code: ({ inline, className, children, ...props }: ComponentProps<'code'> & { inline?: boolean }) => {
         if (inline) {
             return (
                 <code
@@ -178,7 +177,7 @@ export const messageMarkdownComponents: Components = {
     td: (props) => (
         <td className="px-3 py-2 text-sm text-[#E8E6DC] align-top tracking-normal" {...props} />
     ),
-    code: ({ inline, className, children, ...props }: any) => {
+    code: ({ inline, className, children, ...props }: ComponentProps<'code'> & { inline?: boolean }) => {
         if (inline) {
             return (
                 <code

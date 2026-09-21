@@ -7,9 +7,7 @@ import clsx from 'clsx';
 import MessageStream from '@/components/aibot/MessageStream';
 import DocumentUploadButton from '@/components/aibot/DocumentUploadButton';
 import DocumentUploadWorkflow, { useDocumentUploadController, MAX_DOCUMENTS } from '@/components/aibot/DocumentUploadWorkflow';
-import DocumentAnalysisProgressMessage from '@/components/aibot/DocumentAnalysisProgressMessage';
-import DocumentAnalysisDraftMessage from '@/components/aibot/DocumentAnalysisDraftMessage';
-import { useAIBotStore } from '@/store/aibot/useAIBotStore';
+import { useAIBotStore, type AIBotMessage } from '@/store/aibot/useAIBotStore';
 import type { Message as UIMessage } from '@ai-sdk/ui-utils';
 import type {
     BookInfo,
@@ -17,11 +15,9 @@ import type {
     KeywordResult,
     DuckDuckGoSnippet,
     UploadedDocument,
-    DocumentAnalysisMessageContent,
-    DocumentAnalysisPhase,
     DocumentAnalysisLogEntry
 } from '@/src/core/aibot/types';
-import { AIBOT_MODES, type AIBotMode } from '@/src/core/aibot/constants';
+import { AIBOT_MODES } from '@/src/core/aibot/constants';
 import type { LogEntry, SearchPhase } from '@/components/aibot/ProgressLogDisplay';
 import { formatBooksForSecondarySearch } from '@/src/utils/format-book-for-search';
 
@@ -36,11 +32,17 @@ const generateUUID = (): string => {
     });
 };
 
+/** 读取消息 content（AIBot 会写入结构化内容，SDK 类型只声明为 string） */
+const getMessageContent = (message: UIMessage): unknown => (message as { content?: unknown }).content;
+
 const buildRequestMessages = (messages: UIMessage[]) =>
-    messages.map((message) => ({
-        role: message.role,
-        content: typeof (message as any).content === 'string' ? (message as any).content : ''
-    }));
+    messages.map((message) => {
+        const content = getMessageContent(message);
+        return {
+            role: message.role,
+            content: typeof content === 'string' ? content : ''
+        };
+    });
 
 export default function AIBotOverlay() {
     const {
@@ -56,7 +58,6 @@ export default function AIBotOverlay() {
         updateLastAssistantMessage,
         updateMessageContent,
         isStreaming,
-        setStreaming,
         setPendingDraft,
         error,
         setError,
@@ -106,25 +107,14 @@ export default function AIBotOverlay() {
 
         // 文档上传相关状态
         uploadedDocuments,
-        documentUploadPhase,
-        documentUploadError,
-        setDocumentUploadPhase,
-        setDocumentUploadError,
-        addUploadedDocument,
-        removeUploadedDocument,
-        setUploadedDocuments,
         clearUploadedDocuments,
 
         // 文档分析状态
-        documentAnalysisPhase,
         documentAnalysisProgressMessageId,
         documentAnalysisLogs,
         documentAnalysisDraftMessageId,
         documentAnalysisDraftContent,
         isDocumentAnalysisDraftStreaming,
-        isDocumentAnalysisDraftComplete,
-        documentAnalysisBooksMessageId,
-        documentAnalysisBooks,
         documentAnalysisSelectedBooks,
         documentAnalysisUserInput,
         setDocumentAnalysisPhase,
@@ -214,7 +204,7 @@ export default function AIBotOverlay() {
                 type: 'document-analysis-progress',
                 logs: documentAnalysisLogsRef.current,
                 currentPhase: entry.phase
-            } as any);
+            });
         }
     }, [addDocumentAnalysisLog, documentAnalysisProgressMessageId, updateMessageContent]);
 
@@ -228,7 +218,7 @@ export default function AIBotOverlay() {
 
     const lastAssistant = useMemo(() => {
         for (let i = messages.length - 1; i >= 0; i -= 1) {
-            const content = (messages[i] as any).content;
+            const content = getMessageContent(messages[i]);
             if (messages[i].role === 'assistant' && typeof content === 'string') {
                 return content;
             }
@@ -320,11 +310,11 @@ export default function AIBotOverlay() {
         }
 
         // 立即添加用户消息到界面，无需等待分类
-        const userMessage: UIMessage = {
+        const userMessage: AIBotMessage = {
             id: generateUUID(),
             role: 'user',
             content: trimmed
-        } as any;
+        };
 
         appendMessage(userMessage);
         setInputValue('');
@@ -360,7 +350,7 @@ export default function AIBotOverlay() {
 
         // 添加进度消息
         const progressMessageId = generateUUID();
-        const progressMessage: UIMessage = {
+        const progressMessage: AIBotMessage = {
             id: progressMessageId,
             role: 'assistant',
             content: {
@@ -368,7 +358,7 @@ export default function AIBotOverlay() {
                 logs: [],
                 currentPhase: ''
             }
-        } as any;
+        };
         appendMessage(progressMessage);
         setDocumentAnalysisProgressMessageId(progressMessageId);
 
@@ -449,7 +439,7 @@ export default function AIBotOverlay() {
 
                                 // 添加草稿消息
                                 if (!draftMessageAdded) {
-                                    const draftMessage: UIMessage = {
+                                    const draftMessage: AIBotMessage = {
                                         id: draftMessageId,
                                         role: 'assistant',
                                         content: {
@@ -460,7 +450,7 @@ export default function AIBotOverlay() {
                                             documentAnalyses,
                                             userInput: analysisUserInput
                                         }
-                                    } as any;
+                                    };
                                     appendMessage(draftMessage);
                                     setDocumentAnalysisDraftMessageId(draftMessageId);
                                     setDocumentAnalysisDraftStreaming(true);
@@ -480,7 +470,7 @@ export default function AIBotOverlay() {
                                     isComplete: false,
                                     documentAnalyses,
                                     userInput: analysisUserInput
-                                } as any);
+                                });
                             } else if (data.type === 'draft-complete') {
                                 // 草稿完成
                                 setDocumentAnalysisDraftContent(data.draftMarkdown);
@@ -496,7 +486,7 @@ export default function AIBotOverlay() {
                                     isComplete: true,
                                     documentAnalyses,
                                     userInput: analysisUserInput
-                                } as any);
+                                });
                             }
                         } catch (parseError) {
                             console.error('解析SSE数据失败:', parseError);
@@ -521,7 +511,7 @@ export default function AIBotOverlay() {
 
         // 添加进度消息
         const progressMessageId = generateUUID();
-        const progressMessage: UIMessage = {
+        const progressMessage: AIBotMessage = {
             id: progressMessageId,
             role: 'assistant',
             content: {
@@ -529,7 +519,7 @@ export default function AIBotOverlay() {
                 logs: [],
                 currentPhase: ''
             }
-        } as any;
+        };
         appendMessage(progressMessage);
         setDeepSearchProgressMessageId(progressMessageId);
 
@@ -607,7 +597,7 @@ export default function AIBotOverlay() {
                                     type: 'deep-search-progress',
                                     logs: updatedLogs,
                                     currentPhase: data.phase
-                                } as any);
+                                });
                             } else if (data.type === 'draft-start') {
                                 // 草稿开始，保存元数据到本地变量和 store
                                 localKeywords = data.keywords || [];
@@ -617,7 +607,7 @@ export default function AIBotOverlay() {
 
                                 // 添加草稿消息
                                 if (!draftMessageAdded) {
-                                    const draftMessage: UIMessage = {
+                                    const draftMessage: AIBotMessage = {
                                         id: draftMessageId,
                                         role: 'assistant',
                                         content: {
@@ -629,7 +619,7 @@ export default function AIBotOverlay() {
                                             keywords: localKeywords,
                                             userInput
                                         }
-                                    } as any;
+                                    };
                                     appendMessage(draftMessage);
                                     setDeepSearchDraftMessageId(draftMessageId);
                                     setDeepSearchDraftStreaming(true);
@@ -650,7 +640,7 @@ export default function AIBotOverlay() {
                                     searchSnippets: localSnippets,
                                     keywords: localKeywords,
                                     userInput
-                                } as any);
+                                });
                             } else if (data.type === 'draft-complete') {
                                 // 草稿完成
                                 setDeepSearchDraftContent(data.draftMarkdown);
@@ -667,7 +657,7 @@ export default function AIBotOverlay() {
                                     searchSnippets: localSnippets,
                                     keywords: localKeywords,
                                     userInput
-                                } as any);
+                                });
                             }
                         } catch (parseError) {
                             console.error('解析SSE数据失败:', parseError);
@@ -727,7 +717,7 @@ export default function AIBotOverlay() {
 
                 // 添加图书列表消息
                 const booksMessageId = generateUUID();
-                const booksMessage: UIMessage = {
+                const booksMessage: AIBotMessage = {
                     id: booksMessageId,
                     role: 'assistant',
                     content: {
@@ -736,7 +726,7 @@ export default function AIBotOverlay() {
                         draftMarkdown: deepSearchDraftContent,
                         userInput: deepSearchUserInput
                     }
-                } as any;
+                };
                 appendMessage(booksMessage);
                 setDeepSearchBooksMessageId(booksMessageId);
                 setDeepSearchPhase('book-selection');
@@ -763,14 +753,14 @@ export default function AIBotOverlay() {
                 searchSnippets: deepSearchSnippets,
                 keywords: deepSearchKeywords,
                 userInput: deepSearchUserInput
-            } as any);
+            });
         }
     }, [deepSearchDraftMessageId, deepSearchSnippets, deepSearchKeywords, deepSearchUserInput, setDeepSearchDraftContent, updateMessageContent]);
 
     // 深度检索：确认草稿
     const handleDeepSearchDraftConfirm = useCallback(async () => {
         await performDeepSearchBookRetrieval();
-    }, [deepSearchDraftContent, deepSearchUserInput]);
+    }, [performDeepSearchBookRetrieval]);
 
     // 深度检索：重新生成
     const handleDeepSearchDraftRegenerate = useCallback(() => {
@@ -779,7 +769,7 @@ export default function AIBotOverlay() {
         if (deepSearchUserInput) {
             executeDeepSearchAnalysis(deepSearchUserInput);
         }
-    }, [deepSearchUserInput, resetDeepSearch]);
+    }, [deepSearchUserInput, resetDeepSearch, executeDeepSearchAnalysis]);
 
     // 深度检索：取消
     const handleDeepSearchDraftCancel = useCallback(() => {
@@ -801,11 +791,11 @@ export default function AIBotOverlay() {
         });
 
         // 添加解读消息 - 使用简单检索的方式（字符串内容）
-        const reportMessage: UIMessage = {
+        const reportMessage: AIBotMessage = {
             id: generateUUID(),
             role: 'assistant',
             content: ''  // 使用空字符串初始化，后续用 updateLastAssistantMessage 更新
-        } as any;
+        };
         appendMessage(reportMessage);
 
         try {
@@ -850,7 +840,7 @@ export default function AIBotOverlay() {
             setError(error instanceof Error ? error.message : '深度解读生成失败');
             setDeepSearchPhase('book-selection');
         }
-    }, [deepSearchUserInput, appendMessage, updateMessageContent, setDeepSearchSelectedBooks, setDeepSearchPhase, setError]);
+    }, [deepSearchUserInput, appendMessage, setDeepSearchSelectedBooks, setDeepSearchPhase, setError, addDeepSearchLog, updateLastAssistantMessage]);
 
     // ========== 文档分析相关回调函数 ==========
 
@@ -861,11 +851,11 @@ export default function AIBotOverlay() {
 
         // 添加用户消息显示正在分析的文档
         const documentNames = documents.map(doc => doc.name).join(', ');
-        const userMessage: UIMessage = {
+        const userMessage: AIBotMessage = {
             id: generateUUID(),
             role: 'user',
             content: `分析以下文档：${documentNames}`
-        } as any;
+        };
 
         appendMessage(userMessage);
 
@@ -887,7 +877,7 @@ export default function AIBotOverlay() {
                 isComplete: true,
                 documentAnalyses: [], // 这些值在实际使用中应该从状态获取
                 userInput: documentAnalysisUserInput
-            } as any);
+            });
         }
     }, [documentAnalysisDraftMessageId, documentAnalysisUserInput, setDocumentAnalysisDraftContent, updateMessageContent]);
 
@@ -935,7 +925,7 @@ export default function AIBotOverlay() {
 
                     // 添加图书列表消息
                     const booksMessageId = generateUUID();
-                    const booksMessage: UIMessage = {
+                    const booksMessage: AIBotMessage = {
                         id: booksMessageId,
                         role: 'assistant',
                         content: {
@@ -944,7 +934,7 @@ export default function AIBotOverlay() {
                             draftMarkdown: documentAnalysisDraftContent,
                             userInput: documentAnalysisUserInput
                         }
-                    } as any;
+                    };
                     appendMessage(booksMessage);
                     setDocumentAnalysisBooksMessageId(booksMessageId);
                     setDocumentAnalysisPhase('book-selection');
@@ -998,7 +988,7 @@ export default function AIBotOverlay() {
 
         // 预先添加解读消息，方便流式实时渲染
         const reportMessageId = generateUUID();
-        const reportMessage: UIMessage = {
+        const reportMessage: AIBotMessage = {
             id: reportMessageId,
             role: 'assistant',
             content: {
@@ -1008,7 +998,7 @@ export default function AIBotOverlay() {
                 isComplete: false,
                 selectedBooks
             }
-        } as any;
+        };
         appendMessage(reportMessage);
         setDocumentAnalysisReportMessageId(reportMessageId);
 
@@ -1043,7 +1033,7 @@ export default function AIBotOverlay() {
                     isStreaming: true,
                     isComplete: false,
                     selectedBooks
-                } as any);
+                });
             }
 
             setDocumentAnalysisPhase('completed');
@@ -1054,7 +1044,7 @@ export default function AIBotOverlay() {
                 isStreaming: false,
                 isComplete: true,
                 selectedBooks
-            } as any);
+            });
             pushDocumentAnalysisLog({
                 id: `report-generation-${Date.now()}`,
                 timestamp: new Date().toLocaleTimeString('zh-CN'),
@@ -1079,7 +1069,7 @@ export default function AIBotOverlay() {
                 isStreaming: false,
                 isComplete: false,
                 selectedBooks
-            } as any);
+            });
         } finally {
             setDocumentAnalysisReportStreaming(false);
             setDocumentAnalysisReportContent(buffer);
@@ -1115,11 +1105,11 @@ export default function AIBotOverlay() {
 
             // 如果是其他类型，直接返回提示
             if (classification.intent === 'other') {
-                const assistantMessage: UIMessage = {
+                const assistantMessage: AIBotMessage = {
                     id: generateUUID(),
                     role: 'assistant',
                     content: '你好，我是 Book Echoes 图书智搜助手，专注解读与推荐书籍内容。\n当前输入暂未匹配到图书检索任务。试着告诉我：你想解决的问题、关注的主题、阅读目标或领域关键词，我就能为你找到书。'
-                } as any;
+                };
 
                 appendMessage(assistantMessage);
                 setRetrievalPhase('search');
@@ -1164,11 +1154,11 @@ export default function AIBotOverlay() {
             setCurrentRetrievalResult(data.retrievalResult);
 
             // 添加检索结果消息
-            const retrievalMessage: UIMessage = {
+            const retrievalMessage: AIBotMessage = {
                 id: generateUUID(),
                 role: 'assistant',
                 content: ''
-            } as any;
+            };
 
             appendMessage(retrievalMessage);
             setRetrievalResult(retrievalMessage.id, data.retrievalResult);
@@ -1231,11 +1221,11 @@ export default function AIBotOverlay() {
             }
 
             // 添加解读消息
-            const interpretationMessage: UIMessage = {
+            const interpretationMessage: AIBotMessage = {
                 id: generateUUID(),
                 role: 'assistant',
                 content: ''
-            } as any;
+            };
 
             appendMessage(interpretationMessage);
 
@@ -1487,7 +1477,6 @@ export default function AIBotOverlay() {
                                         <MessageStream
                                             messages={messages}
                                             isStreaming={isStreaming || isGeneratingInterpretation || isDeepSearchDraftStreaming || isDocumentAnalysisDraftStreaming}
-                                            isSearching={isSearching}
                                             retrievalPhase={retrievalPhase}
                                             selectedBookIds={selectedBookIds}
                                             onBookSelection={handleBookSelection}
@@ -1546,8 +1535,6 @@ export default function AIBotOverlay() {
                                     {(mode === AIBOT_MODES.TEXT || mode === AIBOT_MODES.DOCUMENT) && (
                                         <DocumentUploadWorkflow
                                             controller={documentUploadController}
-                                            disabled={isStreaming || isGeneratingInterpretation || isSearching || isDeepSearchDraftStreaming || isDocumentAnalysisDraftStreaming}
-                                            isAnalyzing={mode === AIBOT_MODES.DOCUMENT}
                                         />
                                     )}
                                 </div>

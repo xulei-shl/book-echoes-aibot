@@ -1,7 +1,7 @@
 import { DEFAULT_PLAIN_TEXT_TEMPLATE } from '@/src/utils/aibot-env';
 import { getBookApiBase } from '@/src/utils/aibot-env';
 import { getLogger } from '@/src/utils/logger';
-import type { MultiQueryPayload, RetrievalResult, TextSearchPayload, BookInfo, RetrievalResultData, EnhancedRetrievalResult, ExpandedSearchResult, ParallelSearchResult, QueryExpansionResult } from '@/src/core/aibot/types';
+import type { MultiQueryPayload, TextSearchPayload, BookInfo, RetrievalResultData, EnhancedRetrievalResult, ExpandedSearchResult, ParallelSearchResult } from '@/src/core/aibot/types';
 import { expandQuery, extractSearchTexts } from './queryExpansionService';
 
 const logger = getLogger('aibot.retrieval');
@@ -17,16 +17,6 @@ const ensureTemplate = <T extends { plain_text_template?: string }>(payload: T):
     return {
         ...payload,
         plain_text_template: DEFAULT_PLAIN_TEXT_TEMPLATE
-    };
-};
-
-const ensureFormat = <T extends { response_format?: 'json' | 'plain_text' }>(payload: T): T => {
-    if (payload.response_format) {
-        return payload;
-    }
-    return {
-        ...payload,
-        response_format: 'json'  // 修改默认值为json，确保获取结构化数据
     };
 };
 
@@ -256,9 +246,51 @@ function deduplicateBooks(books: BookInfo[]): BookInfo[] {
     return result;
 }
 
+// 检索 API 可能返回的原始条目（中英文字段名混用，且不保证每个字段都存在）
+interface RawRetrievalItem {
+    id?: string | number;
+    book_id?: string | number;
+    title?: string;
+    author?: string;
+    subtitle?: string;
+    translator?: string;
+    publisher?: string;
+    publishYear?: number;
+    rating?: number;
+    call_no?: string;
+    callNumber?: string;
+    pageCount?: number;
+    coverUrl?: string;
+    summary?: string;
+    description?: string;
+    authorIntro?: string;
+    tableOfContents?: string;
+    highlights?: string[];
+    isbn?: string;
+    tags?: string[];
+    fused_score?: number;
+    similarity_score?: number;
+    reranker_score?: number;
+    final_score?: number;
+    match_source?: string;
+    embedding_id?: string;
+    source_query_type?: string;
+    豆瓣书名?: string;
+    豆瓣副标题?: string;
+    豆瓣作者?: string;
+    豆瓣译者?: string;
+    豆瓣出版年份?: number;
+    豆瓣评分?: number;
+    索书号?: string;
+    豆瓣页数?: number;
+    豆瓣内容简介?: string;
+    豆瓣作者简介?: string;
+    豆瓣目录?: string;
+}
+
 // 解析JSON格式为结构化数据
 function parseJsonResultsToBooks(
-    results: any[],
+    results: RawRetrievalItem[],
     payload: Record<string, unknown>,
     endpoint: string
 ): RetrievalResultData {
@@ -366,8 +398,8 @@ async function postBookApi<T>(
     logger.info('请求图书检索 API', {
         endpoint,
         payloadKeys: Object.keys(payload),
-        responseFormat: (payload as any).response_format,
-        query: (payload as any).query
+        responseFormat: payload.response_format,
+        query: payload.query
     });
 
     const response = await fetch(endpoint, {
@@ -388,23 +420,24 @@ async function postBookApi<T>(
     const contentType = response.headers.get('content-type') ?? '';
     let contextPlainText: string = '';
     let metadata: T = {} as T;
-    let responseData: any = null;
+    let responseData: Record<string, unknown> | null = null;
 
     if (contentType.includes('text/plain')) {
         contextPlainText = await response.text();
         logger.info('接收到纯文本响应', { textLength: contextPlainText.length });
     } else {
-        responseData = await response.json();
+        const jsonData = (await response.json()) as Record<string, unknown>;
+        responseData = jsonData;
         logger.info('接收到JSON响应', {
-            hasResults: !!responseData.results,
-            resultsCount: Array.isArray(responseData.results) ? responseData.results.length : 'N/A',
-            hasContextPlainText: !!responseData.context_plain_text,
-            hasMetadata: !!responseData.metadata,
-            allKeys: Object.keys(responseData)
+            hasResults: !!jsonData.results,
+            resultsCount: Array.isArray(jsonData.results) ? jsonData.results.length : 'N/A',
+            hasContextPlainText: !!jsonData.context_plain_text,
+            hasMetadata: !!jsonData.metadata,
+            allKeys: Object.keys(jsonData)
         });
         
-        contextPlainText = responseData.context_plain_text ?? responseData.contextPlainText ?? '';
-        metadata = (responseData.metadata ?? {}) as T;
+        contextPlainText = String(jsonData.context_plain_text ?? jsonData.contextPlainText ?? '');
+        metadata = (jsonData.metadata ?? {}) as T;
     }
 
     // 使用克隆的响应解析结构化数据
@@ -429,7 +462,7 @@ async function postBookApi<T>(
                 resultsType: Array.isArray(responseData.results) ? 'array' : typeof responseData.results,
                 resultsLength: Array.isArray(responseData.results) ? responseData.results.length : 'N/A',
                 hasContextPlainText: !!responseData.context_plain_text,
-                contextPlainTextLength: responseData.context_plain_text?.length || 0,
+                contextPlainTextLength: typeof responseData.context_plain_text === 'string' ? responseData.context_plain_text.length : 0,
                 hasMetadata: !!responseData.metadata
             } : '无响应数据',
             hasStructuredData: !!structuredData,
@@ -590,7 +623,7 @@ export class RetrievalError extends Error {
     constructor(
         message: string,
         public readonly code: string,
-        public readonly details?: any
+        public readonly details?: unknown
     ) {
         super(message);
         this.name = 'RetrievalError';

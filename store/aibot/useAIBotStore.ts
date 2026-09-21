@@ -5,7 +5,6 @@ import type {
     DraftPayload,
     RetrievalResultData,
     RetrievalPhase,
-    BookSelectionState,
     DeepSearchPhase,
     DeepSearchLogEntry,
     KeywordResult,
@@ -13,11 +12,16 @@ import type {
     BookInfo,
     UploadedDocument,
     DocumentUploadPhase,
-    DocumentAnalysisState,
     DocumentAnalysisLogEntry,
     DocumentAnalysisPhase
 } from '@/src/core/aibot/types';
 import type { AIBotMode } from '@/src/core/aibot/constants';
+
+/** 消息 content 除纯文本外，还会承载结构化消息对象（深度检索 / 文档分析各阶段） */
+export type AIBotMessageInput = string | Record<string, unknown>;
+
+/** AIBot 内部消息（SDK 的 Message 只把 content 声明为 string，这里放宽以适应结构化内容） */
+export type AIBotMessage = Omit<UIMessage, 'content'> & { content: AIBotMessageInput };
 
 const generateUUID = (): string => {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -102,8 +106,8 @@ interface AIBotState {
     setMode: (mode: AIBotMode) => void;
     // 保持向后兼容的setDeepMode
     setDeepMode: (value: boolean) => void;
-    setMessages: (messages: UIMessage[]) => void;
-    appendMessage: (message: UIMessage) => void;
+    setMessages: (messages: AIBotMessage[]) => void;
+    appendMessage: (message: AIBotMessage) => void;
     updateLastAssistantMessage: (content: string) => void;
     setPendingDraft: (draft: string | null, metadata?: DraftPayload) => void;
     setStreaming: (value: boolean) => void;
@@ -152,7 +156,7 @@ interface AIBotState {
     // 重置深度检索状态
     resetDeepSearch: () => void;
     // 更新指定消息内容（用于流式更新）
-    updateMessageContent: (messageId: string, content: string) => void;
+    updateMessageContent: (messageId: string, content: AIBotMessageInput) => void;
 
     // ========== 文档上传相关 actions ==========
     // 文档管理
@@ -260,7 +264,7 @@ const initialState = {
 
 export const useAIBotStore = create<AIBotState>((set) => ({
     ...initialState,
-    setMode: (mode) => set((state) => {
+    setMode: (mode) => set(() => {
         // 同时更新isDeepMode以保持向后兼容
         const isDeepMode = mode === AIBOT_MODES.DEEP;
         console.log('[useAIBotStore] setMode', { mode, isDeepMode });
@@ -300,18 +304,18 @@ export const useAIBotStore = create<AIBotState>((set) => ({
                 role: msg.role
             }))
         });
-        return { messages };
+        return { messages: messages as UIMessage[] };
     }),
     appendMessage: (message) =>
         set((state) => ({
-            messages: [...state.messages, message]
+            messages: [...state.messages, message as UIMessage]
         })),
     updateLastAssistantMessage: (content) =>
         set((state) => {
             const next = [...state.messages];
             for (let i = next.length - 1; i >= 0; i -= 1) {
                 if (next[i].role === 'assistant') {
-                    (next[i] as any).content = content;
+                    next[i] = { ...next[i], content } as UIMessage;
                     return { messages: next };
                 }
             }
@@ -319,7 +323,7 @@ export const useAIBotStore = create<AIBotState>((set) => ({
                 id: generateUUID(),
                 role: 'assistant',
                 content
-            } as any);
+            } as UIMessage);
             return { messages: next };
         }),
     setPendingDraft: (draft, metadata) =>
