@@ -5,7 +5,7 @@ import type { SearchResultItem } from '@/lib/search/types';
 /** 结构化信号呈现（不让 Jev 生成文本，Q2 推荐做法） */
 export default function WhyPopover({ item }: { item: SearchResultItem }) {
   return (
-    <div className="w-64 rounded-lg border border-[#C9A063]/30 bg-[#121212]/95 p-3 text-left shadow-[0_18px_50px_rgba(0,0,0,0.6)] backdrop-blur-md">
+    <div className="w-64 border border-[#C9A063]/30 bg-[#121212]/95 p-3 text-left shadow-[0_18px_50px_rgba(0,0,0,0.6)] backdrop-blur-md">
       <p className="mb-2 font-mono text-[10px] uppercase tracking-widest text-[#C9A063]">
         判定依据
       </p>

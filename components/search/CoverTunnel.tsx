@@ -101,7 +101,7 @@ export default function CoverTunnel({ covers, dimmed, highlightIds }: CoverTunne
     return (
       <div key={`${item.id}-${itemIdx}`} className="relative">
         <div
-          className="cover-float relative aspect-[2/3] overflow-hidden rounded-md bg-[#18181b] transition-all duration-300"
+          className="cover-float relative aspect-[2/3] overflow-hidden bg-[#18181b] transition-all duration-300"
           style={
             {
               '--float-i': (colIdx * 3 + itemIdx) % 9,

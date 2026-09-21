@@ -49,15 +49,22 @@ export default function BookDetailModal({ item, onClose, onNavigate }: BookDetai
           exit={{ opacity: 0, scale: 0.95, y: 12 }}
           transition={{ type: 'spring', stiffness: 320, damping: 28 }}
           onClick={e => e.stopPropagation()}
-          className="relative max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-[#C9A063]/30 bg-[#161514] p-6 text-[#E8E6DC] shadow-[0_25px_70px_rgba(0,0,0,0.85),0_0_35px_rgba(201,160,99,0.15)] md:p-8 about-overlay-scroll"
+          className="relative max-h-[90vh] w-full max-w-3xl text-[#E8E6DC] shadow-[0_25px_70px_rgba(0,0,0,0.85),0_0_35px_rgba(201,160,99,0.15)]"
         >
+          {/* 四角高亮装饰：主容器专属，与全站直角设计语言一致 */}
+          <div className="pointer-events-none absolute top-0 left-0 z-20 h-4 w-4 border-t-2 border-l-2 border-[#C9A063]" />
+          <div className="pointer-events-none absolute top-0 right-0 z-20 h-4 w-4 border-t-2 border-r-2 border-[#C9A063]" />
+          <div className="pointer-events-none absolute bottom-0 left-0 z-20 h-4 w-4 border-b-2 border-l-2 border-[#C9A063]" />
+          <div className="pointer-events-none absolute bottom-0 right-0 z-20 h-4 w-4 border-b-2 border-r-2 border-[#C9A063]" />
+
+          <div className="max-h-[90vh] overflow-y-auto border border-[#C9A063]/30 bg-[#161514] p-6 md:p-8 about-overlay-scroll">
           {/* 关闭按钮 */}
           <motion.button
             whileTap={{ scale: 0.96 }}
             type="button"
             onClick={onClose}
             aria-label="关闭详情"
-            className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full text-[#8C8982] transition-colors hover:bg-white/10 hover:text-[#F2F0E9]"
+            className="absolute right-4 top-4 z-30 flex h-8 w-8 items-center justify-center text-[#8C8982] transition-colors hover:bg-white/10 hover:text-[#F2F0E9]"
           >
             <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -67,7 +74,7 @@ export default function BookDetailModal({ item, onClose, onNavigate }: BookDetai
           <div className="flex flex-col gap-6 sm:flex-row">
             {/* 真实图书封面大图 */}
             <div className="mx-auto w-44 shrink-0 sm:mx-0 sm:w-52">
-              <div className="aspect-[2/3] overflow-hidden rounded-lg bg-[#1a1a1a] shadow-[0_16px_36px_rgba(0,0,0,0.6)] outline outline-1 outline-white/10">
+              <div className="aspect-[2/3] overflow-hidden bg-[#1a1a1a] shadow-[0_16px_36px_rgba(0,0,0,0.6)] outline outline-1 outline-white/10">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={coverSrc}
@@ -77,7 +84,7 @@ export default function BookDetailModal({ item, onClose, onNavigate }: BookDetai
               </div>
 
               {/* 语义相关度标签 */}
-              <div className="mt-4 rounded-xl border border-[#C9A063]/30 bg-[#C9A063]/10 p-3 text-center">
+              <div className="mt-4 border border-[#C9A063]/30 bg-[#C9A063]/10 p-3 text-center">
                 <span className="block font-mono text-[11px] text-[#A2A09A]">Jev 语义相关度</span>
                 <span className="font-mono text-2xl font-bold tabular-nums text-[#C9A063]">
                   {item.relevancePct}%
@@ -109,17 +116,17 @@ export default function BookDetailModal({ item, onClose, onNavigate }: BookDetai
               {/* 索书号与评价 */}
               <div className="flex flex-wrap gap-2 text-xs">
                 {book.callNumber && (
-                  <span className="rounded-md border border-[#C9A063]/40 bg-[#1e1d1b] px-2.5 py-1 font-mono text-[#E8E6DC]">
+                  <span className="border border-[#C9A063]/40 bg-[#1e1d1b] px-2.5 py-1 font-mono text-[#E8E6DC]">
                     索书号: {book.callNumber}
                   </span>
                 )}
                 {book.rating && (
-                  <span className="rounded-md border border-amber-500/30 bg-[#1e1d1b] px-2.5 py-1 font-mono text-amber-300">
+                  <span className="border border-amber-500/30 bg-[#1e1d1b] px-2.5 py-1 font-mono text-amber-300">
                     豆瓣评分: {book.rating}
                   </span>
                 )}
                 {book.pages && (
-                  <span className="rounded-md border border-[#6F6D68]/40 bg-[#1e1d1b] px-2.5 py-1 font-mono text-[#A2A09A]">
+                  <span className="border border-[#6F6D68]/40 bg-[#1e1d1b] px-2.5 py-1 font-mono text-[#A2A09A]">
                     {book.pages} 页
                   </span>
                 )}
@@ -127,7 +134,7 @@ export default function BookDetailModal({ item, onClose, onNavigate }: BookDetai
 
               {/* 初评理由 */}
               {book.reason && (
-                <div className="rounded-xl border border-[#C9A063]/20 bg-[#181716] p-4">
+                <div className="border border-[#C9A063]/20 bg-[#181716] p-4">
                   <h4 className="font-display text-xs font-semibold text-[#C9A063]">初评理由</h4>
                   <p className="mt-1.5 font-body text-sm leading-relaxed text-[#E8E6DC] text-pretty">
                     {book.reason}
@@ -151,7 +158,7 @@ export default function BookDetailModal({ item, onClose, onNavigate }: BookDetai
                   whileTap={{ scale: 0.96 }}
                   type="button"
                   onClick={() => onNavigate(item.deepLink)}
-                  className="inline-flex items-center gap-2 rounded-xl bg-[#C9A063] px-5 py-2.5 font-display text-sm font-medium text-[#161514] transition-all hover:bg-[#D4A574]"
+                  className="inline-flex items-center gap-2 bg-[#C9A063] px-5 py-2.5 font-display text-sm font-medium text-[#161514] transition-all hover:bg-[#D4A574]"
                 >
                   <span>前往期刊档案完整阅览</span>
                   <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -164,7 +171,7 @@ export default function BookDetailModal({ item, onClose, onNavigate }: BookDetai
                     href={book.callNumberLink}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-[#C9A063]/30 px-4 py-2.5 font-mono text-xs text-[#C9A063] transition-colors hover:bg-[#C9A063]/10"
+                    className="inline-flex items-center gap-1.5 border border-[#C9A063]/30 px-4 py-2.5 font-mono text-xs text-[#C9A063] transition-colors hover:bg-[#C9A063]/10"
                   >
                     <span>馆藏检索</span>
                     <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -174,6 +181,7 @@ export default function BookDetailModal({ item, onClose, onNavigate }: BookDetai
                 )}
               </div>
             </div>
+          </div>
           </div>
         </motion.div>
       </div>

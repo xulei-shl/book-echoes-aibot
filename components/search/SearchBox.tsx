@@ -40,7 +40,7 @@ function Typewriter({ messages }: { messages: string[] }) {
   }, [index, messages]);
 
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C9A063]/30 bg-[#141312]/90 px-3 py-1 font-body text-xs tracking-wider text-[#E5BE82] shadow-md backdrop-blur-md">
+    <span className="inline-flex items-center gap-1.5 border border-[#C9A063]/30 bg-[#141312]/90 px-3 py-1 font-body text-xs tracking-wider text-[#E5BE82] shadow-md backdrop-blur-md">
       <span>{text}</span>
       <span className="inline-block h-3 w-1 bg-[#C9A063] animate-pulse" />
     </span>
@@ -82,14 +82,20 @@ export default function SearchBox({
           event.preventDefault();
           onSubmit();
         }}
-        className={`relative flex items-center gap-3.5 rounded-2xl border px-5 py-3.5 backdrop-blur-2xl transition-all duration-300 md:px-6 md:py-4.5 ${
+        className={`relative flex items-center gap-3.5 border px-5 py-3.5 backdrop-blur-2xl transition-all duration-300 md:px-6 md:py-4.5 ${
           isFocused
             ? 'border-[#C9A063] bg-[#181716]/90 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.85),0_0_28px_rgba(201,160,99,0.22)] ring-1 ring-[#C9A063]/50'
             : 'border-[#C9A063]/30 bg-[#161514]/80 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.7),0_0_20px_rgba(201,160,99,0.06)] hover:border-[#C9A063]/50'
         }`}
       >
+        {/* 四角高亮装饰：与全站直角设计语言一致 */}
+        <div className="pointer-events-none absolute -top-px -left-px h-4 w-4 border-t-2 border-l-2 border-[#C9A063] z-10" />
+        <div className="pointer-events-none absolute -top-px -right-px h-4 w-4 border-t-2 border-r-2 border-[#C9A063] z-10" />
+        <div className="pointer-events-none absolute -bottom-px -left-px h-4 w-4 border-b-2 border-l-2 border-[#C9A063] z-10" />
+        <div className="pointer-events-none absolute -bottom-px -right-px h-4 w-4 border-b-2 border-r-2 border-[#C9A063] z-10" />
+
         {/* 借阅卡铜标纹章 / 搜索微标 */}
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#C9A063]/10 text-[#C9A063]">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center bg-[#C9A063]/10 text-[#C9A063]">
           <svg
             className="h-4.5 w-4.5"
             fill="none"
@@ -123,7 +129,7 @@ export default function SearchBox({
             type="button"
             onClick={onClear}
             aria-label="清空输入"
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#B8B5AD] transition-colors hover:bg-white/10 hover:text-[#F2F0E9]"
+            className="flex h-7 w-7 shrink-0 items-center justify-center text-[#B8B5AD] transition-colors hover:bg-white/10 hover:text-[#F2F0E9]"
           >
             <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -137,7 +143,7 @@ export default function SearchBox({
           type="submit"
           disabled={isSearching || value.trim().length === 0}
           aria-label="开始语义检索"
-          className="flex h-9.5 w-9.5 shrink-0 items-center justify-center rounded-xl bg-[#C9A063] text-[#161514] shadow-md transition-all duration-200 hover:bg-[#D4A574] disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-[#C9A063]"
+          className="relative flex h-9.5 w-9.5 shrink-0 items-center justify-center bg-[#C9A063] text-[#161514] shadow-md transition-all duration-200 hover:bg-[#D4A574] disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-[#C9A063]"
         >
           {isSearching ? (
             <svg className="h-4.5 w-4.5 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -158,14 +164,14 @@ export default function SearchBox({
           {isSearching && <Typewriter messages={STAGE_MESSAGES} />}
         </div>
 
-        <div className="flex items-center gap-1 rounded-lg border border-[#C9A063]/40 bg-[#141312]/90 p-0.5 shadow-md backdrop-blur-md">
+        <div className="flex items-center gap-1 border border-[#C9A063]/40 bg-[#141312]/90 p-0.5 shadow-md backdrop-blur-md">
           {(['fast', 'deep'] as const).map(option => (
             <motion.button
               key={option}
               whileTap={{ scale: 0.96 }}
               type="button"
               onClick={() => onModeChange(option)}
-              className={`rounded-md px-2.5 py-0.5 font-mono text-[11px] tracking-wider transition-all duration-200 ${
+              className={`px-2.5 py-0.5 font-mono text-[11px] tracking-wider transition-all duration-200 ${
                 mode === option
                   ? 'bg-[#C9A063] font-medium text-[#161514] shadow-sm'
                   : 'text-[#DCD9D0] hover:text-[#F2F0E9]'
