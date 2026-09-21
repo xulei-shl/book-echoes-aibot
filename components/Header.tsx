@@ -197,6 +197,33 @@ export default function Header({ showHomeButton = false, aboutContent, theme = '
                         </>
                     )}
 
+                    {/* Semantic Search Button */}
+                    {process.env.NEXT_PUBLIC_ENABLE_SEMANTIC_SEARCH === '1' &&
+                        pathname &&
+                        pathname !== '/' &&
+                        pathname !== '/search' && (
+                            <button
+                                onClick={() => router.push('/search')}
+                                className={buttonStyles}
+                                aria-label="语义检索"
+                            >
+                                <svg
+                                    className="w-4 h-4"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z"
+                                    />
+                                </svg>
+                                <span>检索</span>
+                            </button>
+                        )}
+
                     {/* Random Walk Button */}
                     {(pathname === '/archive' || (pathname && pathname !== '/' && !pathname.startsWith('/random'))) && (
                         <button

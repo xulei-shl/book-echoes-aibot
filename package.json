@@ -9,7 +9,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "init-fonts": "node scripts/init-fonts.mjs"
+    "init-fonts": "node scripts/init-fonts.mjs",
+    "build:vectors": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/build-search-vectors.mjs"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "0.2.16",

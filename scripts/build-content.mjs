@@ -15,6 +15,9 @@
  *   node scripts/build-content.mjs sleeping 2025 2025-09 # 睡美人（名称需加引号以保留空格）
  *   node scripts/build-content.mjs subject 2025 digital-heritage-dance     # 主题卡
  *   node scripts/build-content.mjs literature 2025 Survival-Literature-for-Metro  # 文学FM
+ *
+ * 可选参数：
+ *   --skip-vectors    跳过最后的向量化步骤
  */
 
 import fs from 'fs/promises';
@@ -24,6 +27,7 @@ import xlsx from 'xlsx';
 import sharp from 'sharp';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { buildRandomIndex } from './build-random-index.mjs';
+import { buildSearchVectors } from './build-search-vectors.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -52,9 +56,15 @@ const CALL_NUMBER_URL_ENCODING = {
  * Main execution function
  */
 async function main() {
+    // --skip-vectors 是本脚本自己的开关，必须在交给 parseBuildContext 前摘掉，
+    // 否则会被当成名称的一部分（如 sleeping / subject / literature 的 nameParts）。
+    const rawArgs = process.argv.slice(2);
+    const skipVectors = rawArgs.includes('--skip-vectors');
+    const positionalArgs = rawArgs.filter(arg => arg !== '--skip-vectors');
+
     let context;
     try {
-        context = parseBuildContext(process.argv.slice(2));
+        context = parseBuildContext(positionalArgs);
     } catch (error) {
         console.error(`❌ ${error.message}`);
         printUsage();
@@ -85,6 +95,13 @@ async function main() {
 
         // Step 5: Generate random index after content build
         await buildRandomIndex();
+
+        // Step 6: Refresh search vectors (independent, non-fatal)
+        if (skipVectors) {
+            console.log('⏭️  已跳过向量化（--skip-vectors）\n');
+        } else {
+            await refreshSearchVectors();
+        }
 
         console.log(`\n✨ Build completed successfully for ${context.logLabel}!\n`);
     } catch (error) {
@@ -158,7 +175,32 @@ function printUsage() {
     console.log('  node scripts/build-content.mjs month 2025-09');
     console.log('  node scripts/build-content.mjs sleeping 2025 \"新书推荐\"');
     console.log('  node scripts/build-content.mjs subject 2025 科幻');
-    console.log('  node scripts/build-content.mjs literature 2025 Survival-Literature-for-Metro\n');
+    console.log('  node scripts/build-content.mjs literature 2025 Survival-Literature-for-Metro');
+    console.log('  可选参数 --skip-vectors：跳过最后的向量化\n');
+}
+
+/**
+ * Step 6: 刷新搜索向量索引。
+ *
+ * 固定在 metadata.json / random_index.json 之后执行：向量与随机索引派生自同一份语料。
+ * build-search-vectors.mjs 自带增量（按 hash 复用旧向量），因此这里只会编码新增/变更的书目。
+ *
+ * 这是可失败的最后一步：前两步产物已经落盘、内容立即可用，向量只是检索增强，
+ * 所以失败只提示、不让整个内容构建失败（届时稠密 lane 降级为纯词法，检索仍可用）。
+ */
+async function refreshSearchVectors() {
+    if (!process.env.EMBEDDING_API_KEY) {
+        console.log('⏭️  跳过向量化：未配置 EMBEDDING_API_KEY（检索会降级为纯词法）\n');
+        return;
+    }
+
+    console.log('🧠 正在为新增/变更书目生成向量...\n');
+    try {
+        await buildSearchVectors();
+    } catch (error) {
+        console.error(`\n⚠️  向量化失败：${error?.message || error}`);
+        console.error('   前面两步的产物已经写好，内容立即可用；可稍后单独补跑：npm run build:vectors\n');
+    }
 }
 
 /**
