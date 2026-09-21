@@ -31,8 +31,14 @@ interface RandomBook {
     imageUrl: string;
 }
 
-// 固定的线条配置 - 使用质数分布模拟随机感，避免每次重新计算
-const FIXED_LINES: LineParticle[] = [...Array(80)].map((_, i) => ({
+/**
+ * 固定的线条配置 - 使用质数分布模拟随机感，避免每次重新计算
+ *
+ * 线条层现在固定为视口尺寸（见下方背景层），因此这里只保留单屏所需的条数：
+ * 原先 80 条是铺满整页的，单屏大约只能看到 18 条。若仍用 80 条，
+ * 视野内的线条密度会骤增为原来的 4 倍以上。
+ */
+const FIXED_LINES: LineParticle[] = [...Array(20)].map((_, i) => ({
     id: i,
     orientation: (i % 2 === 0 ? 'h' : 'v') as 'h' | 'v',
     x: (i * 13.7) % 100,  // 使用质数13.7实现伪随机分布
@@ -42,6 +48,79 @@ const FIXED_LINES: LineParticle[] = [...Array(80)].map((_, i) => ({
     delay: (i % 20) * 0.5  // 延迟: 0-9.5秒
 }));
 
+/**
+ * 卡片封面统一使用竖版卡片图（约 400×758，比例 0.528）：
+ * - 固定比例框先占位，图片加载完成只做透明度淡入，卡片尺寸始终不变
+ * - 因此 CSS 多列瀑布流不会在图片陆续到达时反复重排（消除「跳来跳去」）
+ */
+const COVER_ASPECT_CLASS = 'aspect-[400/758]';
+
+interface RandomBookCardProps {
+    book: RandomBook;
+    index: number;
+    shouldAnimate: boolean;
+    animationStartIndex: number;
+    label: string;
+    onOpen: (book: RandomBook) => void;
+}
+
+/** 单张卡片：加载态收敛在卡片内部，避免某张图 onLoad 时重渲染整个列表 */
+function RandomBookCard({ book, index, shouldAnimate, animationStartIndex, label, onOpen }: RandomBookCardProps) {
+    const [coverLoaded, setCoverLoaded] = useState(false);
+    // 优先轻量卡片缩略图（约 40KB），仅在缺失时回退到原图
+    const coverSrc = book.thumbnailUrl || book.imageUrl;
+
+    // 图片在 SSR HTML 里就已开始下载，可能早于 React 挂载完成。
+    // 这种情况下 onLoad 不会再触发，必须用 ref 回调补一次 complete 检查，
+    // 否则已经加载好的卡片会永远停留在透明状态。
+    const attachCover = useCallback((node: HTMLImageElement | null) => {
+        if (node?.complete) {
+            setCoverLoaded(true);
+        }
+    }, []);
+
+    return (
+        <motion.div
+            layout
+            initial={shouldAnimate ? { opacity: 0, y: 30 } : false}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{
+                duration: shouldAnimate ? 0.8 : 0,
+                delay: shouldAnimate ? Math.min((index - animationStartIndex) * 0.03, 1.2) : 0,
+                ease: [0.22, 1, 0.36, 1]
+            }}
+            className="group relative cursor-pointer"
+            onClick={() => onOpen(book)}
+        >
+            <div className="random-masonry-card relative overflow-hidden rounded-sm shadow-[0_15px_45px_rgba(0,0,0,0.45)] hover:shadow-[0_25px_60px_rgba(0,0,0,0.6)] transition-shadow duration-500 bg-[#1c1915] border border-[#d4a5741a]">
+                {/* 固定比例占位框：加载前后尺寸一致，杜绝瀑布流跳动 */}
+                <div className={`${COVER_ASPECT_CLASS} w-full`}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                        ref={attachCover}
+                        src={coverSrc}
+                        alt={book.title}
+                        loading={index < 6 ? 'eager' : 'lazy'}
+                        decoding="async"
+                        draggable={false}
+                        onLoad={() => setCoverLoaded(true)}
+                        onError={() => setCoverLoaded(true)}
+                        className={`h-full w-full object-cover transition-opacity duration-500 ${coverLoaded ? 'opacity-100' : 'opacity-0'}`}
+                    />
+                </div>
+
+                {/* 悬浮遮罩：提高題名对比度，避免亮底部干扰 */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex flex-col justify-end p-6 backdrop-blur-[1.5px]">
+                    <div className="bg-black/55 backdrop-blur-sm rounded-sm px-3 py-2 shadow-[0_8px_25px_rgba(0,0,0,0.45)]">
+                        <h3 className="text-[#F2F0E9] font-bold text-lg font-display tracking-wide line-clamp-2 leading-relaxed">{book.title}</h3>
+                        <p className="text-[#D4A574] text-xs mt-2 font-accent tracking-wider">{label}</p>
+                    </div>
+                </div>
+            </div>
+        </motion.div>
+    );
+}
+
 export default function RandomMasonry({ initialBooks, initialCursor, seed }: RandomMasonryProps) {
     const [books, setBooks] = useState(initialBooks);
     const [nextCursor, setNextCursor] = useState<string | undefined>(initialCursor);
@@ -49,8 +128,6 @@ export default function RandomMasonry({ initialBooks, initialCursor, seed }: Ran
     const [isLoading, setIsLoading] = useState(false);
     const [animationStartIndex, setAnimationStartIndex] = useState(0);
     const router = useRouter();
-    const baseCardHeight = 360;
-    const heightVariants = [1.05, 1.3, 1.55, 1.2];
     const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
@@ -66,6 +143,10 @@ export default function RandomMasonry({ initialBooks, initialCursor, seed }: Ran
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
+    const handleOpen = useCallback((book: RandomBook) => {
+        router.push(`/${book.month}?focus=${book.id}`);
+    }, [router]);
+
     const getLabel = (sourceId: string) => {
         if (sourceId.includes('-sleeping-')) {
             const name = sourceId.split('-sleeping-')[1];
@@ -77,8 +158,6 @@ export default function RandomMasonry({ initialBooks, initialCursor, seed }: Ran
         }
         return sourceId; // Month case: YYYY-MM
     };
-
-    const getCardHeight = (index: number) => baseCardHeight * heightVariants[index % heightVariants.length];
 
     const loadMore = useCallback(async () => {
         if (!nextCursor || isLoading) {
@@ -140,8 +219,11 @@ export default function RandomMasonry({ initialBooks, initialCursor, seed }: Ran
                     }}
                 />
 
-                {/* 漂浮线条 - 模拟解构的网格 */}
-                <div className="absolute inset-0">
+                {/* 漂浮线条 - 模拟解构的网格。
+                    必须用 fixed：线条用 top: X% 定位，若容器随页面内容增高，
+                    每加载一批就会出现一次整组下移（约 0.33 CLS）。
+                    fixed 让百分比对齐稳定的视口，线条不再随页面高度漂移。 */}
+                <div className="fixed inset-0">
                     {FIXED_LINES.map((line) => (
                         <motion.div
                             key={line.id}
@@ -187,46 +269,21 @@ export default function RandomMasonry({ initialBooks, initialCursor, seed }: Ran
 
             {/* Main Content */}
             <div className="relative z-10 w-full px-6 md:px-10 lg:px-16 py-32 mx-auto max-w-6xl">
-                {/* Masonry Layout */}
-                <div className="columns-1 md:columns-2 xl:columns-3 gap-8 space-y-8">
-                    {books.map((book, index) => {
-                        const cardHeight = getCardHeight(index);
-                        const shouldAnimate = index >= animationStartIndex;
-                        return (
-                            <motion.div
-                                key={`${book.id}-${index}`}
-                                layout
-                                initial={shouldAnimate ? { opacity: 0, y: 30 } : false}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{
-                                    duration: shouldAnimate ? 0.8 : 0,
-                                    delay: shouldAnimate ? Math.min((index - animationStartIndex) * 0.03, 1.2) : 0,
-                                    ease: [0.22, 1, 0.36, 1]
-                                }}
-                                className="break-inside-avoid mb-6 group relative cursor-pointer"
-                                onClick={() => router.push(`/${book.month}?focus=${book.id}`)}
-                            >
-                                <div className="relative overflow-hidden rounded-sm shadow-[0_15px_45px_rgba(0,0,0,0.45)] hover:shadow-[0_25px_60px_rgba(0,0,0,0.6)] transition-all duration-500 bg-[#1c1915] border border-[#d4a5741a]">
-                                    {/* Image */}
-                                    <img
-                                        src={book.imageUrl || book.thumbnailUrl}
-                                        alt={book.title}
-                                        className="w-full h-auto object-contain transition-transform duration-1000 group-hover:scale-100"
-                                        loading="lazy"
-                                        style={{ maxHeight: cardHeight }}
-                                    />
-
-                                    {/* 悬浮遮罩：提高題名对比度，避免亮底部干扰 */}
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex flex-col justify-end p-6 backdrop-blur-[1.5px]">
-                                        <div className="bg-black/55 backdrop-blur-sm rounded-sm px-3 py-2 shadow-[0_8px_25px_rgba(0,0,0,0.45)]">
-                                            <h3 className="text-[#F2F0E9] font-bold text-lg font-display tracking-wide line-clamp-2 leading-relaxed">{book.title}</h3>
-                                            <p className="text-[#D4A574] text-xs mt-2 font-accent tracking-wider">{getLabel(book.month)}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </motion.div>
-                        );
-                    })}
+                {/* Grid Layout：卡片尺寸统一，用 grid 而非 CSS 多列瀑布流。
+                    多列瀑布流会在每批新数据追加时重新平衡，把已有卡片挤到别的列上。
+                    列错位（.random-masonry-grid 的 nth-child 偏移）由 globals.css 提供。 */}
+                <div className="random-masonry-grid grid grid-cols-1 gap-8 md:grid-cols-2 xl:grid-cols-3">
+                    {books.map((book, index) => (
+                        <RandomBookCard
+                            key={`${book.id}-${index}`}
+                            book={book}
+                            index={index}
+                            shouldAnimate={index >= animationStartIndex}
+                            animationStartIndex={animationStartIndex}
+                            label={getLabel(book.month)}
+                            onOpen={handleOpen}
+                        />
+                    ))}
                 </div>
             </div>
 
