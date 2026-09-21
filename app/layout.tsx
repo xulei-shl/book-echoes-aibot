@@ -34,7 +34,7 @@ export default function RootLayout({
   }
 
   return (
-    <html lang="zh-CN">
+    <html lang="zh-CN" suppressHydrationWarning>
       <body className="antialiased" suppressHydrationWarning style={fontVars}>
         {children}
       </body>
