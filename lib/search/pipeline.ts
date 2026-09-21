@@ -329,7 +329,7 @@ async function runRerank(
 }
 
 // ── 结果组装 ────────────────────────────────────────────────────────────────
-function toResultItem(candidate: ScoredCandidate): SearchResultItem {
+function toResultItem(candidate: ScoredCandidate, passedGate = true): SearchResultItem {
   return {
     book: candidate.doc.book,
     sourceId: candidate.doc.sourceId,
@@ -338,6 +338,7 @@ function toResultItem(candidate: ScoredCandidate): SearchResultItem {
     rankScore: candidate.rankScore,
     fit: candidate.fit,
     ranked: true,
+    passedGate,
     deepLink: deepLinkFor(candidate.doc),
     lanes: candidate.lanes,
     laneScores: candidate.laneScores,
@@ -373,6 +374,7 @@ function unrankedFromRecall(
       rankScore: 0,
       fit: null,
       ranked: false,
+      passedGate: true,
       deepLink: deepLinkFor(doc),
       lanes: result.lanes,
       laneScores: result.laneScores,
@@ -482,6 +484,7 @@ export async function runSemanticSearch(
       rankScore: 1,
       fit: null,
       ranked: true,
+      passedGate: true,
       deepLink: deepLinkFor(exact),
       lanes: ['exact'],
       laneScores: {},
@@ -508,6 +511,7 @@ export async function runSemanticSearch(
         facets: neutralFacets()
       },
       results: [item],
+      more: [],
       abstained: false,
       degraded,
       judge: judgeMeta
@@ -631,6 +635,7 @@ export async function runSemanticSearch(
       basedOn: 'retrieval',
       intent,
       results: unrankedFromRecall(fused, docs, limit),
+      more: [],
       abstained: false,
       degraded,
       judge: judgeMeta
@@ -661,12 +666,27 @@ export async function runSemanticSearch(
   });
   timing.rankMs = Date.now() - rankStarted;
 
+  // 「加载更多」：本页未展示的已判分候选 = 通过门控的溢出项 + 未通过门控的 rejected，
+  // 统一按 relevancePct → matchPct → recallRank 降序；不触发任何新 Jev 请求（§6.5）。
+  const more = [
+    ...outcome.items.slice(limit).map(candidate => ({ candidate, passedGate: true })),
+    ...outcome.rejected.map(candidate => ({ candidate, passedGate: false }))
+  ]
+    .sort(
+      (a, b) =>
+        b.candidate.relevancePct - a.candidate.relevancePct ||
+        b.candidate.matchPct - a.candidate.matchPct ||
+        a.candidate.recallRank - b.candidate.recallRank
+    )
+    .map(entry => toResultItem(entry.candidate, entry.passedGate));
+
   return finalize({
     query: normalized.raw,
     mode,
     basedOn: 'retrieval',
     intent,
-    results: outcome.items.slice(0, limit).map(toResultItem),
+    results: outcome.items.slice(0, limit).map(item => toResultItem(item)),
+    more,
     abstained: outcome.abstained,
     degraded,
     judge: judgeMeta

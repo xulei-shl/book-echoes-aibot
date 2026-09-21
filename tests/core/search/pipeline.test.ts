@@ -171,6 +171,9 @@ describe('runSemanticSearch', () => {
     );
     expect(result.abstained).toBe(true);
     expect(result.results).toEqual([]);
+    // 弃权不污染主列表，但已判分候选仍保留在 more（由用户显式展开）
+    expect(result.more.length).toBeGreaterThan(0);
+    expect(result.more.every(item => item.passedGate === false)).toBe(true);
   });
 
   it('rerank 整批失败：结果仍返回、ranked=false、degraded 可见', async () => {
@@ -222,6 +225,7 @@ describe('runSemanticSearch', () => {
     expect(result.results).toHaveLength(1);
     expect(result.results[0].book.id).toBe('d1');
     expect(result.results[0].deepLink).toContain('focus=d1');
+    expect(result.more).toEqual([]);
     expect(calls).toHaveLength(0);
   });
 
@@ -232,5 +236,28 @@ describe('runSemanticSearch', () => {
       { judge, corpus, vectors: null }
     );
     expect(result.results).toHaveLength(1);
+  });
+
+  it('「加载更多」more 收集未展示的已判分候选，按相关度降序、不新增请求', async () => {
+    const { judge, calls } = makeJudge({
+      rerank: index => (index === 0 ? 0.9 : index === 1 ? 0.6 : 0.2),
+      bestProbabilities: index => (index === 0 ? 0.5 : index === 1 ? 0.3 : 0.15)
+    });
+    const result = await runSemanticSearch(
+      { query: '焦虑', limit: 1 },
+      { judge, corpus, vectors: null }
+    );
+
+    expect(result.results).toHaveLength(1);
+    expect(result.results[0].passedGate).toBe(true);
+    // more = 通过门控的溢出项 + 未通过门控的 rejected
+    expect(result.more.length).toBeGreaterThan(0);
+    expect(result.more.some(item => item.passedGate === false)).toBe(true);
+    const pcts = result.more.map(item => item.relevancePct);
+    expect([...pcts].sort((a, b) => b - a)).toEqual(pcts);
+
+    // 「加载更多」不新增 Jev 请求：fast 仍是 1× understand + 1× rerank
+    expect(calls.filter(call => 'intent' in call.questions)).toHaveLength(1);
+    expect(calls.filter(call => 'best' in call.questions)).toHaveLength(1);
   });
 });

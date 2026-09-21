@@ -121,6 +121,26 @@ describe('rank / eligibility', () => {
     expect(outcome.items.reduce((sum, item) => sum + item.rankScore, 0)).toBeCloseTo(1, 10);
   });
 
+  it('未通过门控的候选进入 rejected（不丢弃），按 relevancePct 降序', () => {
+    const outcome = eligibility(
+      [candidate('a', 0.9, 0.9), candidate('b', 0.1, 0.9), candidate('c', null, 0.9)],
+      { pNone: 0.1, batchHasMatch: true }
+    );
+    expect(outcome.abstained).toBe(false);
+    expect(outcome.items.map(item => item.doc.id)).toEqual(['a']);
+    expect(outcome.rejected.map(item => item.relevancePct)).toEqual([10, 0]);
+  });
+
+  it('弃权时 rejected 仍保留已判分候选', () => {
+    const outcome = eligibility([candidate('a', 0.29, 0.9)], {
+      pNone: 0.1,
+      batchHasMatch: true
+    });
+    expect(outcome.abstained).toBe(true);
+    expect(outcome.items).toEqual([]);
+    expect(outcome.rejected).toHaveLength(1);
+  });
+
   it('relevancePct 与 matchPct 不互相冒充', () => {
     const outcome = eligibility([candidate('a', 0.62, 0.5)], { pNone: 0.05, batchHasMatch: true });
     expect(outcome.items[0].relevancePct).toBe(62);

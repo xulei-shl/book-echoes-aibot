@@ -38,7 +38,10 @@ export interface ScoredCandidate extends RerankCandidate {
 
 export interface RankedOutcome {
   abstained: boolean;
+  /** 通过门控的候选，已排序 */
   items: ScoredCandidate[];
+  /** 未通过门控的已判分候选，同样按 relevancePct 排序；供「加载更多」分区展示（§6.5） */
+  rejected: ScoredCandidate[];
 }
 
 export function callNumberClass(callNumber: string): string {
@@ -122,19 +125,25 @@ export interface EligibilityContext {
 /**
  * 门控：`fit` 已返回且 ≥ 0.30，且 best.p **严格大于** p_none（平局取消）。
  * 全部出局 → abstained。
+ *
+ * 门控只决定**首屏主列表**显示什么，不丢弃已判分候选：未通过门控的项照常按
+ * relevancePct 排序后放进 `rejected`，供「加载更多」分区展示（§6.5）。
+ * 注意：`rejected` 的 rankScore 是在 rejected 子集内单独 softmax 的相对分，
+ * 与 `items` 的 rankScore 不同源，两者不可直接比较。
  */
 export function eligibility(candidates: RerankCandidate[], ctx: EligibilityContext): RankedOutcome {
-  if (ctx.batchHasMatch === false) {
-    return { abstained: true, items: [] };
-  }
   const eligible = candidates.filter(
     candidate =>
       candidate.fit !== null &&
       candidate.fit >= FIT_GATE &&
       candidate.bestProbability > ctx.pNone
   );
-  if (eligible.length < MIN_RESULTS) {
-    return { abstained: true, items: [] };
+  const eligibleSet = new Set(eligible);
+  const rejected = candidates.filter(candidate => !eligibleSet.has(candidate));
+  const rankedRejected = rank(rejected);
+
+  if (ctx.batchHasMatch === false || eligible.length < MIN_RESULTS) {
+    return { abstained: true, items: [], rejected: rankedRejected };
   }
-  return { abstained: false, items: rank(eligible) };
+  return { abstained: false, items: rank(eligible), rejected: rankedRejected };
 }

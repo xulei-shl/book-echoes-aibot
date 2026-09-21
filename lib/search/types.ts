@@ -121,6 +121,11 @@ export interface SearchResultItem {
   fit: number | null;
   /** false 表示召回已完成但语义排序不可用（rerank 失败），结果沉底但仍返回 */
   ranked: boolean;
+  /**
+   * 是否通过门控（fit ≥ 0.30 且 best.p > p_none）。
+   * `results` 恒为 true；`more[]` 中可能为 false（未通过门控），UI 据此标注（§6.5）。
+   */
+  passedGate: boolean;
   deepLink: string;
   lanes: string[];
   laneScores: Record<string, number>;
@@ -151,7 +156,13 @@ export interface SemanticSearchResponse {
   mode: SearchMode;
   basedOn: 'exact' | 'retrieval';
   intent: QueryIntent;
+  /** 首屏主列表：通过门控的候选，取前 limit 条 */
   results: SearchResultItem[];
+  /**
+   * 「加载更多」来源：本页未展示的已判分候选（通过门控的溢出项 + 未通过门控的 rejected），
+   * 按 relevancePct 降序。客户端分页揭示，不触发任何新请求（§6.5）。
+   */
+  more: SearchResultItem[];
   abstained: boolean;
   /** 可见的降级记录，绝不静默伪装成正常结果 */
   degraded: string[];

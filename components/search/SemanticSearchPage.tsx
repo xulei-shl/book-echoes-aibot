@@ -27,8 +27,12 @@ export default function SemanticSearchPage({ covers }: SemanticSearchPageProps) 
   const [response, setResponse] = useState<SemanticSearchResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [showAbstainedMore, setShowAbstainedMore] = useState(false);
 
   const showTop = view !== 'idle';
+
+  // 详情面板可导航的结果：首屏 + 「加载更多」全部（more 已按相关度降序）
+  const allItems = response ? [...response.results, ...response.more] : [];
 
   const submit = useCallback(async () => {
     const trimmed = query.trim();
@@ -37,6 +41,7 @@ export default function SemanticSearchPage({ covers }: SemanticSearchPageProps) 
     setError(null);
     setResponse(null);
     setActiveIndex(null);
+    setShowAbstainedMore(false);
     try {
       const res = await fetch('/api/semantic-search', {
         method: 'POST',
@@ -67,10 +72,11 @@ export default function SemanticSearchPage({ covers }: SemanticSearchPageProps) 
     setError(null);
     setView('idle');
     setActiveIndex(null);
+    setShowAbstainedMore(false);
   };
 
   const handleOpenDetail = (item: SearchResultItem) => {
-    const index = response?.results.findIndex(r => r.book.id === item.book.id) ?? -1;
+    const index = allItems.findIndex(r => r.book.id === item.book.id);
     setActiveIndex(index >= 0 ? index : null);
   };
 
@@ -161,6 +167,32 @@ export default function SemanticSearchPage({ covers }: SemanticSearchPageProps) 
                   部分辅助通道已降级：{response.degraded.join('、')}
                 </p>
               )}
+              {response && response.more.length > 0 && !showAbstainedMore && (
+                <button
+                  type="button"
+                  onClick={() => setShowAbstainedMore(true)}
+                  className="mt-6 border border-[#C9A063]/40 bg-[#161514]/90 px-4 py-2 font-body text-sm text-[#E5BE82] transition-colors hover:border-[#C9A063]/80 hover:text-[#F2F0E9]"
+                >
+                  查看低相关度结果（{response.more.length} 条）
+                </button>
+              )}
+            </motion.section>
+          )}
+
+          {view === 'abstained' && response && showAbstainedMore && (
+            <motion.section
+              key="abstained-more"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+              className="mt-8 w-full"
+            >
+              <ResultGallery
+                results={[]}
+                more={response.more}
+                initialVisible={12}
+                onOpen={handleOpenDetail}
+              />
             </motion.section>
           )}
 
@@ -176,7 +208,11 @@ export default function SemanticSearchPage({ covers }: SemanticSearchPageProps) 
               <div className="mb-6 flex justify-center">
                 <ResultChips intent={response.intent} mode={response.mode} degraded={response.degraded} />
               </div>
-              <ResultGallery results={response.results} onOpen={handleOpenDetail} />
+              <ResultGallery
+                results={response.results}
+                more={response.more}
+                onOpen={handleOpenDetail}
+              />
             </motion.section>
           )}
         </AnimatePresence>
@@ -184,7 +220,7 @@ export default function SemanticSearchPage({ covers }: SemanticSearchPageProps) 
 
       {/* 单本详读：复用画板同款右侧详情面板，上一条/下一条切换检索结果 */}
       <SearchBookDetail
-        results={response?.results ?? []}
+        results={allItems}
         activeIndex={activeIndex}
         onClose={() => setActiveIndex(null)}
         onSelectIndex={setActiveIndex}

@@ -1,23 +1,49 @@
 'use client';
 
 import { useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import type { SearchResultItem } from '@/lib/search/types';
 import ResultCard from './ResultCard';
 
 interface ResultGalleryProps {
+  /** 首屏主列表：通过门控的候选 */
   results: SearchResultItem[];
+  /** 「加载更多」来源：本页未展示的已判分候选（含未通过门控项） */
+  more?: SearchResultItem[];
+  /** 初始已揭示的 more 条数（弃权态下显式展开时可直接显示一批） */
+  initialVisible?: number;
   onOpen: (item: SearchResultItem) => void;
 }
 
-const FOLD_THRESHOLD = 30;
+/** 每次点击揭示的条数 */
+const MORE_PAGE_SIZE = 12;
 
-export default function ResultGallery({ results, onOpen }: ResultGalleryProps) {
-  const [foldOpen, setFoldOpen] = useState(false);
+const gridClass = 'grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6';
 
-  // 未完成语义排序的结果不折叠（relevancePct 为 0 但不代表「不相关」）
-  const main = results.filter(item => !item.ranked || item.relevancePct >= FOLD_THRESHOLD);
-  const folded = results.filter(item => item.ranked && item.relevancePct < FOLD_THRESHOLD);
+const itemVariants = {
+  hidden: { opacity: 0, y: 16, scale: 0.96 },
+  visible: { opacity: 1, y: 0, scale: 1 }
+};
+
+export default function ResultGallery({
+  results,
+  more = [],
+  initialVisible = 0,
+  onOpen
+}: ResultGalleryProps) {
+  const [visibleMore, setVisibleMore] = useState(initialVisible);
+  const revealed = more.slice(0, visibleMore);
+  const remaining = more.length - revealed.length;
+
+  const renderCard = (item: SearchResultItem) => (
+    <motion.div key={item.book.id} variants={itemVariants}>
+      <ResultCard
+        item={item}
+        onOpen={onOpen}
+        {...(item.passedGate ? {} : { badge: '未通过门控' })}
+      />
+    </motion.div>
+  );
 
   return (
     <div className="w-full">
@@ -25,48 +51,55 @@ export default function ResultGallery({ results, onOpen }: ResultGalleryProps) {
         initial="hidden"
         animate="visible"
         variants={{ visible: { transition: { staggerChildren: 0.035 } } }}
-        className="grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6"
+        className={gridClass}
       >
-        {main.map(item => (
-          <motion.div
-            key={item.book.id}
-            variants={{
-              hidden: { opacity: 0, y: 16, scale: 0.96 },
-              visible: { opacity: 1, y: 0, scale: 1 }
-            }}
-            transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <ResultCard item={item} onOpen={onOpen} />
-          </motion.div>
-        ))}
+        {results.map(renderCard)}
       </motion.div>
 
-      {folded.length > 0 && (
+      {more.length > 0 && (
         <div className="mt-10">
-          <button
-            type="button"
-            onClick={() => setFoldOpen(open => !open)}
-            className="font-mono text-xs tracking-wider text-[#6F6D68] transition-colors hover:text-[#C9A063]"
-          >
-            相关度 &lt; {FOLD_THRESHOLD}% 的 {folded.length} 条 {foldOpen ? '收起' : '展开'}
-          </button>
-          <AnimatePresence initial={false}>
-            {foldOpen && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-                className="overflow-hidden"
+          {revealed.length === 0 ? (
+            <div className="flex justify-center">
+              <button
+                type="button"
+                onClick={() => setVisibleMore(MORE_PAGE_SIZE)}
+                className="border border-[#C9A063]/40 bg-[#161514]/90 px-5 py-2 font-body text-sm text-[#E5BE82] transition-colors hover:border-[#C9A063]/80 hover:text-[#F2F0E9]"
               >
-                <div className="mt-6 grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-                  {folded.map(item => (
-                    <ResultCard key={item.book.id} item={item} onOpen={onOpen} />
-                  ))}
-                </div>
+                加载更多（还有 {more.length} 条）
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="mb-6 flex items-center gap-4">
+                <span className="h-px flex-1 bg-[#C9A063]/20" />
+                <span className="font-mono text-[11px] tracking-wider text-[#6F6D68]">
+                  更多结果 · 按相关度排序
+                </span>
+                <span className="h-px flex-1 bg-[#C9A063]/20" />
+              </div>
+
+              <motion.div
+                initial="hidden"
+                animate="visible"
+                variants={{ visible: { transition: { staggerChildren: 0.03 } } }}
+                className={gridClass}
+              >
+                {revealed.map(renderCard)}
               </motion.div>
-            )}
-          </AnimatePresence>
+
+              {remaining > 0 && (
+                <div className="mt-8 flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() => setVisibleMore(count => count + MORE_PAGE_SIZE)}
+                    className="border border-[#C9A063]/40 bg-[#161514]/90 px-5 py-2 font-body text-sm text-[#E5BE82] transition-colors hover:border-[#C9A063]/80 hover:text-[#F2F0E9]"
+                  >
+                    加载更多（还有 {remaining} 条）
+                  </button>
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
     </div>

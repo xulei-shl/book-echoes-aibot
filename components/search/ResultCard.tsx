@@ -7,9 +7,11 @@ import WhyPopover from './WhyPopover';
 interface ResultCardProps {
   item: SearchResultItem;
   onOpen: (item: SearchResultItem) => void;
+  /** 可选角标（如「加载更多」里的未通过门控项） */
+  badge?: string;
 }
 
-export default function ResultCard({ item, onOpen }: ResultCardProps) {
+export default function ResultCard({ item, onOpen, badge }: ResultCardProps) {
   const cover =
     item.book.coverThumbnailUrl ||
     item.book.coverImageUrl ||
@@ -25,7 +27,12 @@ export default function ResultCard({ item, onOpen }: ResultCardProps) {
         transition={{ type: 'spring', stiffness: 420, damping: 30 }}
         className="w-full text-left"
       >
-        <div className="aspect-[2/3] overflow-hidden bg-[#18181b] shadow-[0_12px_32px_rgba(0,0,0,0.5)] outline outline-1 outline-white/10 transition-all duration-300 group-hover:shadow-[0_18px_40px_rgba(0,0,0,0.7)] group-hover:outline-[#C9A063]/50">
+        <div className="relative aspect-[2/3] overflow-hidden bg-[#18181b] shadow-[0_12px_32px_rgba(0,0,0,0.5)] outline outline-1 outline-white/10 transition-all duration-300 group-hover:shadow-[0_18px_40px_rgba(0,0,0,0.7)] group-hover:outline-[#C9A063]/50">
+          {badge && (
+            <span className="absolute left-1.5 top-1.5 z-20 border border-[#C9A063]/40 bg-[#121212]/90 px-1.5 py-0.5 font-mono text-[10px] text-[#A8A59E] backdrop-blur-md">
+              {badge}
+            </span>
+          )}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={cover}
