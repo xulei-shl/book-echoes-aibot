@@ -162,7 +162,10 @@ export default function SemanticSearchPage({ covers }: SemanticSearchPageProps) 
 
           <SearchBox
             value={query}
-            onChange={setQuery}
+            onChange={val => {
+              setQuery(val);
+              if (error) setError(null);
+            }}
             onSubmit={submit}
             onClear={reset}
             onFocusChange={setIsFocused}
@@ -170,18 +173,30 @@ export default function SemanticSearchPage({ covers }: SemanticSearchPageProps) 
             isFocused={isFocused}
             mode={mode}
             onModeChange={setMode}
+            hasActiveSearch={showTop}
           />
-        </motion.div>
 
-        {error && (
-          <motion.p
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mt-6 border border-[#D4A574]/40 bg-[#141312]/70 px-4 py-2 text-center font-body text-sm text-[#E5BE82] shadow-lg backdrop-blur-md"
-          >
-            {error}
-          </motion.p>
-        )}
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                className="mx-auto mt-4 flex w-fit items-center gap-3 border border-[#D4A574]/40 bg-[#141312]/85 px-4 py-2 font-body text-sm text-[#E5BE82] shadow-xl backdrop-blur-md"
+              >
+                <span>{error}</span>
+                <button
+                  type="button"
+                  onClick={submit}
+                  className="border-b border-[#E5BE82]/60 pb-0.5 font-mono text-xs text-[#E5BE82] transition-colors hover:border-[#F2F0E9] hover:text-[#F2F0E9]"
+                >
+                  重试
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
 
         <AnimatePresence mode="wait">
           {view === 'abstained' && (

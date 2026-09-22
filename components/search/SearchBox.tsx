@@ -57,6 +57,7 @@ interface SearchBoxProps {
   isFocused: boolean;
   mode: SearchMode;
   onModeChange: (mode: SearchMode) => void;
+  hasActiveSearch?: boolean;
 }
 
 export default function SearchBox({
@@ -68,7 +69,8 @@ export default function SearchBox({
   isSearching,
   isFocused,
   mode,
-  onModeChange
+  onModeChange,
+  hasActiveSearch = false
 }: SearchBoxProps) {
   return (
     <motion.div
@@ -115,6 +117,11 @@ export default function SearchBox({
         <input
           value={value}
           onChange={event => onChange(event.target.value)}
+          onKeyDown={event => {
+            if (event.key === 'Escape') {
+              onClear();
+            }
+          }}
           onFocus={() => onFocusChange(true)}
           onBlur={() => onFocusChange(false)}
           placeholder="描述你想读的书，或输入书名 / 作者 / 主题线索"
@@ -123,12 +130,13 @@ export default function SearchBox({
           className="min-w-0 flex-1 bg-transparent font-body text-base text-[#F2F0E9] outline-none placeholder:text-[#A8A59E] md:text-lg"
         />
 
-        {value.length > 0 && !isSearching && (
+        {(value.length > 0 || hasActiveSearch) && !isSearching && (
           <motion.button
             whileTap={{ scale: 0.96 }}
             type="button"
             onClick={onClear}
-            aria-label="清空输入"
+            aria-label={value.length > 0 ? '清空输入' : '退出检索状态'}
+            title={value.length > 0 ? '清空输入' : '退出检索状态'}
             className="flex h-7 w-7 shrink-0 items-center justify-center text-[#B8B5AD] transition-colors hover:bg-white/10 hover:text-[#F2F0E9]"
           >
             <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
