@@ -8,7 +8,7 @@ import type { SearchMode } from '@/lib/search/types';
 const STAGE_MESSAGES = [
   '正在理解检索意图…',
   '正在提取多维语义特征…',
-  '正在与全馆 443 本藏书空间比对…',
+  '正在与全馆藏书空间比对…',
   '正在由 Jev 进行语义判定与排序…'
 ];
 
