@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+  CALL_CLASS_L1_KEY,
+  CALL_CLASS_L2_KEY,
   FIT_LEVELS,
   RATING_FLOOR_LEVELS,
   RECENCY_LEVELS,
@@ -7,7 +9,9 @@ import {
   WIDER_RECALL_LEVELS,
   YEAR_FLOOR_LEVELS
 } from '@/lib/jev/questions';
+import { NONE_KEY } from '@/lib/search/options';
 import type { SystemOneRequest, SystemOneResult, Answer } from '@/lib/jev/types';
+import { resolveClc } from '@/lib/search/clc';
 import { FIT_GATE } from '@/lib/search/tuning';
 import { resetPipelineState, runSemanticSearch, type JudgeFn } from '@/lib/search/pipeline';
 import type { IntentType, SearchDoc } from '@/lib/search/types';
@@ -54,6 +58,7 @@ function makeDoc(
       toc: ''
     },
     exact: { isbn: `isbn-${id}`, barcode: id, callNumber },
+    clc: resolveClc(callNumber),
     numeric: { rating, pubYear, pages: 200 },
     hash: id
   };
@@ -105,6 +110,8 @@ interface StubOptions {
   intentType?: IntentType;
   /** 精排批级 noul `batch_has_match` 的值（默认 0.9 = true） */
   batchHasMatch?: number;
+  /** `genre_preference` 胜出的类型（默认 any） */
+  genre?: 'fiction' | 'any' | 'nonfiction';
   /** 返回每本候选的 fit（0..1）；'fail' 表示整批失败 */
   rerank?: 'ok' | 'fail' | ((index: number) => number);
   pNone?: number;
@@ -121,6 +128,14 @@ interface StubOptions {
   negation?: number;
   /** 片级贴合档位（按片内标题决定），跨片可比 */
   wideFitByShard?: (titles: string[]) => number;
+  /** 类目请求：`call_class_l1` 挑中的大类号（如 `K`）；缺省 = 答 `__none__` */
+  classL1?: string;
+  /** 类目请求：`call_class_l2` 挑中的具体类号（如 `K92`）；缺省 = 答 `__none__` */
+  classL2?: string;
+  /** 类目请求整次失败（测「只丢类目、其余条件不受影响」） */
+  class?: 'ok' | 'fail';
+  /** **类目请求自己的**否定概率（与 `negation` 分属两次请求，刻意分开） */
+  classNegation?: number;
 }
 
 function makeJudge(options: StubOptions = {}) {
@@ -129,6 +144,26 @@ function makeJudge(options: StubOptions = {}) {
     calls.push(request);
     const keys = Object.keys(request.questions);
     const answers: Record<string, Answer> = {};
+
+    /**
+     * 按「类号 」前缀在 criteria 里找 key；找不到即 `__none__` ——
+     * 与真实的 `resolveClassKey` 一样，模型编不出表里没有的类号。
+     */
+    const classChoice = (questionKey: string, code?: string): Answer => {
+      const criteria = (request.questions[questionKey]?.criteria ?? {}) as Record<
+        string,
+        string | null
+      >;
+      const all = Object.keys(criteria);
+      const chosen = code
+        ? (all.find(key => (criteria[key] ?? '').startsWith(`${code} `)) ?? NONE_KEY)
+        : NONE_KEY;
+      const others = all.filter(key => key !== chosen);
+      const each = others.length > 0 ? 0.1 / others.length : 0;
+      const probabilities: Record<string, number> = {};
+      for (const key of all) probabilities[key] = key === chosen ? 0.9 : each;
+      return choice(probabilities, chosen);
+    };
 
     if (keys.includes('intent')) {
       if (options.understand === 'fail') throw new Error('understand failed');
@@ -147,10 +182,14 @@ function makeJudge(options: StubOptions = {}) {
         WIDER_RECALL_LEVELS.length,
         levelAt(WIDER_RECALL_LEVELS, options.needsWiderRecall ?? 0.2)
       );
-      answers.genre_preference = choice(
-        { fiction: 0.1, any: 0.8, nonfiction: 0.1 },
-        'any'
-      );
+      const genreChoice = options.genre ?? 'any';
+      const genreProbabilities: Record<string, number> = {
+        fiction: 0.1,
+        any: 0.1,
+        nonfiction: 0.1
+      };
+      genreProbabilities[genreChoice] = 0.8;
+      answers.genre_preference = choice(genreProbabilities, genreChoice);
       answers.recency_preference = score(RECENCY_LEVELS.length, levelAt(RECENCY_LEVELS, 0.5));
       answers.style_preference = score(STYLE_LEVELS.length, levelAt(STYLE_LEVELS, 0.5));
       answers.wants_verified = noul(0.6);
@@ -158,6 +197,12 @@ function makeJudge(options: StubOptions = {}) {
       answers.rating_floor = score(RATING_FLOOR_LEVELS.length, options.ratingFloor ?? 0);
       answers.constraint_strictness = noul(options.strictness ?? 0);
       answers.negation_present = noul(options.negation ?? 0);
+    } else if (keys.includes(CALL_CLASS_L1_KEY)) {
+      // 类目判断是**独立的一次请求**：两级两题 + 自含的否定题
+      if (options.class === 'fail') throw new Error('class failed');
+      answers[CALL_CLASS_L1_KEY] = classChoice(CALL_CLASS_L1_KEY, options.classL1);
+      answers[CALL_CLASS_L2_KEY] = classChoice(CALL_CLASS_L2_KEY, options.classL2);
+      answers.negation_present = noul(options.classNegation ?? 0);
     } else if (keys.includes('pick')) {
       const shard = (request.state as { shard: { id: string; title: string }[] }).shard;
       if (options.widePick === 'top') {
@@ -357,14 +402,12 @@ describe('runSemanticSearch', () => {
 
   it('「不要小说」硬过滤掉 I 类索书号的书', async () => {
     const { judge } = makeJudge({ rerank: () => 0.9, pNone: 0.05 });
+    // 索书号在**构造时**就给成 I 类：`clc` 是构造期算好的派生字段，
+    // 事后改写 callNumber 而不重算 clc 会让语料自相矛盾
     const fictionCorpus: SearchDoc[] = [
-      makeDoc('f1', '焦虑的旅程', '小说'),
-      makeDoc('f2', '焦虑的旅程', '小说')
+      makeDoc('f1', '焦虑的旅程', '小说', { callNumber: 'I247.5' }),
+      makeDoc('f2', '焦虑的旅程', '小说', { callNumber: 'I247.5' })
     ];
-    fictionCorpus.forEach(doc => {
-      doc.exact.callNumber = 'I247.5';
-      doc.book.callNumber = 'I247.5';
-    });
     const result = await runSemanticSearch(
       { query: '不要小说，焦虑的书' },
       { judge, corpus: fictionCorpus, vectors: null }
@@ -373,6 +416,44 @@ describe('runSemanticSearch', () => {
     expect(result.abstained).toBe(true);
     expect(result.abstainReason).toBe('hard-filter');
     expect(result.results).toEqual([]);
+  });
+
+  it('filters.callClasses 按中图法类号过滤，并记入 plan.applied', async () => {
+    const { judge } = makeJudge({ rerank: () => 0.9, pNone: 0.05 });
+    const mixedCorpus: SearchDoc[] = [
+      makeDoc('k1', '焦虑的历史', '传记', { callNumber: 'K835.615.6' }),
+      makeDoc('b1', '焦虑的哲学', '哲学', { callNumber: 'B842.6' })
+    ];
+    const result = await runSemanticSearch(
+      { query: '焦虑', filters: { callClasses: ['K'] } },
+      { judge, corpus: mixedCorpus, vectors: null }
+    );
+
+    expect(result.results.map(item => item.book.id)).toEqual(['k1']);
+    expect(result.intent.plan.applied).toContainEqual({
+      field: 'callClasses',
+      value: ['K'],
+      source: 'api'
+    });
+    // 条件型查询：批级否定不会把确定满足条件的书藏起来
+    expect(result.abstained).toBe(false);
+  });
+
+  it('类目条件把候选全部滤掉时诚实弃权（hard-filter），不烧一次精排', async () => {
+    const { judge, calls } = makeJudge({ rerank: () => 0.9, pNone: 0.05 });
+    const corpusWithoutZ: SearchDoc[] = [
+      makeDoc('k1', '焦虑的历史', '传记', { callNumber: 'K835.615.6' })
+    ];
+    const result = await runSemanticSearch(
+      { query: '焦虑', filters: { callClasses: ['Z'] } },
+      { judge, corpus: corpusWithoutZ, vectors: null }
+    );
+
+    expect(result.abstained).toBe(true);
+    expect(result.abstainReason).toBe('hard-filter');
+    expect(result.results).toEqual([]);
+    // 只发出过 understand，精排从未跑（硬条件在召回阶段就筛空了）
+    expect(calls.filter(call => Object.keys(call.questions).includes('best'))).toHaveLength(0);
   });
 
   it('查询句条件与请求级 filters 取更强约束', async () => {
@@ -676,5 +757,508 @@ describe('runSemanticSearch', () => {
     expect(result.results.length + result.more.length).toBe(
       result.intent.retrieval.fusedCandidates
     );
+  });
+});
+
+describe('模型类目条件（独立请求 + 两级两题）', () => {
+  const classCorpus: SearchDoc[] = [
+    makeDoc('c1', '焦虑的意义', '存在主义心理学专著', { callNumber: 'B842.6' }),
+    // 词面弱命中（仅初评理由里出现）：不这样就直接落到 lane 之外，测不到「类目生效后的结果」
+    makeDoc('c2', '中国地理纲要', '中国自然地理专著，兼论焦虑的分布', { callNumber: 'K928.42' }),
+    // C913.9 社会生活是 C91 社会学下的三级，二级粒度上归入 C91
+    makeDoc('c3', '焦虑时代', '社会学观察', { callNumber: 'C913.9' })
+  ];
+
+  it('模型给出类目即成为硬过滤，且与 API 显式传参结果一致', async () => {
+    // l1 = C 社会科学总论，l2 = C91 社会学：三本里只有 c3 属于这一类
+    const { judge } = makeJudge({
+      rerank: () => 0.9,
+      pNone: 0.05,
+      classL1: 'C',
+      classL2: 'C91'
+    });
+    const result = await runSemanticSearch(
+      { query: '焦虑' },
+      { judge, corpus: classCorpus, vectors: null }
+    );
+    // 两级同源 → 取更具体的二级
+    expect(result.intent.plan.applied).toEqual([
+      { field: 'callClasses', value: ['C91'], source: 'model' }
+    ]);
+    expect(result.intent.plan.dropped).toEqual([]);
+    expect(result.results.map(item => item.book.id)).toEqual(['c3']);
+  });
+
+  it('两级不一致时退回较粗的 l1（宁可不过滤，也不误删）', async () => {
+    // l1 = K 历史地理，但 l2 却指到 B84 心理学 —— 模型自相矛盾 = 不确定
+    const { judge } = makeJudge({
+      rerank: () => 0.9,
+      pNone: 0.05,
+      classL1: 'K',
+      classL2: 'B84'
+    });
+    const result = await runSemanticSearch(
+      { query: '焦虑' },
+      { judge, corpus: classCorpus, vectors: null }
+    );
+    expect(result.intent.plan.applied).toEqual([
+      { field: 'callClasses', value: ['K'], source: 'model' }
+    ]);
+    expect(result.results.map(item => item.book.id)).toEqual(['c2']);
+  });
+
+  it('一级答「不是在按类目筛」时整条类目条件都不用（二级答案不单独采信）', async () => {
+    // 只给二级、一级留空：二级多半是照着主题词猜的，采信它会误删
+    const { judge } = makeJudge({ rerank: () => 0.9, pNone: 0.05, classL2: 'C91' });
+    const result = await runSemanticSearch(
+      { query: '焦虑' },
+      { judge, corpus: classCorpus, vectors: null }
+    );
+    expect(result.intent.plan.applied).toEqual([]);
+    expect(result.intent.plan.dropped).toEqual([]);
+    expect(result.results.length).toBeGreaterThan(1);
+  });
+
+  it('一级给了大类、二级答「没有更具体的」时用 l1', async () => {
+    const { judge } = makeJudge({ rerank: () => 0.9, pNone: 0.05, classL1: 'K' });
+    const result = await runSemanticSearch(
+      { query: '焦虑' },
+      { judge, corpus: classCorpus, vectors: null }
+    );
+    expect(result.intent.plan.applied).toEqual([
+      { field: 'callClasses', value: ['K'], source: 'model' }
+    ]);
+    expect(result.results.map(item => item.book.id)).toEqual(['c2']);
+  });
+
+  it('答 __none__ 时不设任何类目条件（默认档）', async () => {
+    const { judge } = makeJudge({ rerank: () => 0.9, pNone: 0.05 });
+    const result = await runSemanticSearch(
+      { query: '焦虑' },
+      { judge, corpus: classCorpus, vectors: null }
+    );
+    expect(result.intent.plan.applied).toEqual([]);
+    expect(result.intent.plan.dropped).toEqual([]);
+    // 词法命中两本，类目条件缺席时都不该被删
+    expect(result.results.length).toBeGreaterThan(1);
+  });
+
+  it('同一句 query 在不同语料间不复用类目缓存（c0..cN 只对那一份选项表有意义）', async () => {
+    const otherCorpus: SearchDoc[] = [
+      makeDoc('g1', '中国地理纲要', '中国自然地理专著', { callNumber: 'K928.42' }),
+      makeDoc('g2', '中国历史地理', '历史地理专著', { callNumber: 'K928.42' })
+    ];
+
+    const first = await runSemanticSearch(
+      { query: '焦虑' },
+      {
+        judge: makeJudge({ rerank: () => 0.9, pNone: 0.05, classL1: 'C', classL2: 'C91' })
+          .judge,
+        corpus: classCorpus,
+        vectors: null
+      }
+    );
+    // 故意不清缓存：这一跑若能命中上一份语料的结论，就会拿别的语料的 cN 当类号用
+    const second = await runSemanticSearch(
+      { query: '焦虑' },
+      {
+        judge: makeJudge({ rerank: () => 0.9, pNone: 0.05, classL1: 'K', classL2: 'K92' })
+          .judge,
+        corpus: otherCorpus,
+        vectors: null
+      }
+    );
+
+    expect(first.intent.plan.applied).toEqual([
+      { field: 'callClasses', value: ['C91'], source: 'model' }
+    ]);
+    expect(second.intent.plan.applied).toEqual([
+      { field: 'callClasses', value: ['K92'], source: 'model' }
+    ]);
+  });
+
+  it('句中有否定表达时不执行模型类目，记 negated', async () => {
+    const { judge } = makeJudge({
+      rerank: () => 0.9,
+      pNone: 0.05,
+      classL1: 'C',
+      classL2: 'C91',
+      // 否定信号取**类目请求自己的**那一题：两边独立，互不牵连
+      classNegation: 0.9
+    });
+    const result = await runSemanticSearch(
+      { query: '不要社会学方面的焦虑书' },
+      { judge, corpus: classCorpus, vectors: null }
+    );
+    expect(result.intent.plan.applied).toEqual([]);
+    expect(result.intent.plan.dropped).toEqual([
+      { field: 'callClasses', value: ['C91'], reason: 'negated' }
+    ]);
+    expect(result.results.map(item => item.book.id)).toContain('c1');
+  });
+
+  it('调用方已显式传类目时字面证据优先，模型类目记 rule-conflict', async () => {
+    const { judge } = makeJudge({
+      rerank: () => 0.9,
+      pNone: 0.05,
+      classL1: 'C',
+      classL2: 'C91'
+    });
+    const result = await runSemanticSearch(
+      { query: '焦虑', filters: { callClasses: ['B84'] } },
+      { judge, corpus: classCorpus, vectors: null }
+    );
+    expect(result.intent.plan.applied).toEqual([
+      { field: 'callClasses', value: ['B84'], source: 'api' }
+    ]);
+    expect(result.intent.plan.dropped).toEqual([
+      { field: 'callClasses', value: ['C91'], reason: 'rule-conflict' }
+    ]);
+    expect(result.results.map(item => item.book.id)).toEqual(['c1']);
+  });
+
+  it('模型类目很选择性（候选薄）时补一次本地召回，落到与显式传参相同的结果', async () => {
+    // K92 中国地理极稀疏：两路 lane 各自前 LANE_LIMIT 名里可能一本都没有，
+    // 融合后过滤会得到空候选 → 必须靠第二段重跑捞回，且**不烧任何 Jev 请求**。
+    const sparse: SearchDoc[] = [];
+    for (let i = 0; i < 200; i += 1) {
+      sparse.push(makeDoc(`h${i}`, `焦虑研究${i}`, '焦虑主题专著', { callNumber: 'B842.6' }));
+    }
+    // 唯一一本 K92：词面弱命中（仅在初评理由里出现），BM25 名次落在尾部窗口之外
+    sparse.push(
+      makeDoc('geo', '中国地理纲要', '中国自然地理专著，兼论焦虑的分布', { callNumber: 'K928.42' })
+    );
+
+    const viaApi = await runSemanticSearch(
+      { query: '焦虑', limit: 10, filters: { callClasses: ['K92'] } },
+      { judge: makeJudge({ rerank: () => 0.9, pNone: 0.05 }).judge, corpus: sparse, vectors: null }
+    );
+    // 两轮跑同一句 query：清掉意图缓存，否则第二次会直接复用第一次的结论（无类目）
+    resetPipelineState();
+    const viaModel = await runSemanticSearch(
+      { query: '焦虑', limit: 10 },
+      {
+        judge: makeJudge({ rerank: () => 0.9, pNone: 0.05, classL1: 'K', classL2: 'K92' }).judge,
+        corpus: sparse,
+        vectors: null
+      }
+    );
+
+    expect(viaApi.intent.plan.applied).toEqual([
+      { field: 'callClasses', value: ['K92'], source: 'api' }
+    ]);
+    expect(viaModel.intent.plan.applied).toEqual([
+      { field: 'callClasses', value: ['K92'], source: 'model' }
+    ]);
+    // 两条路径必须给出同一本书 —— 模型引入的条件不能比显式条件「少召回」
+    expect(viaModel.results.map(item => item.book.id)).toEqual(['geo']);
+    expect(viaApi.results.map(item => item.book.id)).toEqual(['geo']);
+    expect(viaModel.abstained).toBe(false);
+  });
+
+  it('模型推出的年份下限（非类目）同样享受两段式补召回', async () => {
+    // 与上一条同构，但条件是**年份**：模型把「近两年」升级成 pubYearFrom=2020，
+    // 确定性层没有同名条件 —— 它同样赶不上下推。只让类目享受补救是不对称的。
+    const old: SearchDoc[] = [];
+    for (let i = 0; i < 200; i += 1) {
+      old.push(makeDoc(`o${i}`, `焦虑研究${i}`, '焦虑主题专著', { pubYear: 2010 }));
+    }
+    // 唯一一本 2021 年出版的书：只在简介里弱命中，词法名次落在 lane 窗口之外
+    old.push(makeDoc('recent', '新解', '本书讨论了焦虑', { pubYear: 2021 }));
+
+    const { judge } = makeJudge({
+      rerank: () => 0.9,
+      pNone: 0.05,
+      yearFloor: 4, // = 2020 以后
+      strictness: 0.9
+    });
+    const result = await runSemanticSearch(
+      { query: '焦虑', limit: 10 },
+      { judge, corpus: old, vectors: null }
+    );
+
+    expect(result.intent.plan.applied).toEqual([
+      { field: 'pubYearFrom', value: 2020, source: 'model' }
+    ]);
+    // 第一轮候选全是 2010 年的书、被模型条件滤空 → 补召回后 2021 那本必须回来
+    expect(result.results.map(item => item.book.id)).toEqual(['recent']);
+    expect(result.abstained).toBe(false);
+  });
+
+  it('两次调用各自计时，响应里看得到类目请求的真实代价', async () => {
+    const { judge } = makeJudge({ rerank: () => 0.9, pNone: 0.05, classL1: 'C', classL2: 'C91' });
+    const result = await runSemanticSearch(
+      { query: '焦虑' },
+      { judge, corpus: classCorpus, vectors: null }
+    );
+    expect(result.timing.classMs).toBeGreaterThanOrEqual(0);
+    expect(result.timing.understandMs).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe('虚构维度的模型侧硬过滤', () => {
+  const genreCorpus: SearchDoc[] = [
+    makeDoc('f1', '焦虑小说', '文学虚构作品', { callNumber: 'I247.5' }),
+    makeDoc('n1', '焦虑的意义', '存在主义心理学专著', { callNumber: 'B842.6' })
+  ];
+
+  it('nonfiction + strictness 高 → 升级成硬排除', async () => {
+    const { judge } = makeJudge({
+      rerank: () => 0.9,
+      pNone: 0.05,
+      genre: 'nonfiction',
+      strictness: 0.9
+    });
+    const result = await runSemanticSearch(
+      { query: '焦虑' },
+      { judge, corpus: genreCorpus, vectors: null }
+    );
+    expect(result.intent.plan.applied).toEqual([
+      { field: 'excludeFiction', value: true, source: 'model' }
+    ]);
+    expect(result.results.map(item => item.book.id)).toEqual(['n1']);
+  });
+
+  it('strictness 低 → 只当倾向，记 soft（与年份/评分同一套门）', async () => {
+    const { judge } = makeJudge({
+      rerank: () => 0.9,
+      pNone: 0.05,
+      genre: 'nonfiction',
+      strictness: 0.1
+    });
+    const result = await runSemanticSearch(
+      { query: '焦虑' },
+      { judge, corpus: genreCorpus, vectors: null }
+    );
+    expect(result.intent.plan.applied).toEqual([]);
+    expect(result.intent.plan.dropped).toEqual([
+      { field: 'excludeFiction', value: true, reason: 'soft' }
+    ]);
+    // 软信号照旧生效（facets 里 wantsFiction = 0），只是不删任何书
+    expect(result.intent.facets.wantsFiction).toBe(0);
+    expect(result.results.length).toBe(2);
+  });
+
+  it('句中否定不拦下虚构条件，却照旧拦下年份 —— 两者刻意相反', async () => {
+    const { judge } = makeJudge({
+      rerank: () => 0.9,
+      pNone: 0.05,
+      genre: 'nonfiction',
+      strictness: 0.9,
+      negation: 0.9,
+      yearFloor: 4 // = 2020 年以后，应被否定门拦下
+    });
+    const result = await runSemanticSearch(
+      // 「别推…小说」不在规则层的 `不要(小说|虚构|文学|故事)` 里 —— 只有模型侧能读到
+      { query: '别推焦虑小说，来点正经的' },
+      { judge, corpus: genreCorpus, vectors: null }
+    );
+    // 否定是**构成**「排除虚构」的表达，不是要反向执行它 → 照常生效
+    expect(result.intent.plan.applied).toEqual([
+      { field: 'excludeFiction', value: true, source: 'model' }
+    ]);
+    // 而年份是下限语义，句中否定必须拦下（否则会反向成「只要 2020 年后」）
+    expect(result.intent.plan.dropped).toEqual([
+      { field: 'pubYearFrom', value: 2020, reason: 'negated' }
+    ]);
+    expect(result.results.map(item => item.book.id)).toEqual(['n1']);
+  });
+
+  it('规则层已从字面认出虚构条件时让位，记 rule-conflict', async () => {
+    // 「不要小说」命中 `EXCLUDE_FICTION_PATTERN`，字面证据优先
+    const { judge } = makeJudge({
+      rerank: () => 0.9,
+      pNone: 0.05,
+      genre: 'nonfiction',
+      strictness: 0.9
+    });
+    const result = await runSemanticSearch(
+      { query: '不要小说的焦虑书' },
+      { judge, corpus: genreCorpus, vectors: null }
+    );
+    expect(result.intent.plan.applied).toEqual([
+      { field: 'excludeFiction', value: true, source: 'rule' }
+    ]);
+    expect(result.intent.plan.dropped).toEqual([
+      { field: 'excludeFiction', value: true, reason: 'rule-conflict' }
+    ]);
+  });
+
+  it('genre = fiction 不产生硬条件（「只要虚构」由 `callClasses: [I]` 表达）', async () => {
+    const { judge } = makeJudge({
+      rerank: () => 0.9,
+      pNone: 0.05,
+      genre: 'fiction',
+      strictness: 0.9
+    });
+    const result = await runSemanticSearch(
+      { query: '焦虑' },
+      { judge, corpus: genreCorpus, vectors: null }
+    );
+    expect(result.intent.plan.applied).toEqual([]);
+    expect(result.intent.plan.dropped).toEqual([]);
+    expect(result.results.length).toBe(2);
+  });
+
+  it('调用方已显式传 excludeFiction 时让位，记 rule-conflict', async () => {
+    const { judge } = makeJudge({
+      rerank: () => 0.9,
+      pNone: 0.05,
+      genre: 'nonfiction',
+      strictness: 0.9
+    });
+    const result = await runSemanticSearch(
+      { query: '焦虑', filters: { excludeFiction: true } },
+      { judge, corpus: genreCorpus, vectors: null }
+    );
+    expect(result.intent.plan.applied).toEqual([
+      { field: 'excludeFiction', value: true, source: 'api' }
+    ]);
+    expect(result.intent.plan.dropped).toEqual([
+      { field: 'excludeFiction', value: true, reason: 'rule-conflict' }
+    ]);
+  });
+});
+
+describe('模型被告知的筛选上下文（wide / 精排）', () => {
+  // 两本都满足「K92 + 评分≥8 + 2020 年后」，保证有候选进精排
+  const rerankCorpus: SearchDoc[] = [
+    makeDoc('r1', '焦虑中国地理', '中国自然地理专著', {
+      callNumber: 'K928.42',
+      pubYear: 2024,
+      rating: 8.5
+    }),
+    makeDoc('r2', '焦虑中国地理续', '中国自然地理专著二', {
+      callNumber: 'K928.701',
+      pubYear: 2024,
+      rating: 8.5
+    })
+  ];
+
+  const rerankRequestOf = (calls: SystemOneRequest[]): SystemOneRequest => {
+    const found = calls.find(call => Object.keys(call.questions).includes('best'));
+    expect(found).toBeDefined();
+    return found!;
+  };
+  const stateOf = (request: SystemOneRequest) =>
+    request.state as { enforced: string[]; candidates: { clc: string | null }[] };
+
+  it('state.enforced 把已生效的硬条件讲清楚，且类目带类目名', async () => {
+    const { judge, calls } = makeJudge({ rerank: () => 0.9, pNone: 0.05 });
+    await runSemanticSearch(
+      { query: '焦虑的书', filters: { minRating: 8, pubYearFrom: 2020, callClasses: ['K92'] } },
+      { judge, corpus: rerankCorpus, vectors: null }
+    );
+
+    const state = stateOf(rerankRequestOf(calls));
+    expect(state.enforced).toEqual([
+      '评分 ≥ 8',
+      '出版年 ≥ 2020',
+      '中图法类目属于 K92 中国地理'
+    ]);
+    // 题面必须引用 enforced，否则告知了也没用
+    expect(String(rerankRequestOf(calls).questions.best.instructions)).toContain('enforced');
+  });
+
+  it('没有硬条件时 enforced 是空数组（而不是缺字段）', async () => {
+    const { judge, calls } = makeJudge({ rerank: () => 0.9, pNone: 0.05 });
+    await runSemanticSearch(
+      { query: '焦虑' },
+      { judge, corpus: rerankCorpus, vectors: null }
+    );
+    expect(stateOf(rerankRequestOf(calls)).enforced).toEqual([]);
+  });
+
+  it('候选带上中图法类目名，不再是认不出学科的裸索书号', async () => {
+    const { judge, calls } = makeJudge({ rerank: () => 0.9, pNone: 0.05 });
+    await runSemanticSearch(
+      { query: '焦虑' },
+      { judge, corpus: rerankCorpus, vectors: null }
+    );
+    const labels = stateOf(rerankRequestOf(calls)).candidates.map(candidate => candidate.clc);
+    expect(labels).toEqual(['K92 中国地理', 'K92 中国地理']);
+  });
+
+  it('wide 分片同样带上 enforced 与类目名（deep 模式）', async () => {
+    process.env.SEMANTIC_SEARCH_WIDE_SHARD = '2'; // 4 本 → 2 片
+    const { judge, calls } = makeJudge({
+      needsWiderRecall: 1,
+      widePick: 'top',
+      rerank: () => 0.9,
+      pNone: 0.05
+    });
+    await runSemanticSearch(
+      // corpus 全是 B842.6；允许集合由**确定性**条件算出，wide 就在这批书里分片
+      { query: '焦虑', mode: 'deep', filters: { callClasses: ['B84'] } },
+      { judge, corpus, vectors: null }
+    );
+
+    const wideCall = calls.find(call => Object.keys(call.questions).includes('pick'));
+    expect(wideCall).toBeDefined();
+    const state = wideCall!.state as { enforced: string[]; shard: { clc: string | null }[] };
+    expect(state.enforced).toEqual(['中图法类目属于 B84 心理学']);
+    expect(state.shard.every(item => item.clc === 'B84 心理学')).toBe(true);
+    // 题面必须引用 enforced，否则告知了也没用
+    expect(String(wideCall!.questions.pick.instructions)).toContain('enforced');
+  });
+});
+
+describe('两次 Jev 调用的失败隔离', () => {
+  const corpusWithYears: SearchDoc[] = [
+    makeDoc('n1', '焦虑的意义', '存在主义心理学专著', { pubYear: 2024, rating: 8.5, callNumber: 'B842.6' }),
+    makeDoc('n2', '中国地理纲要', '中国自然地理专著，兼论焦虑的分布', {
+      pubYear: 2024,
+      rating: 8.5,
+      callNumber: 'K928.42'
+    })
+  ];
+
+  it('类目请求失败：只丢类目条件，年份/评分档位与 facets 照常生效', async () => {
+    const { judge } = makeJudge({
+      rerank: () => 0.9,
+      pNone: 0.05,
+      class: 'fail',
+      yearFloor: 4, // = 2020 年以后
+      ratingFloor: 2, // = 8 分以上
+      strictness: 0.9 // 档位条件要真升成硬过滤，才能证明它没被类目请求拖累
+    });
+    const result = await runSemanticSearch(
+      { query: '焦虑' },
+      { judge, corpus: corpusWithYears, vectors: null }
+    );
+
+    // 类目丢了，且有可见记录（绝不静默伪装成正常结果）
+    expect(result.degraded).toContain('understand-class');
+    expect(result.degraded).not.toContain('understand');
+    expect(result.intent.plan.applied.some(entry => entry.field === 'callClasses')).toBe(false);
+
+    // 意图请求完全没受影响：档位条件照旧升级成硬过滤
+    expect(result.intent.plan.applied).toEqual([
+      { field: 'pubYearFrom', value: 2020, source: 'model' },
+      { field: 'minRating', value: 8, source: 'model' }
+    ]);
+    expect(result.intent.type).toBe('concept');
+  });
+
+  it('意图请求失败：类目结论仍然可用，不再被连带作废', async () => {
+    const { judge } = makeJudge({
+      rerank: () => 0.9,
+      pNone: 0.05,
+      understand: 'fail',
+      classL1: 'K',
+      classL2: 'K92'
+    });
+    const result = await runSemanticSearch(
+      { query: '焦虑' },
+      { judge, corpus: corpusWithYears, vectors: null }
+    );
+
+    expect(result.degraded).toContain('understand');
+    expect(result.degraded).not.toContain('understand-class');
+    // 拆成两次调用的直接收益：这边挂了不影响那边
+    expect(result.intent.plan.applied).toEqual([
+      { field: 'callClasses', value: ['K92'], source: 'model' }
+    ]);
+    expect(result.results.map(item => item.book.id)).toEqual(['n2']);
   });
 });

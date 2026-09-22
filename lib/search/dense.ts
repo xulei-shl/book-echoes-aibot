@@ -248,17 +248,30 @@ export async function encodeQuery(raw: string, options: EncodeOptions = {}): Pro
   }
 }
 
-/** 向量已 L2 归一化，因此余弦 = 点积。 */
-export function cosineTopK(index: VectorIndex, query: Float32Array, topK: number): ScoredDoc[] {
+/**
+ * 向量已 L2 归一化，因此余弦 = 点积。
+ *
+ * `allow` 是硬条件下推的允许集合：不合格的书**整行跳过**，连点积都不算 ——
+ * 这是万级语料下唯一真正省时间的过滤位置（一行 = `dim` 次乘加，10 000 行 × 1024 维 ≈ 1 000 万次浮点运算）。
+ * 同时也让过滤发生在 top-K 截断之前，避免「先截断再过滤」把候选滤空。
+ */
+export function cosineTopK(
+  index: VectorIndex,
+  query: Float32Array,
+  topK: number,
+  allow?: ReadonlySet<string> | null
+): ScoredDoc[] {
   if (query.length !== index.dim) return [];
   const results: ScoredDoc[] = [];
   for (let row = 0; row < index.count; row += 1) {
+    const docId = index.ids[row];
+    if (allow && !allow.has(docId)) continue;
     const offset = row * index.dim;
     let dot = 0;
     for (let i = 0; i < index.dim; i += 1) {
       dot += index.vectors[offset + i] * query[i];
     }
-    results.push({ docId: index.ids[row], score: dot, matched: [] });
+    results.push({ docId, score: dot, matched: [] });
   }
   results.sort((a, b) => b.score - a.score || a.docId.localeCompare(b.docId));
   return results.slice(0, topK);

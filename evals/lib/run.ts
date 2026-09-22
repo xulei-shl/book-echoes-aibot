@@ -3,7 +3,13 @@ import { isFictionDoc } from '@/lib/search/rank';
 import type { SearchDoc } from '@/lib/search/types';
 import type { JudgeFn } from '@/lib/search/pipeline';
 import { stubJudge } from './judge';
-import { EXPECTED_DEGRADED, type CaseOutcome, type ConstraintField, type QueryCase } from './types';
+import {
+  EXPECTED_DEGRADED,
+  type CaseOutcome,
+  type ConstraintField,
+  type ConstraintValue,
+  type QueryCase
+} from './types';
 
 /**
  * 用例运行器。
@@ -74,7 +80,7 @@ export async function runCase(
     const ranked = items.map(item => item.book.id);
     const fits = Object.fromEntries(items.map(item => [item.book.id, item.fit]));
 
-    const applied: Partial<Record<ConstraintField, number | boolean>> = {};
+    const applied: Partial<Record<ConstraintField, ConstraintValue>> = {};
     for (const entry of response.intent.plan.applied) {
       applied[entry.field] = entry.value;
     }

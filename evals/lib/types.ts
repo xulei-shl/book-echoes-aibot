@@ -1,4 +1,4 @@
-import type { SearchFilters } from '@/lib/search/types';
+import type { AppliedConstraint, SearchFilters } from '@/lib/search/types';
 
 /**
  * 评测集的数据契约。
@@ -23,7 +23,12 @@ export type Stratum =
   /** 显式标识（完整书名 / ISBN / 索书号 / 条码）—— 本地权威直通 */
   | 'exact';
 
-export type ConstraintField = 'pubYearFrom' | 'minRating' | 'excludeFiction';
+/**
+ * 硬条件字段与取值**直接取自生产类型** —— 手抄一份字段清单必然与实现漂移
+ * （新增 `callClasses` 时正是这样被编译器抓出来的）。
+ */
+export type ConstraintField = AppliedConstraint['field'];
+export type ConstraintValue = AppliedConstraint['value'];
 
 export interface QueryCase {
   id: string;
@@ -33,7 +38,7 @@ export interface QueryCase {
   /** 冻结的「今天」：相对时间类查询（「近三年」）靠它保持可复现，否则标签会逐年腐烂 */
   frozenNow: string;
   /** 期望真正生效的硬条件（比对 `intent.plan.applied`） */
-  expectApplied?: Partial<Record<ConstraintField, number | boolean>>;
+  expectApplied?: Partial<Record<ConstraintField, ConstraintValue>>;
   /** 期望**不**生效的硬条件（被守卫拦下或压根没解析出来） */
   expectNotApplied?: ConstraintField[];
   expectAbstain?: boolean;
@@ -56,7 +61,7 @@ export interface CaseOutcome {
   ranked: string[];
   /** 每本书的 fit（0..1），用于档位误差 */
   fits: Record<string, number | null>;
-  applied: Partial<Record<ConstraintField, number | boolean>>;
+  applied: Partial<Record<ConstraintField, ConstraintValue>>;
   droppedCount: number;
   degraded: string[];
   /** 违反硬条件的书（必须为 0） */

@@ -6,8 +6,8 @@ import type { RecallLane, RecallResult } from './types';
 export function createLexicalLane(index: Bm25Index): RecallLane {
   return {
     id: 'lexical',
-    async search({ core, limit }) {
-      return search(index, core, limit).map<RecallResult>(item => ({
+    async search({ core, limit, allow }) {
+      return search(index, core, limit, allow).map<RecallResult>(item => ({
         docId: item.docId,
         score: item.score,
         lanes: ['lexical'],
@@ -31,7 +31,7 @@ export function createDenseLane(deps: DenseLaneDeps): RecallLane {
   const encode = deps.encode ?? ((raw: string) => encodeQuery(raw));
   return {
     id: 'dense',
-    async search({ raw, limit }) {
+    async search({ raw, limit, allow }) {
       if (!deps.index) {
         deps.onDegraded?.('dense-unavailable');
         return [];
@@ -43,7 +43,7 @@ export function createDenseLane(deps: DenseLaneDeps): RecallLane {
         deps.onDegraded?.(encoded.reason ?? 'dense-error');
         return [];
       }
-      return cosineTopK(deps.index, encoded.vector, limit).map<RecallResult>(item => ({
+      return cosineTopK(deps.index, encoded.vector, limit, allow).map<RecallResult>(item => ({
         docId: item.docId,
         score: item.score,
         lanes: ['dense'],

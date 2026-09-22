@@ -119,8 +119,19 @@ export function termIdf(index: Bm25Index, term: string, unseenIdf?: number): num
   return Math.log(1 + (n - df + 0.5) / (df + 0.5));
 }
 
-/** BM25 检索，返回按分数降序的 top-K。 */
-export function search(index: Bm25Index, queryTerms: string[], topK: number): ScoredDoc[] {
+/**
+ * BM25 检索，返回按分数降序的 top-K。
+ *
+ * `allow` 是硬条件下推的允许集合（`recall.ts::buildAllowSet`）：在**收集结果时**就剔除不合条件的书，
+ * 也就是过滤发生在 `slice(0, topK)` **之前**。万级语料下这一步不增加任何计算量
+ * （倒排表该走还得走），只是把截断挪到过滤之后 —— 换来的是可靠召回，不是速度。
+ */
+export function search(
+  index: Bm25Index,
+  queryTerms: string[],
+  topK: number,
+  allow?: ReadonlySet<string> | null
+): ScoredDoc[] {
   const n = index.docs.length;
   if (n === 0) return [];
   const { k1, b } = getTuning().effective.bm25;
@@ -147,9 +158,10 @@ export function search(index: Bm25Index, queryTerms: string[], topK: number): Sc
 
   const results: ScoredDoc[] = [];
   touched.forEach((matched, docId) => {
-    if (scores[docId] > 0) {
-      results.push({ docId: index.docs[docId].id, score: scores[docId], matched });
-    }
+    if (scores[docId] <= 0) return;
+    const id = index.docs[docId].id;
+    if (allow && !allow.has(id)) return;
+    results.push({ docId: id, score: scores[docId], matched });
   });
   results.sort((a, b) => b.score - a.score || a.docId.localeCompare(b.docId));
   return results.slice(0, topK);

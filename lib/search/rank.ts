@@ -1,3 +1,4 @@
+import { isFictionClc } from './clc';
 import { PREFERENCE_NEUTRAL, getTuning } from './tuning';
 import type {
   AppliedConstraint,
@@ -69,19 +70,15 @@ export interface RankedOutcome {
   rejected: ScoredCandidate[];
 }
 
-export function callNumberClass(callNumber: string): string {
-  const match = callNumber.trim().match(/^([A-Za-z])/);
-  return match ? match[1].toUpperCase() : '';
-}
-
-/** 文学类（中图法 I 类）——极简但确定性的虚构信号。 */
-const FICTION_CLASSES = new Set(['I']);
-/** 理论性/学术性较强的类目。 */
+/** 理论性/学术性较强的一级大类（排序软偏好，不是硬判定；与改造前同一集合）。 */
 const THEORY_CLASSES = new Set(['B', 'C', 'D', 'E', 'F', 'G', 'H', 'K', 'O', 'Q', 'R', 'T', 'X', 'Z']);
 
-/** 是否虚构类（中图法 I 类）。软偏好与硬过滤共用同一判定，杜绝两套标准。 */
+/**
+ * 是否虚构类（中图法 I 类）。软偏好与硬过滤共用同一判定，杜绝两套标准。
+ * 类号解析已收敛到 `lib/search/clc.ts`，这里只读 `doc.clc`，不再自己切字符串。
+ */
 export function isFictionDoc(doc: SearchDoc): boolean {
-  return FICTION_CLASSES.has(callNumberClass(doc.exact.callNumber));
+  return isFictionClc(doc.clc);
 }
 
 function genreMatch(doc: SearchDoc, kind: 'fiction'): number {
@@ -89,7 +86,8 @@ function genreMatch(doc: SearchDoc, kind: 'fiction'): number {
 }
 
 function theoryScore(doc: SearchDoc): number {
-  return THEORY_CLASSES.has(callNumberClass(doc.exact.callNumber)) ? 1 : 0;
+  const class1 = doc.clc.level1?.code;
+  return class1 !== undefined && THEORY_CLASSES.has(class1) ? 1 : 0;
 }
 
 function yearScore(pubYear: number, nowYear: number, tuning: EffectiveTuning): number {

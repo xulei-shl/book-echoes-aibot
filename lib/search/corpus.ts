@@ -1,6 +1,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { transformMetadataToBook } from '@/lib/utils';
+import { resolveClc } from './clc';
 import { CORPUS_TTL_MS } from './config';
 import type { SearchDoc } from './types';
 
@@ -90,6 +91,8 @@ export function toSearchDoc(raw: Record<string, unknown>, sourceId: string): Sea
       barcode: book.id,
       callNumber: book.callNumber
     },
+    // 中图法类目在这里解析一次：请求期只做 Set 命中判断，10 000 本时也不会成为热点
+    clc: resolveClc(book.callNumber),
     numeric: {
       rating: Number.parseFloat(book.rating) || 0,
       pubYear: Number.parseInt(book.pubYear, 10) || 0,

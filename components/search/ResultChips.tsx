@@ -12,6 +12,7 @@ const INTENT_LABELS: Record<string, string> = {
 
 const DEGRADED_LABELS: Record<string, string> = {
   understand: '意图理解未完成，已按关键词召回',
+  'understand-class': '类目识别未完成，年份/评分等其他条件照常生效',
   'dense-unavailable': '已在关键词检索模式下运行（语义向量不可用）',
   'dense-timeout': '语义向量超时，已退回关键词检索',
   'dense-mismatch': '向量索引与配置不一致，已退回关键词检索',
@@ -39,7 +40,14 @@ interface ResultChipsProps {
 function describeConstraint(entry: AppliedConstraint): string {
   if (entry.field === 'pubYearFrom') return `已按 ${entry.value} 年以后出版过滤`;
   if (entry.field === 'minRating') return `已按评分 ${entry.value} 分以上过滤`;
-  return '已排除虚构类';
+  if (entry.field === 'excludeFiction') return '已排除虚构类';
+  if (entry.field === 'callClasses') {
+    // 只展示类号：类目名来自 clc.ts 那张大表，不该为了一个标签把它拉进客户端 bundle
+    const codes = Array.isArray(entry.value) ? entry.value.join('、') : String(entry.value);
+    return `已按中图法类目 ${codes} 过滤`;
+  }
+  // 新增字段却忘了在这里适配时，宁可显示中性文案也不能误报成别的条件
+  return '已应用筛选条件';
 }
 
 export default function ResultChips({ intent, mode, degraded }: ResultChipsProps) {

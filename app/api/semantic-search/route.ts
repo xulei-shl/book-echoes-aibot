@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { JevDisabledError, jevFailureMessage } from '@/lib/jev/errors';
+import { isKnownClcCode } from '@/lib/search/clc';
 import { LIMIT_MAX, QUERY_MAX_CHARS, isSemanticSearchEnabled, readJevConfig } from '@/lib/search/config';
 import { runSemanticSearch } from '@/lib/search/pipeline';
 import type { SearchFilters, SearchInput, SearchMode } from '@/lib/search/types';
@@ -98,6 +99,26 @@ function parseRequest(body: unknown): ParseResult | ParseFailure {
         return { ok: false, message: 'filters.excludeFiction 必须是布尔值' };
       }
       if (source.excludeFiction) filters.excludeFiction = true;
+    }
+    // 中图法类号过滤：一级（K）/ 二级（K81）/ T 类三级（TP3）都可传，去重后取大写
+    if (source.callClasses !== undefined) {
+      if (!Array.isArray(source.callClasses)) {
+        return { ok: false, message: 'filters.callClasses 必须是类号数组' };
+      }
+      const codes: string[] = [];
+      for (const entry of source.callClasses) {
+        if (typeof entry !== 'string' || entry.trim().length === 0) {
+          return { ok: false, message: 'filters.callClasses 的每一项都必须是非空字符串类号' };
+        }
+        const code = entry.trim().toUpperCase();
+        // 未知类号必须报错而不是放行：它永远匹配不上，只会静默滤空，
+        // 用户看到的是「馆藏里没有」这种没法排查的结论（clc.ts 的表是唯一权威）
+        if (!isKnownClcCode(code)) {
+          return { ok: false, message: `filters.callClasses 含未知中图法类号：${code}` };
+        }
+        if (!codes.includes(code)) codes.push(code);
+      }
+      if (codes.length > 0) filters.callClasses = codes;
     }
   }
 

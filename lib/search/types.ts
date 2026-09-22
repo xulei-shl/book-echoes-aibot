@@ -1,4 +1,5 @@
 import type { Book } from '@/types';
+import type { ClcPath } from './clc';
 
 /**
  * 检索专用字段集合。分词后按字段加权送入 BM25（权重见 tuning.ts::FIELD_WEIGHTS）。
@@ -27,6 +28,11 @@ export interface SearchDoc {
   book: Book;
   fields: SearchFields;
   exact: { isbn: string; barcode: string; callNumber: string };
+  /**
+   * 中图法类目路径，**建语料时算一次**（`lib/search/clc.ts::resolveClc`）。
+   * 请求期只做 Set 命中判断，绝不再解析索书号字符串 —— 这是万级语料下过滤仍然廉价的前提。
+   */
+  clc: ClcPath;
   numeric: { rating: number; pubYear: number; pages: number };
   /** 内容指纹，用于缓存失效与「模型看到的是哪一版」 */
   hash: string;
@@ -58,7 +64,16 @@ export type LaneId = 'lexical' | 'dense' | 'external';
 /** 召回层抽象：将来接第三条（外部服务）是加法而非重写（§4.5） */
 export interface RecallLane {
   id: LaneId;
-  search(ctx: { raw: string; core: string[]; limit: number }): Promise<RecallResult[]>;
+  search(ctx: {
+    raw: string;
+    core: string[];
+    limit: number;
+    /**
+     * 硬条件下推的允许集合（`recall.ts::buildAllowSet`）；null/undefined = 无硬条件。
+     * lane 必须在**取 top-K 之前**剔除集合外的书，否则严筛选会把候选滤空。
+     */
+    allow?: ReadonlySet<string> | null;
+  }): Promise<RecallResult[]>;
 }
 
 export interface SearchFilters {
@@ -66,6 +81,12 @@ export interface SearchFilters {
   pubYearFrom?: number;
   /** 排除虚构类（中图法 I 类）。请求显式传入或查询句解析出「不要小说」时生效 */
   excludeFiction?: boolean;
+  /**
+   * 按中图法类号过滤，任一粒度都可传：`['K']`（一级）/ `['K81']`（二级）/ `['TP3']`（T 类三级）。
+   * 类号必须存在于 `lib/search/clc.ts` 的表中，否则路由层直接 400 ——
+   * 传一个永远匹配不上的类号会静默滤空、被误报成「馆藏里没有」。
+   */
+  callClasses?: string[];
 }
 
 export type SearchMode = 'fast' | 'deep';
@@ -99,14 +120,14 @@ export interface QueryFacets {
 export type ConstraintSource = 'rule' | 'model' | 'api';
 
 export interface AppliedConstraint {
-  field: 'pubYearFrom' | 'minRating' | 'excludeFiction';
-  value: number | boolean;
+  field: 'pubYearFrom' | 'minRating' | 'excludeFiction' | 'callClasses';
+  value: number | boolean | string[];
   source: ConstraintSource;
 }
 
 export interface DroppedConstraint {
-  field: 'pubYearFrom' | 'minRating';
-  value: number;
+  field: 'pubYearFrom' | 'minRating' | 'excludeFiction' | 'callClasses';
+  value: number | boolean | string[];
   /**
    * soft：模型只当成倾向；negated：句中有否定表达；rule-conflict：规则层已给出同名条件。
    * 被丢弃的模型约束不改结果，但必须可见 —— 否则「为什么没按我说的过滤」无从排查。
@@ -243,7 +264,10 @@ export interface SearchTiming {
   lexicalMs: number;
   denseMs: number;
   denseCacheHit: boolean;
+  /** 意图与口味请求（阶段 ①） */
   understandMs: number;
+  /** 类目判断请求（阶段 ①b，与阶段 ① 并发，独立计时便于看「多一次调用」的真实代价） */
+  classMs: number;
   wideMs: number;
   rerankMs: number;
   rankMs: number;

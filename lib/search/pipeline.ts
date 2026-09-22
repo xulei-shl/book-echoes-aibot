@@ -7,6 +7,9 @@ import {
   STYLE_LEVELS,
   WIDER_RECALL_LEVELS,
   YEAR_FLOOR_VALUES,
+  CALL_CLASS_L1_KEY,
+  CALL_CLASS_L2_KEY,
+  buildClassRequest,
   buildRerankRequest,
   buildUnderstandRequest,
   buildWideRequest,
@@ -40,7 +43,9 @@ import {
 import { getSearchCorpus } from './corpus';
 import { DenseIndexMismatch, loadVectors, type EncodedQuery, type VectorIndex } from './dense';
 import { createDenseLane, createLexicalLane } from './lanes';
-import { NONE_KEY } from './options';
+import { NONE_KEY, classOptionSetsFromCorpus, resolveClassKey } from './options';
+import { findClcClass, resolveClcCode } from './clc';
+import type { ClassOptionMap, ClassOptionSets } from './options';
 import { normalizeQuery, explicitToFilters } from './query';
 import {
   eligibility,
@@ -49,7 +54,7 @@ import {
   type RerankCandidate,
   type ScoredCandidate
 } from './rank';
-import { fuseAndFilter, recallLanes } from './recall';
+import { buildAllowSet, fuseAndFilter, recallLanes } from './recall';
 import { normalizeText } from './tokenize';
 import type {
   AppliedConstraint,
@@ -103,6 +108,42 @@ function indexFor(corpus: SearchDoc[]) {
     indexCache.set(corpus, index);
   }
   return index;
+}
+
+/**
+ * 交给模型挑选的中图法类目选项（语料里**确实有书**的那些，分一级与二级/三级两组），
+ * 按语料数组身份缓存。同一份语料必须给出同一套 `c0..cN`，否则答案会与选项错位。
+ */
+const classSetsCache = new WeakMap<SearchDoc[], ClassOptionSets>();
+
+function classOptionSetsFor(corpus: SearchDoc[]): ClassOptionSets {
+  let sets = classSetsCache.get(corpus);
+  if (!sets) {
+    sets = classOptionSetsFromCorpus(corpus);
+    classSetsCache.set(corpus, sets);
+  }
+  return sets;
+}
+
+/**
+ * 类目选项的内容签名，同一份语料只算一次。
+ *
+ * 类目请求的缓存必须把它算进 key：`c0..cN` 是**由语料派生**的，
+ * 模型答的 `c7` 只在这份选项表里才有意义。若缓存键只有 query，
+ * 换一份语料就会把上一个 `c7` 解析成**另一个类号** —— 静默用错误的类目过滤。
+ */
+const classSignatureCache = new WeakMap<SearchDoc[], string>();
+
+function classOptionsSignature(corpus: SearchDoc[]): string {
+  let signature = classSignatureCache.get(corpus);
+  if (signature === undefined) {
+    const sets = classOptionSetsFor(corpus);
+    const describe = (entries: ClassOptionSets['level1']): string =>
+      entries.map(entry => `${entry.code}:${entry.label}`).join(',');
+    signature = `L1[${describe(sets.level1)}]L2[${describe(sets.detail)}]`;
+    classSignatureCache.set(corpus, signature);
+  }
+  return signature;
 }
 
 function chunk<T>(items: T[], size: number): T[][] {
@@ -160,7 +201,7 @@ interface Understanding {
   confidence: number;
   needsWiderRecall: number;
   facets: QueryFacets;
-  /** 模型档位推出的年份/评分条件（尚未决定是否升级成硬过滤） */
+  /** 模型档位题推出的年份/评分条件（尚未决定是否升级成硬过滤）；类目不在此列（见 `ClassReading`） */
   modelConstraints: SearchFilters;
   /** `constraint_strictness`：模型认为这些条件是硬条件的概率 */
   strictness: number;
@@ -177,7 +218,8 @@ async function understand(
 ): Promise<{ value: Understanding; failed: boolean; ms: number }> {
   const started = Date.now();
   try {
-    const result = await judge(buildUnderstandRequest(query, corpusSize, model), signal);
+    const request = buildUnderstandRequest(query, corpusSize, model);
+    const result = await judge(request, signal);
     const intentAnswer = result.answers.intent;
     const noul = (key: string, fallback: number): number => {
       const answer = result.answers[key];
@@ -195,14 +237,12 @@ async function understand(
     };
 
     const genre = result.answers.genre_preference;
-    const wantsFiction =
-      genre && genre.type === 'choice'
-        ? genre.choice === 'fiction'
-          ? 1
-          : genre.choice === 'nonfiction'
-            ? 0
-            : 0.5
-        : 0.5;
+    const genreChoice = genre && genre.type === 'choice' ? genre.choice : null;
+    const wantsFiction = genreChoice === 'fiction' ? 1 : genreChoice === 'nonfiction' ? 0 : 0.5;
+    // 只有 `nonfiction` 才能升级成硬排除。
+    // 「**只要**虚构」不走这里 —— `callClasses: ['I']` 已经能表达（`isFictionClc` 判的就是 I 类），
+    // 所以虚构维度缺的一直是「排除」这一个方向。
+    const excludeFiction = genreChoice === 'nonfiction';
 
     const yearFloor = levelBucket('year_floor', YEAR_FLOOR_VALUES);
     const ratingFloor = levelBucket('rating_floor', RATING_FLOOR_VALUES);
@@ -224,7 +264,8 @@ async function understand(
         },
         modelConstraints: {
           ...(yearFloor > 0 ? { pubYearFrom: yearFloor } : {}),
-          ...(ratingFloor > 0 ? { minRating: ratingFloor } : {})
+          ...(ratingFloor > 0 ? { minRating: ratingFloor } : {}),
+          ...(excludeFiction ? { excludeFiction: true } : {})
         },
         strictness: noul('constraint_strictness', 0),
         negation: noul('negation_present', 0)
@@ -257,10 +298,76 @@ async function understand(
   }
 }
 
+// ── 阶段 ①b：类目判断（独立请求，与意图 / 召回并发）────────────────────────────
+interface ClassReading {
+  /** 合并后的类号（尚未过否定门与「字面证据优先」门）；缺省 = 不设类目条件 */
+  callClasses?: string[];
+  /** 本请求自己的 `negation_present`：否定门不回头依赖意图请求 */
+  negation: number;
+}
+
+/**
+ * 两级类目题的合并规则：**退回较粗的 l1**。
+ *
+ * | l1 | l2 | 结果 | 理由 |
+ * |---|---|---|---|
+ * | `__none__` | 任意 | 不设条件 | 一级题已在说「不是在按类目筛」；二级题多半是照着主题词猜的，采信它会误删 |
+ * | X | `__none__` / 与 X 不同源 | X | 两级不一致 = 模型不确定 → 取更粗的，宁可不过滤也不误删 |
+ * | X | X 下的具体类 | 具体类 | 唯一「更精确且可信」的情形 |
+ *
+ * 「同源」统一用 `resolveClcCode(...).level1`（查表）判定，不靠字符串切前缀 ——
+ * T 类的二级是 `TB`/`TP`/`TU` 这类双字母，切片会错。
+ */
+function mergeClassReading(level1?: string, detail?: string): string[] | undefined {
+  if (level1 === undefined) return undefined;
+  if (detail !== undefined && resolveClcCode(detail).level1?.code === level1) return [detail];
+  return [level1];
+}
+
+async function understandClass(
+  query: string,
+  sets: ClassOptionSets,
+  judge: JudgeFn,
+  model: string,
+  signal?: AbortSignal
+): Promise<{ value: ClassReading; failed: boolean; ms: number }> {
+  const started = Date.now();
+  try {
+    const built = buildClassRequest(query, sets, model);
+    const result = await judge(built.request, signal);
+    /** `resolveClassKey` 是唯一还原点：`__none__` 与未知 key 一律 undefined */
+    const pick = (key: string, map: ClassOptionMap): string | undefined => {
+      const answer = result.answers[key];
+      return answer && answer.type === 'choice' ? resolveClassKey(map, answer.choice) : undefined;
+    };
+    const callClasses = mergeClassReading(
+      pick(CALL_CLASS_L1_KEY, built.level1Map),
+      pick(CALL_CLASS_L2_KEY, built.detailMap)
+    );
+    const negationAnswer = result.answers.negation_present;
+    return {
+      value: {
+        ...(callClasses !== undefined ? { callClasses } : {}),
+        negation: negationAnswer && negationAnswer.type === 'noul' ? negationAnswer.noul : 0
+      },
+      failed: false,
+      ms: Date.now() - started
+    };
+  } catch (error) {
+    logger.error('类目判断失败，年份/评分条件照常生效', {
+      message: error instanceof Error ? error.message : String(error)
+    });
+    // 失败即不设类目条件；否定取 0（此时没有任何类目条件可被它启用）
+    return { value: { negation: 0 }, failed: true, ms: Date.now() - started };
+  }
+}
+
 // ── 阶段 ②：wide 全库分片（仅 deep）────────────────────────────────────────
 async function runWide(
   query: string,
   corpus: SearchDoc[],
+  /** 已由代码硬过滤保证的条件（人类可读）—— 只能是**确定性**那一层，见调用点注释 */
+  enforced: readonly string[],
   judge: JudgeFn,
   model: string,
   degraded: string[],
@@ -283,7 +390,7 @@ async function runWide(
 
   const settled = await Promise.allSettled(
     shards.map(shard => {
-      const { request } = buildWideRequest(query, shard, model);
+      const { request } = buildWideRequest(query, shard, enforced, model);
       return judge(request, signal).then(result => ({ result, shard }));
     })
   );
@@ -333,6 +440,38 @@ async function runWide(
 }
 
 // ── 阶段 ③：rerank ─────────────────────────────────────────────────────────
+/**
+ * 已生效的硬条件 → 给人/模型看的一句话列表，供精排知道「哪些条件已经不用它操心」。
+ *
+ * 与 `plan.applied` **同源**（不另建一套判定），类目名走 `clc.ts` 查表。
+ */
+function describeApplied(applied: AppliedConstraint[]): string[] {
+  const labels: string[] = [];
+  for (const entry of applied) {
+    switch (entry.field) {
+      case 'pubYearFrom':
+        labels.push(`出版年 ≥ ${entry.value}`);
+        break;
+      case 'minRating':
+        labels.push(`评分 ≥ ${entry.value}`);
+        break;
+      case 'excludeFiction':
+        labels.push('排除虚构类');
+        break;
+      case 'callClasses': {
+        const codes = Array.isArray(entry.value) ? entry.value : [];
+        const named = codes.map(code => {
+          const node = findClcClass(code);
+          return node ? `${node.code} ${node.label}` : code;
+        });
+        labels.push(`中图法类目属于 ${named.join('、')}`);
+        break;
+      }
+    }
+  }
+  return labels;
+}
+
 interface RerankOutcome {
   ok: boolean;
   pNone: number;
@@ -349,6 +488,8 @@ interface RerankOutcome {
 async function runRerank(
   query: string,
   candidates: SearchDoc[],
+  /** 已由代码硬过滤保证的条件（人类可读），精排据此不必再判它们 */
+  enforced: readonly string[],
   judge: JudgeFn,
   model: string,
   degraded: string[],
@@ -385,7 +526,7 @@ async function runRerank(
   }
 
   const settled = await Promise.allSettled(
-    batches.map(batch => judge(buildRerankRequest(query, batch, model).request, signal))
+    batches.map(batch => judge(buildRerankRequest(query, batch, enforced, model).request, signal))
   );
 
   let pNone = 0;
@@ -531,46 +672,94 @@ function findExactMatch(corpus: SearchDoc[], raw: string): SearchDoc | null {
 }
 
 /**
- * 硬条件的最终裁决（三层：规则 → 模型档位 → 请求级 filters）。
+ * **请求期即可确定**的硬条件：规则层（用户原句的字面条件）∪ 请求级 `filters`（调用方显式传参），
+ * 同名数值下限取更强的一方。
  *
- * **规则层（用户原句的字面条件）永远生效**；模型档位只有在三件事同时成立时才升级成硬过滤：
+ * 单独拆出来的理由：这一份在**两条 lane 开跑之前**就算得完，因此可以下推给
+ * `recall.ts::buildAllowSet`，让过滤发生在 lane 的 top-K 截断**之前**。
+ * 模型档位不在此列 —— 它与 lane 结果并发返回（图 1 的投机并发），物理上赶不上，
+ * 只能融合后补一次过滤。两者共用 `recall.ts::compileDocFilter` 这一份判定，不存在两套标准。
+ */
+function deterministicConstraints(
+  rule: SearchFilters,
+  requested: SearchFilters | undefined
+): { filters: SearchFilters; applied: AppliedConstraint[] } {
+  const filters: SearchFilters = {};
+  const applied: AppliedConstraint[] = [];
+
+  // ① 规则层：字面条件，永远生效
+  if (rule.minRating !== undefined) {
+    filters.minRating = rule.minRating;
+    applied.push({ field: 'minRating', value: rule.minRating, source: 'rule' });
+  }
+  if (rule.pubYearFrom !== undefined) {
+    filters.pubYearFrom = rule.pubYearFrom;
+    applied.push({ field: 'pubYearFrom', value: rule.pubYearFrom, source: 'rule' });
+  }
+  if (rule.excludeFiction) {
+    filters.excludeFiction = true;
+    applied.push({ field: 'excludeFiction', value: true, source: 'rule' });
+  }
+
+  // ② 请求级 filters：显式传参，数值下限取更强约束
+  if (requested) {
+    const claim = (field: 'pubYearFrom' | 'minRating', value: number): void => {
+      const current = filters[field];
+      if (current === undefined || value > current) {
+        filters[field] = value;
+        const existing = applied.findIndex(entry => entry.field === field);
+        const entry: AppliedConstraint = { field, value, source: 'api' };
+        if (existing >= 0) applied[existing] = entry;
+        else applied.push(entry);
+      }
+    };
+    if (requested.minRating !== undefined) claim('minRating', requested.minRating);
+    if (requested.pubYearFrom !== undefined) claim('pubYearFrom', requested.pubYearFrom);
+    if (requested.excludeFiction) {
+      filters.excludeFiction = true;
+      if (!applied.some(entry => entry.field === 'excludeFiction')) {
+        applied.push({ field: 'excludeFiction', value: true, source: 'api' });
+      }
+    }
+    // 调用方显式传的类目：字面/显式证据优先，模型侧给出的会被它顶掉（见 resolveConstraints）
+    if (requested.callClasses && requested.callClasses.length > 0) {
+      const callClasses = [...requested.callClasses];
+      filters.callClasses = callClasses;
+      applied.push({ field: 'callClasses', value: callClasses, source: 'api' });
+    }
+  }
+
+  return { filters, applied };
+}
+
+/**
+ * 在确定性硬条件之上叠加**模型推出的条件**（年份/评分来自意图请求的档位题，类目来自独立的类目请求）。
+ *
+ * 年份/评分三道门全过才升级成硬过滤：
  * 1. 句中没有否定表达（`negation` ≤ `negationMax`）—— 「不要 2015 年以后」不能被反过来执行；
  * 2. 模型认为它是硬条件（`strictness` ≥ `hardStrictness`）；
- * 3. 规则层没有给出同名条件（字面证据优先，避免两套标准）。
+ * 3. 确定性层没有给出同名条件（字面证据优先，避免两套标准）。
  *
  * 不满足时进入 `plan.dropped`：模型可以提出条件，但不能单方面删结果（延续 facets「只能微调」的纪律）。
- * 请求级 `filters` 是调用方显式声明的，同名下限取更大者。
  */
 function resolveConstraints(args: {
-  rule: SearchFilters;
+  base: { filters: SearchFilters; applied: AppliedConstraint[] };
   model: SearchFilters;
   strictness: number;
   negation: number;
   /** 生效门槛（默认来自 tuning.ts，可被环境变量覆盖） */
   hardStrictness: number;
   negationMax: number;
-  requested: SearchFilters | undefined;
+  /** 类目请求自己的否定概率（它自包含，不回头依赖意图请求 —— 两边各自失败互不牵连） */
+  negated: number;
+  /** 类目请求给出的类号（已按「退回较粗的 l1」合并完毕） */
+  modelClasses?: string[];
   terms: string[];
 }): { filters: SearchFilters; plan: QueryPlanTrace } {
-  const filters: SearchFilters = {};
-  const applied: AppliedConstraint[] = [];
+  const filters: SearchFilters = { ...args.base.filters };
+  const applied: AppliedConstraint[] = [...args.base.applied];
   const dropped: DroppedConstraint[] = [];
 
-  // ① 规则层：字面条件，永远生效
-  if (args.rule.minRating !== undefined) {
-    filters.minRating = args.rule.minRating;
-    applied.push({ field: 'minRating', value: args.rule.minRating, source: 'rule' });
-  }
-  if (args.rule.pubYearFrom !== undefined) {
-    filters.pubYearFrom = args.rule.pubYearFrom;
-    applied.push({ field: 'pubYearFrom', value: args.rule.pubYearFrom, source: 'rule' });
-  }
-  if (args.rule.excludeFiction) {
-    filters.excludeFiction = true;
-    applied.push({ field: 'excludeFiction', value: true, source: 'rule' });
-  }
-
-  // ② 模型档位：需要过否定 / 严格性 / 不与规则冲突三道门
   const negated = args.negation > args.negationMax;
   const strict = args.strictness >= args.hardStrictness;
   const considerModel = (field: 'pubYearFrom' | 'minRating', value: number | undefined): void => {
@@ -593,30 +782,58 @@ function resolveConstraints(args: {
   considerModel('pubYearFrom', args.model.pubYearFrom);
   considerModel('minRating', args.model.minRating);
 
-  // ③ 请求级 filters：显式传参，下限取更强约束
-  const requested = args.requested;
-  if (requested) {
-    const claim = (field: 'pubYearFrom' | 'minRating', value: number): void => {
-      const current = filters[field];
-      if (current === undefined || value > current) {
-        filters[field] = value;
-        const existing = applied.findIndex(entry => entry.field === field);
-        const entry: AppliedConstraint = { field, value, source: 'api' };
-        if (existing >= 0) applied[existing] = entry;
-        else applied.push(entry);
-      }
-    };
-    if (requested.minRating !== undefined) claim('minRating', requested.minRating);
-    if (requested.pubYearFrom !== undefined) claim('pubYearFrom', requested.pubYearFrom);
-    if (requested.excludeFiction) {
+  // 虚构维度：与年份/评分共用 `constraint_strictness` 那道门 ——
+  // 那道题的题面本来就写着「年份、评分、**虚构与否**是不是必须满足的硬条件」。
+  //
+  // ⚠️ 唯一一道**不看否定门**的条件，与年份/评分刻意相反：
+  // `genre_preference` 问的是「想要虚构还是非虚构」，极性已经包含在答案里 ——
+  // 「不要小说」的否定是**构成**这个条件的表达，把它当「反向执行」拦下恰好会拦掉正确行为。
+  // 安全性由方向保证：只有 `nonfiction` 才会走到这里，所以「不要非虚构」只会变成「不筛」，不会反向。
+  if (args.model.excludeFiction === true) {
+    if (filters.excludeFiction) {
+      dropped.push({ field: 'excludeFiction', value: true, reason: 'rule-conflict' });
+    } else if (!strict) {
+      dropped.push({ field: 'excludeFiction', value: true, reason: 'soft' });
+    } else {
       filters.excludeFiction = true;
-      if (!applied.some(entry => entry.field === 'excludeFiction')) {
-        applied.push({ field: 'excludeFiction', value: true, source: 'api' });
-      }
+      applied.push({ field: 'excludeFiction', value: true, source: 'model' });
+    }
+  }
+
+  // 类目条件：两道门，**不看 `constraint_strictness`**。
+  // 那道题问的是「年份/评分/是否虚构是不是必须满足的硬条件」，与类目不是同一个判断；
+  // 而类目题本身就是在问「是不是在按类目筛」—— 模型给出具体类目（而非 `__none__`）
+  // 已经是这道题的答案，再叠一道 strictness 等于把同一个信号数两遍。
+  // 保留的两道门：确定性层已有类目则让位（字面/显式证据优先）；句中有否定则一律不用
+  // （「不要历史类的」不能被反向执行成「只要历史类」）。
+  const modelClasses = args.modelClasses;
+  if (modelClasses && modelClasses.length > 0) {
+    if (filters.callClasses !== undefined) {
+      dropped.push({ field: 'callClasses', value: modelClasses, reason: 'rule-conflict' });
+    } else if (args.negated > args.negationMax) {
+      dropped.push({ field: 'callClasses', value: modelClasses, reason: 'negated' });
+    } else {
+      filters.callClasses = [...modelClasses];
+      applied.push({ field: 'callClasses', value: [...modelClasses], source: 'model' });
     }
   }
 
   return { filters, plan: { terms: args.terms, applied, dropped } };
+}
+
+/**
+ * 合并两轮召回结果：同一 docId 取名次分较高的一次，按分数降序截断。
+ *
+ * 用于两段式的第二轮 —— 第二轮在**更严格的允许集合内**重跑 lane，
+ * 能捞回第一轮 top-K 之外、却被类目条件排除在候选之外的书。
+ */
+function mergeRecall(a: RecallResult[], b: RecallResult[], limit: number): RecallResult[] {
+  const byId = new Map<string, RecallResult>();
+  for (const result of [...a, ...b]) {
+    const existing = byId.get(result.docId);
+    if (!existing || result.score > existing.score) byId.set(result.docId, result);
+  }
+  return [...byId.values()].sort((x, y) => y.score - x.score).slice(0, limit);
 }
 
 /**
@@ -680,6 +897,7 @@ export async function runSemanticSearch(
     denseMs: 0,
     denseCacheHit: false,
     understandMs: 0,
+    classMs: 0,
     wideMs: 0,
     rerankMs: 0,
     rankMs: 0,
@@ -787,11 +1005,12 @@ export async function runSemanticSearch(
     }
   });
 
-  // ── ① + 2A/2B 投机并发：意图理解与两条召回同时发出，绝不串行等待 ──────────
+  // ── ① + ①b + 2A/2B 投机并发：两次 Jev 与两条召回同时发出，绝不串行等待 ────────
   // 缓存键用**原句**（归一化后）而非降噪产物 `core`：降噪是有损的，
-  // 而现在意图里还带着模型档位推出的硬条件，用有损键会让两条不同问题共用一份约束。
+  // 而意图里还带着模型档位推出的硬条件，用有损键会让两条不同问题共用一份约束。
   // 版本号 v2：题型从 noul 换成 score/choice，旧缓存不可复用。
-  const understandKey = `v2|${mode}|${normalizeText(normalized.raw)}`;
+  // 版本号 v4：`call_class` 已移出本次请求（拆成独立的类目请求），题集变了，旧缓存不可复用。
+  const understandKey = `v4|${mode}|${normalizeText(normalized.raw)}`;
   const cachedUnderstanding = cacheGet<Understanding>(understandKey);
   const understandPromise = cachedUnderstanding
     ? Promise.resolve({ value: cachedUnderstanding, failed: false, ms: 0 })
@@ -800,21 +1019,65 @@ export async function runSemanticSearch(
         return outcome;
       });
 
+  // 类目请求单独缓存（且必须带上类目选项签名 —— `c0..cN` 只在那一份选项表里有意义）。
+  // 独立缓存还有一个好处：「类目识别失败」不会把意图结论也标脏。
+  const classKey = `c1|${classOptionsSignature(corpus)}|${normalizeText(normalized.raw)}`;
+  const cachedClass = cacheGet<ClassReading>(classKey);
+  const classPromise = cachedClass
+    ? Promise.resolve({ value: cachedClass, failed: false, ms: 0 })
+    : understandClass(normalized.raw, classOptionSetsFor(corpus), trackedJudge, model, signal).then(
+        outcome => {
+          if (!outcome.failed) cacheSet(classKey, outcome.value);
+          return outcome;
+        }
+      );
+
   const deepTopK =
     mode === 'deep' ? RERANK_TOP_K + tuning.effective.deepTopKSlack : RERANK_TOP_K;
+
+  // 请求期即可确定的硬条件（原句规则 + API 显式传参）在两条 lane 开跑之前就算完，
+  // 编译成允许集合下推给 lane —— 让过滤发生在 top-K **截断之前**。
+  // 不这么做时，一个筛选性强的条件（如「2025 年后」+「K 类」）会把两路各自的前 N 名
+  // 大部分滤掉，融合后候选不足 → 误报「馆藏里没有」。下推不改变判定本身（同一份 compileDocFilter）。
+  // 模型档位推出的条件赶不上这一步（它与 lane 结果并发返回），只能融合后补过滤。
+  const deterministic = deterministicConstraints(
+    explicitToFilters(normalized.explicit),
+    input.filters
+  );
+  const allow = buildAllowSet(corpus, deterministic.filters);
+
   const lanesPromise = recallLanes(
-    { raw: normalized.raw, core: normalized.terms },
+    { raw: normalized.raw, core: normalized.terms, allow },
     [timedLexical, denseLane]
   );
 
-  const [understanding, laneResults] = await Promise.all([understandPromise, lanesPromise]);
+  const [understanding, laneResults, classReading] = await Promise.all([
+    understandPromise,
+    lanesPromise,
+    classPromise
+  ]);
   timing.understandMs = understanding.ms;
+  timing.classMs = classReading.ms;
   if (understanding.failed) degraded.push('understand');
+  // 独立 degraded code：类目识别失败只丢类目条件，年份/评分档位与 facets 照常生效
+  if (classReading.failed) degraded.push('understand-class');
 
   // ── 2C wide（仅 deep，且 needs_wider_recall 高置信）：作为第三条 lane 并入 RRF ─
   let allLaneResults = laneResults;
   if (mode === 'deep' && understanding.value.needsWiderRecall > tuning.effective.widerRecallTrigger) {
-    const wide = await runWide(normalized.raw, corpus, trackedJudge, model, degraded, signal);
+    // wide 只在**已通过确定性硬条件**的书里分片：条件越严，片数越少，Jev 请求数越少。
+    // `enforced` 因此只能给确定性那一层（规则 + API）：模型档位推出的条件此刻还没裁决
+    // （`resolveConstraints` 在 wide 之后），而这批分片的范围本来也正是它算出来的允许集合。
+    const wideEligible = allow === null ? corpus : corpus.filter(doc => allow.has(doc.id));
+    const wide = await runWide(
+      normalized.raw,
+      wideEligible,
+      describeApplied(deterministic.applied),
+      trackedJudge,
+      model,
+      degraded,
+      signal
+    );
     timing.wideMs = wide.ms;
     if (wide.results.length > 0) {
       allLaneResults = [...laneResults, wide.results];
@@ -822,17 +1085,44 @@ export async function runSemanticSearch(
   }
 
   const constraints = resolveConstraints({
-    rule: explicitToFilters(normalized.explicit),
+    base: deterministic,
     model: understanding.value.modelConstraints,
     strictness: understanding.value.strictness,
     negation: understanding.value.negation,
+    negated: classReading.value.negation,
+    modelClasses: classReading.value.callClasses,
     hardStrictness: tuning.effective.jevHardStrictness,
     negationMax: tuning.effective.jevNegationMax,
-    requested: input.filters,
     terms: normalized.terms
   });
   // 被丢弃的模型约束不标 degraded（不是降级，是可解释的策略结果），看 intent.plan.dropped
-  const fused = fuseAndFilter(allLaneResults, docs, constraints.filters, deepTopK);
+  let fused = fuseAndFilter(allLaneResults, docs, constraints.filters, deepTopK);
+
+  // ── 两段式：模型推出的硬条件赶不上下推时补一次本地召回 ──────────────────────
+  // 模型答案与两条 lane **并发**返回，物理上赶不上开跑前的下推（见 deterministicConstraints）。
+  // 这类条件往往很选择性（类目实测 K92 只占全馆 5/509 ≈ 1%；「近两年」同样只剩一小撮），
+  // 融合后 top-K 里常常一本都没有 —— 「馆藏里明明有」于是被误报成「没有」。
+  // 只在候选确实偏薄时付这一次本地重跑：查询向量已在 LRU、understand 已缓存 → **0 次 Jev 请求**。
+  //
+  // 触发面覆盖**所有**模型推出的硬条件（年份/评分/虚构/类目），不是只有类目：
+  // 它们升级成硬过滤的路径完全一样（`resolveConstraints`），只让类目享受补救是不对称的。
+  // 判据用 `source === 'model'`：`resolveConstraints` 只在确定性层没有同名条件时才记 'model'，
+  // 所以它天然等价于「模型新加、且赶不上下推」；确定性条件不必重跑 —— 它已下推，
+  // 第一轮 lane 就只搜过允许集合，用同一份条件重跑会得到完全一样的结果。
+  const modelOnlyHardFilter = constraints.plan.applied.some(entry => entry.source === 'model');
+  if (modelOnlyHardFilter && fused.length < RERANK_TOP_K) {
+    const retryAllow = buildAllowSet(corpus, constraints.filters);
+    const retryLanes = await recallLanes(
+      { raw: normalized.raw, core: normalized.terms, allow: retryAllow },
+      [timedLexical, denseLane]
+    );
+    fused = mergeRecall(
+      fused,
+      fuseAndFilter(retryLanes, docs, constraints.filters, deepTopK),
+      deepTopK
+    );
+  }
+
   const lexicalHits = fused.filter(result => result.lanes.includes('lexical')).length;
   const denseHits = fused.filter(result => result.lanes.includes('dense')).length;
 
@@ -877,6 +1167,8 @@ export async function runSemanticSearch(
   const rerankOutcome = await runRerank(
     normalized.raw,
     candidates,
+    // 把已生效的硬条件告诉精排：`query` 是原句，里面一半内容已由代码保证
+    describeApplied(constraints.plan.applied),
     trackedJudge,
     model,
     degraded,

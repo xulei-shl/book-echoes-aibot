@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildIndex, estimateIndexBytes, search, termIdf } from '@/lib/search/bm25';
+import { resolveClc } from '@/lib/search/clc';
 import type { SearchDoc, SearchFields } from '@/lib/search/types';
 
 function makeDoc(id: string, fields: Partial<SearchFields>): SearchDoc {
@@ -37,6 +38,7 @@ function makeDoc(id: string, fields: Partial<SearchFields>): SearchDoc {
       ...fields
     },
     exact: { isbn: '', barcode: id, callNumber: '' },
+    clc: resolveClc(''),
     numeric: { rating: 0, pubYear: 0, pages: 0 },
     hash: id
   };

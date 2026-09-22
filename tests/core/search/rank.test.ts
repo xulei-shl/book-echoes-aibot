@@ -9,6 +9,7 @@ import {
   type RankedOutcome,
   type RerankCandidate
 } from '@/lib/search/rank';
+import { resolveClc } from '@/lib/search/clc';
 import { FIT_GATE } from '@/lib/search/tuning';
 import type { AppliedConstraint, QueryFacets, SearchDoc } from '@/lib/search/types';
 
@@ -46,6 +47,7 @@ function makeDoc(id: string, options: { callNumber?: string; rating?: number; pu
       toc: ''
     },
     exact: { isbn: '', barcode: id, callNumber: options.callNumber ?? '' },
+    clc: resolveClc(options.callNumber ?? ''),
     numeric: { rating: options.rating ?? 8, pubYear: options.pubYear ?? 2020, pages: 0 },
     hash: id
   };
