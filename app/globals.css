@@ -166,31 +166,6 @@ body {
   background: var(--accent-interactive);
 }
 
-/* 语义检索背景隧道：每张封面微弱的随机 Float（只动 transform，走合成层） */
-@keyframes cover-float {
-
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0);
-  }
-
-  50% {
-    transform: translate3d(0, -8px, 0);
-  }
-}
-
-.cover-float {
-  animation: cover-float 7s ease-in-out infinite;
-  animation-delay: calc(var(--float-i, 0) * -0.37s);
-  animation-duration: calc(6s + var(--float-i, 0) * 0.6s);
-  will-change: transform;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .cover-float {
-    animation: none;
-  }
-}
 
 /* 首页封面区统一容器,避免卡片无限拉伸 */
 .magazine-cover-wrapper {

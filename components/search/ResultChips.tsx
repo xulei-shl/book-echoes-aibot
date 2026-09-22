@@ -61,7 +61,7 @@ export default function ResultChips({ intent, mode, degraded }: ResultChipsProps
         <span className="border border-white/10 bg-[#141312]/60 px-3 py-1 font-mono text-[11px] tracking-wider text-[#F2F0E9] shadow-sm backdrop-blur-md">
           {mode === 'deep' ? '深入模式' : '快速模式'}
         </span>
-        <span className="border border-white/10 bg-[#141312]/60 px-3 py-1 font-mono text-[11px] tracking-wider text-[#DCD9D0] shadow-sm backdrop-blur-md">
+        <span className="border border-white/10 bg-[#141312]/60 px-3 py-1 font-mono text-[11px] tracking-wider text-[#DCD9D0] shadow-sm backdrop-blur-md tabular-nums">
           召回 {intent.retrieval.lexicalHits} 词法 / {intent.retrieval.denseHits} 语义
         </span>
         {intent.needsWiderRecall > 0.5 && (

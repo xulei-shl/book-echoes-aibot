@@ -9,7 +9,7 @@ export default function WhyPopover({ item }: { item: SearchResultItem }) {
       <p className="mb-2 font-mono text-[10px] uppercase tracking-widest text-[#C9A063]">
         判定依据
       </p>
-      <dl className="space-y-1.5 font-mono text-[11px] text-[#C5C2BA]">
+      <dl className="space-y-1.5 font-mono text-[11px] text-[#C5C2BA] tabular-nums">
         <div className="flex justify-between gap-3">
           <dt>相关度 fit</dt>
           <dd className="text-[#F2F0E9]">{item.fit === null ? '未返回' : item.fit.toFixed(2)}</dd>

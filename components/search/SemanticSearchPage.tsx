@@ -139,21 +139,25 @@ export default function SemanticSearchPage({ covers }: SemanticSearchPageProps) 
           检索枢纽区：通过纯 GPU 合成层 translateY 驱动初始居中 (20vh) 与 常驻顶部 (0)，
           彻底消除父级 Flex 切换引发的重排与卡顿，实现 120fps 极度丝滑物理过渡！
         */}
+        {/*
+          检索枢纽区：纯 GPU 合成层驱动垂直位移，
+          标题退场采用绝对定位 + 纯合成层淡出，彻底消除 height: 0 引发的全局重排与卡顿！
+        */}
         <motion.div
           animate={{ y: showTop ? 0 : '18vh' }}
-          transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-          className="w-full max-w-2xl"
+          transition={{ duration: 0.28, ease: [0.23, 1, 0.32, 1] }}
+          className="relative w-full max-w-2xl"
         >
           <AnimatePresence>
             {!showTop && (
               <motion.div
-                initial={{ opacity: 0, scale: 0.94, y: 10 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: -14, height: 0 }}
-                transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-                className="overflow-hidden"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+                className="pointer-events-none absolute -top-16 left-0 right-0 text-center md:-top-20"
               >
-                <h1 className="mb-6 text-center font-hero-title text-3xl tracking-wider text-[#F2F0E9] drop-shadow-[0_4px_24px_rgba(0,0,0,0.85)] md:text-4xl">
+                <h1 className="font-hero-title text-3xl tracking-wider text-[#F2F0E9] drop-shadow-[0_4px_24px_rgba(0,0,0,0.85)] md:text-4xl text-balance">
                   在馆藏里找一本书
                 </h1>
               </motion.div>
@@ -182,7 +186,7 @@ export default function SemanticSearchPage({ covers }: SemanticSearchPageProps) 
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
                 className="mx-auto mt-4 flex w-fit items-center gap-3 border border-[#D4A574]/40 bg-[#141312]/85 px-4 py-2 font-body text-sm text-[#E5BE82] shadow-xl backdrop-blur-md"
               >
                 <span>{error}</span>
@@ -202,13 +206,13 @@ export default function SemanticSearchPage({ covers }: SemanticSearchPageProps) 
           {view === 'abstained' && (
             <motion.section
               key="abstained"
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.26, ease: [0.23, 1, 0.32, 1] }}
               className="relative mt-12 w-full max-w-xl border border-[#C9A063]/40 bg-[#141312]/80 p-8 text-center shadow-2xl backdrop-blur-2xl"
             >
-              <p className="font-display text-lg text-[#F2F0E9]">{abstainCopy.title}</p>
+              <p className="font-display text-lg text-[#F2F0E9] text-balance">{abstainCopy.title}</p>
               <p className="mt-3 font-body text-sm leading-relaxed text-[#DCD9D0]">
                 {abstainCopy.body}
               </p>
@@ -221,7 +225,7 @@ export default function SemanticSearchPage({ covers }: SemanticSearchPageProps) 
                 <button
                   type="button"
                   onClick={() => setShowAbstainedMore(true)}
-                  className="mt-6 border border-[#C9A063]/40 bg-[#141312]/60 px-4 py-2 font-body text-sm text-[#E5BE82] shadow-sm backdrop-blur-md transition-all hover:border-[#C9A063]/80 hover:bg-[#161514]/80 hover:text-[#F2F0E9]"
+                  className="mt-6 border border-[#C9A063]/40 bg-[#141312]/60 px-4 py-2 font-body text-sm text-[#E5BE82] shadow-sm backdrop-blur-md transition-[border-color,background-color,color] duration-200 hover:border-[#C9A063]/80 hover:bg-[#161514]/80 hover:text-[#F2F0E9]"
                 >
                   查看低相关度结果（{response.more.length} 条）
                 </button>
@@ -234,7 +238,7 @@ export default function SemanticSearchPage({ covers }: SemanticSearchPageProps) 
               key="abstained-more"
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+              transition={{ duration: 0.26, ease: [0.23, 1, 0.32, 1] }}
               className="mt-8 w-full"
             >
               <ResultGallery
@@ -249,10 +253,10 @@ export default function SemanticSearchPage({ covers }: SemanticSearchPageProps) 
           {view === 'results' && response && response.results.length > 0 && (
             <motion.section
               key="results"
-              initial={{ opacity: 0, y: 24 }}
+              initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 16 }}
-              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.26, ease: [0.23, 1, 0.32, 1] }}
               className="mt-8 w-full"
             >
               <div className="mb-6 flex justify-center">

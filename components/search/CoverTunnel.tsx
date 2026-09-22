@@ -64,8 +64,12 @@ export default function CoverTunnel({ covers, dimmed, highlightIds }: CoverTunne
     };
   }, [columns]);
 
-  // 60fps~120fps 恒速平滑循环流动（移除悬停减速停止，实现无间断漫游）
+  // 60fps~120fps 恒速平滑循环流动（移除悬停减速停止，实现无间断漫游；支持减弱动画）
   useEffect(() => {
+    // 尊重用户系统级减弱动态效果设置
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    if (mediaQuery.matches) return;
+
     let raf = 0;
     const step = (time: number) => {
       const last = lastTimeRef.current ?? time;
@@ -101,10 +105,9 @@ export default function CoverTunnel({ covers, dimmed, highlightIds }: CoverTunne
     return (
       <div key={`${item.id}-${itemIdx}`} className="relative">
         <div
-          className="cover-float relative aspect-[2/3] overflow-hidden bg-[#18181b] transition-all duration-300"
+          className="relative aspect-[2/3] overflow-hidden bg-[#18181b] transition-[transform,box-shadow,outline-color] duration-300"
           style={
             {
-              '--float-i': (colIdx * 3 + itemIdx) % 9,
               outline: isHighlighted
                 ? '1.5px solid rgba(201, 160, 99, 0.95)'
                 : '1px solid rgba(255, 255, 255, 0.08)',
@@ -124,7 +127,7 @@ export default function CoverTunnel({ covers, dimmed, highlightIds }: CoverTunne
             loading={itemIdx < 4 ? 'eager' : 'lazy'}
             decoding="async"
             draggable={false}
-            className={`h-full w-full object-cover transition-opacity duration-500 ${
+            className={`h-full w-full object-cover transition-opacity duration-300 ${
               isHighlighted ? 'opacity-100' : 'opacity-85'
             }`}
           />
@@ -144,13 +147,11 @@ export default function CoverTunnel({ covers, dimmed, highlightIds }: CoverTunne
       {/* 空间暗角与柔和书香暖金色径向光 */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(201,160,99,0.06),transparent_70%)]" />
 
-      {/* 退让景深层：聚焦检索框或检索中时触发平滑 GPU 模糊与微弱压暗 */}
+      {/* 退让景深层：聚焦检索框或检索中时通过纯 GPU opacity 进行平滑退让，杜绝动态 blur 滤镜导致掉帧 */}
       <div
-        className="absolute inset-0 transition-[filter,opacity] duration-700 ease-out"
+        className="absolute inset-0 transition-opacity duration-500 ease-out"
         style={{
-          filter: dimmed ? 'blur(6px) brightness(0.55)' : 'blur(0px) brightness(0.95)',
-          opacity: dimmed ? 0.7 : 1,
-          willChange: 'filter, opacity'
+          opacity: dimmed ? 0.28 : 0.85
         }}
       >
         {/*
@@ -219,6 +220,13 @@ export default function CoverTunnel({ covers, dimmed, highlightIds }: CoverTunne
           </div>
         </div>
       </div>
+
+      {/* 聚焦/检索退让暗幕：纯 GPU 合成层，营造静谧内敛的沉浸聚焦感 */}
+      <div
+        className={`pointer-events-none absolute inset-0 bg-[#0e0d0c]/60 transition-opacity duration-500 ease-out ${
+          dimmed ? 'opacity-100' : 'opacity-0'
+        }`}
+      />
     </div>
   );
 }

@@ -21,8 +21,16 @@ const MORE_PAGE_SIZE = 12;
 const gridClass = 'grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6';
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 16, scale: 0.96 },
-  visible: { opacity: 1, y: 0, scale: 1 }
+  hidden: { opacity: 0, y: 12, scale: 0.97 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: {
+      duration: 0.24,
+      ease: [0.23, 1, 0.32, 1] as const
+    }
+  }
 };
 
 export default function ResultGallery({
@@ -63,7 +71,7 @@ export default function ResultGallery({
               <button
                 type="button"
                 onClick={() => setVisibleMore(MORE_PAGE_SIZE)}
-                className="border border-[#C9A063]/40 bg-[#141312]/60 px-5 py-2 font-body text-sm text-[#E5BE82] shadow-sm backdrop-blur-md transition-all hover:border-[#C9A063]/80 hover:bg-[#161514]/80 hover:text-[#F2F0E9]"
+                className="border border-[#C9A063]/40 bg-[#141312]/60 px-5 py-2 font-body text-sm text-[#E5BE82] shadow-sm backdrop-blur-md transition-[border-color,background-color,color] duration-200 hover:border-[#C9A063]/80 hover:bg-[#161514]/80 hover:text-[#F2F0E9] active:scale-[0.97]"
               >
                 加载更多（还有 {more.length} 条）
               </button>
@@ -92,7 +100,7 @@ export default function ResultGallery({
                   <button
                     type="button"
                     onClick={() => setVisibleMore(count => count + MORE_PAGE_SIZE)}
-                    className="border border-[#C9A063]/40 bg-[#141312]/60 px-5 py-2 font-body text-sm text-[#E5BE82] shadow-sm backdrop-blur-md transition-all hover:border-[#C9A063]/80 hover:bg-[#161514]/80 hover:text-[#F2F0E9]"
+                    className="border border-[#C9A063]/40 bg-[#141312]/60 px-5 py-2 font-body text-sm text-[#E5BE82] shadow-sm backdrop-blur-md transition-[border-color,background-color,color] duration-200 hover:border-[#C9A063]/80 hover:bg-[#161514]/80 hover:text-[#F2F0E9] active:scale-[0.97]"
                   >
                     加载更多（还有 {remaining} 条）
                   </button>

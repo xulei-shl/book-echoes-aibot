@@ -40,7 +40,7 @@ function Typewriter({ messages }: { messages: string[] }) {
   }, [index, messages]);
 
   return (
-    <span className="inline-flex items-center gap-1.5 border border-[#C9A063]/30 bg-[#141312]/60 px-3 py-1 font-body text-xs tracking-wider text-[#E5BE82] shadow-md backdrop-blur-md">
+    <span className="inline-flex items-center gap-1.5 border border-[#C9A063]/30 bg-[#141312]/60 px-3 py-1 font-body text-xs tracking-wider text-[#E5BE82] shadow-md backdrop-blur-md tabular-nums">
       <span>{text}</span>
       <span className="inline-block h-3 w-1 bg-[#C9A063] animate-pulse" />
     </span>
@@ -73,18 +73,13 @@ export default function SearchBox({
   hasActiveSearch = false
 }: SearchBoxProps) {
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.95, y: 14 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 26 }}
-      className="w-full"
-    >
+    <div className="w-full">
       <form
         onSubmit={event => {
           event.preventDefault();
           onSubmit();
         }}
-        className={`relative flex items-center gap-3.5 border px-5 py-3.5 backdrop-blur-2xl transition-all duration-300 md:px-6 md:py-4.5 ${
+        className={`relative flex items-center gap-3.5 border px-5 py-3.5 backdrop-blur-2xl transition-[border-color,background-color,box-shadow] duration-200 md:px-6 md:py-4.5 ${
           isFocused
             ? 'border-[#C9A063] bg-[#181716]/82 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.85),0_0_28px_rgba(201,160,99,0.22)] ring-1 ring-[#C9A063]/50'
             : 'border-[#C9A063]/30 bg-[#141312]/65 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.7),0_0_20px_rgba(201,160,99,0.06)] hover:border-[#C9A063]/50'
@@ -151,7 +146,7 @@ export default function SearchBox({
           type="submit"
           disabled={isSearching || value.trim().length === 0}
           aria-label="开始语义检索"
-          className="relative flex h-9.5 w-9.5 shrink-0 items-center justify-center bg-[#C9A063] text-[#161514] shadow-md transition-all duration-200 hover:bg-[#D4A574] disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-[#C9A063]"
+          className="relative flex h-9.5 w-9.5 shrink-0 items-center justify-center bg-[#C9A063] text-[#161514] shadow-md transition-[background-color,opacity] duration-150 hover:bg-[#D4A574] disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-[#C9A063]"
         >
           {isSearching ? (
             <svg className="h-4.5 w-4.5 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -179,7 +174,7 @@ export default function SearchBox({
               whileTap={{ scale: 0.96 }}
               type="button"
               onClick={() => onModeChange(option)}
-              className={`px-2.5 py-0.5 font-mono text-[11px] tracking-wider transition-all duration-200 ${
+              className={`px-2.5 py-0.5 font-mono text-[11px] tracking-wider transition-[background-color,color] duration-150 ${
                 mode === option
                   ? 'bg-[#C9A063] font-medium text-[#161514] shadow-sm'
                   : 'text-[#DCD9D0] hover:text-[#F2F0E9]'
@@ -191,6 +186,6 @@ export default function SearchBox({
           ))}
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
