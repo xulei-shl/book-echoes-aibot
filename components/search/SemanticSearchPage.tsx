@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { SearchCoverItem } from '@/lib/content';
@@ -58,6 +58,30 @@ export default function SemanticSearchPage({ covers }: SemanticSearchPageProps) 
   const [error, setError] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [showAbstainedMore, setShowAbstainedMore] = useState(false);
+
+  const hubRef = useRef<HTMLDivElement>(null);
+  const [idleOffset, setIdleOffset] = useState(0);
+
+  // 空闲态检索枢纽精确垂直居中：实测枢纽自身高度与视口中心，得出纯 GPU 位移值，
+  // 并随窗口尺寸自适应，避免 magic number 也避免过渡链路引入重排。
+  useEffect(() => {
+    const measure = () => {
+      const el = hubRef.current;
+      if (!el) return;
+      const naturalTop = el.offsetTop;
+      // 极端矮视口下不抬升越过自然顶部，避免与固定 Header 重叠
+      const offset = window.innerHeight / 2 - el.offsetHeight / 2 - naturalTop;
+      setIdleOffset(Math.max(0, offset));
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    const ro = new ResizeObserver(measure);
+    if (hubRef.current) ro.observe(hubRef.current);
+    return () => {
+      window.removeEventListener('resize', measure);
+      ro.disconnect();
+    };
+  }, []);
 
   const showTop = view !== 'idle';
 
@@ -136,16 +160,22 @@ export default function SemanticSearchPage({ covers }: SemanticSearchPageProps) 
       */}
       <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-6xl flex-col items-center px-5 pt-24 pb-24 md:px-8 md:pt-28">
         {/*
-          检索枢纽区：通过纯 GPU 合成层 translateY 驱动初始居中 (20vh) 与 常驻顶部 (0)，
-          彻底消除父级 Flex 切换引发的重排与卡顿，实现 120fps 极度丝滑物理过渡！
+          检索枢纽区：空闲态通过实测偏移（idleOffset）实现精确垂直居中，检索后以纯 GPU
+          合成层 translateY 过渡回常驻顶部，彻底消除父级 Flex 切换引发的重排与卡顿，
+          实现 120fps 极度丝滑物理过渡！
         */}
         {/*
           检索枢纽区：纯 GPU 合成层驱动垂直位移，
           标题退场采用绝对定位 + 纯合成层淡出，彻底消除 height: 0 引发的全局重排与卡顿！
         */}
         <motion.div
-          animate={{ y: showTop ? 0 : '18vh' }}
-          transition={{ duration: 0.28, ease: [0.23, 1, 0.32, 1] }}
+          ref={hubRef}
+          animate={{ y: showTop ? 0 : idleOffset }}
+          transition={
+            showTop
+              ? { duration: 0.28, ease: [0.23, 1, 0.32, 1] }
+              : { duration: 0.42, ease: [0.23, 1, 0.32, 1] }
+          }
           className="relative w-full max-w-2xl"
         >
           <AnimatePresence>
