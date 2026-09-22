@@ -63,7 +63,7 @@ export default function ResultGallery({
               <button
                 type="button"
                 onClick={() => setVisibleMore(MORE_PAGE_SIZE)}
-                className="border border-[#C9A063]/40 bg-[#161514]/90 px-5 py-2 font-body text-sm text-[#E5BE82] transition-colors hover:border-[#C9A063]/80 hover:text-[#F2F0E9]"
+                className="border border-[#C9A063]/40 bg-[#141312]/60 px-5 py-2 font-body text-sm text-[#E5BE82] shadow-sm backdrop-blur-md transition-all hover:border-[#C9A063]/80 hover:bg-[#161514]/80 hover:text-[#F2F0E9]"
               >
                 加载更多（还有 {more.length} 条）
               </button>
@@ -92,7 +92,7 @@ export default function ResultGallery({
                   <button
                     type="button"
                     onClick={() => setVisibleMore(count => count + MORE_PAGE_SIZE)}
-                    className="border border-[#C9A063]/40 bg-[#161514]/90 px-5 py-2 font-body text-sm text-[#E5BE82] transition-colors hover:border-[#C9A063]/80 hover:text-[#F2F0E9]"
+                    className="border border-[#C9A063]/40 bg-[#141312]/60 px-5 py-2 font-body text-sm text-[#E5BE82] shadow-sm backdrop-blur-md transition-all hover:border-[#C9A063]/80 hover:bg-[#161514]/80 hover:text-[#F2F0E9]"
                   >
                     加载更多（还有 {remaining} 条）
                   </button>

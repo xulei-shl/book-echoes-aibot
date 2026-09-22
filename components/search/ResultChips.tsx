@@ -53,24 +53,24 @@ export default function ResultChips({ intent, mode, degraded }: ResultChipsProps
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="border border-[#C9A063]/50 bg-[#161514]/95 px-3 py-1 font-mono text-[11px] font-medium tracking-wider text-[#C9A063] shadow-md backdrop-blur-md">
+      <span className="border border-[#C9A063]/50 bg-[#141312]/60 px-3 py-1 font-mono text-[11px] font-medium tracking-wider text-[#C9A063] shadow-md backdrop-blur-md">
         {INTENT_LABELS[intent.type] ?? intent.type}
       </span>
-      <span className="border border-white/10 bg-[#161514]/90 px-3 py-1 font-mono text-[11px] tracking-wider text-[#F2F0E9] shadow-sm backdrop-blur-md">
+      <span className="border border-white/10 bg-[#141312]/60 px-3 py-1 font-mono text-[11px] tracking-wider text-[#F2F0E9] shadow-sm backdrop-blur-md">
         {mode === 'deep' ? '深入模式' : '快速模式'}
       </span>
-      <span className="border border-white/10 bg-[#161514]/90 px-3 py-1 font-mono text-[11px] tracking-wider text-[#DCD9D0] shadow-sm backdrop-blur-md">
+      <span className="border border-white/10 bg-[#141312]/60 px-3 py-1 font-mono text-[11px] tracking-wider text-[#DCD9D0] shadow-sm backdrop-blur-md">
         召回 {intent.retrieval.lexicalHits} 词法 / {intent.retrieval.denseHits} 语义
       </span>
       {intent.needsWiderRecall > 0.5 && (
-        <span className="border border-[#8B3A3A]/60 bg-[#2A1515]/90 px-3 py-1 font-mono text-[11px] tracking-wider text-[#F5C2C2] shadow-sm backdrop-blur-md">
+        <span className="border border-[#8B3A3A]/60 bg-[#2A1515]/65 px-3 py-1 font-mono text-[11px] tracking-wider text-[#F5C2C2] shadow-sm backdrop-blur-md">
           需要全库语义扫描
         </span>
       )}
       {intent.plan.applied.map(entry => (
         <span
           key={`${entry.field}-${entry.value}`}
-          className="border border-[#C9A063]/30 bg-[#161514]/90 px-3 py-1 font-mono text-[11px] tracking-wider text-[#E5BE82] shadow-sm backdrop-blur-md"
+          className="border border-[#C9A063]/30 bg-[#141312]/60 px-3 py-1 font-mono text-[11px] tracking-wider text-[#E5BE82] shadow-sm backdrop-blur-md"
         >
           {describeConstraint(entry)}
         </span>
@@ -78,14 +78,14 @@ export default function ResultChips({ intent, mode, degraded }: ResultChipsProps
       {facetChips.map(chip => (
         <span
           key={chip}
-          className="border border-white/10 bg-[#161514]/90 px-3 py-1 font-body text-[11px] text-[#DCD9D0] shadow-sm backdrop-blur-md"
+          className="border border-white/10 bg-[#141312]/60 px-3 py-1 font-body text-[11px] text-[#DCD9D0] shadow-sm backdrop-blur-md"
         >
           {chip}
         </span>
       ))}
 
       {degraded.length > 0 && (
-        <span className="mt-1 w-full border border-[#8B3A3A]/40 bg-[#2A1515]/85 px-3 py-1.5 font-mono text-[11px] leading-relaxed text-[#F5C2C2] shadow-sm backdrop-blur-md">
+        <span className="mt-1 w-full border border-[#8B3A3A]/40 bg-[#2A1515]/70 px-3 py-1.5 font-mono text-[11px] leading-relaxed text-[#F5C2C2] shadow-sm backdrop-blur-md">
           {degraded.slice(0, 3).map(describeDegraded).join(' · ')}
         </span>
       )}

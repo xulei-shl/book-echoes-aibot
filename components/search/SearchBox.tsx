@@ -40,7 +40,7 @@ function Typewriter({ messages }: { messages: string[] }) {
   }, [index, messages]);
 
   return (
-    <span className="inline-flex items-center gap-1.5 border border-[#C9A063]/30 bg-[#141312]/90 px-3 py-1 font-body text-xs tracking-wider text-[#E5BE82] shadow-md backdrop-blur-md">
+    <span className="inline-flex items-center gap-1.5 border border-[#C9A063]/30 bg-[#141312]/60 px-3 py-1 font-body text-xs tracking-wider text-[#E5BE82] shadow-md backdrop-blur-md">
       <span>{text}</span>
       <span className="inline-block h-3 w-1 bg-[#C9A063] animate-pulse" />
     </span>
@@ -84,8 +84,8 @@ export default function SearchBox({
         }}
         className={`relative flex items-center gap-3.5 border px-5 py-3.5 backdrop-blur-2xl transition-all duration-300 md:px-6 md:py-4.5 ${
           isFocused
-            ? 'border-[#C9A063] bg-[#181716]/90 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.85),0_0_28px_rgba(201,160,99,0.22)] ring-1 ring-[#C9A063]/50'
-            : 'border-[#C9A063]/30 bg-[#161514]/80 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.7),0_0_20px_rgba(201,160,99,0.06)] hover:border-[#C9A063]/50'
+            ? 'border-[#C9A063] bg-[#181716]/82 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.85),0_0_28px_rgba(201,160,99,0.22)] ring-1 ring-[#C9A063]/50'
+            : 'border-[#C9A063]/30 bg-[#141312]/65 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.7),0_0_20px_rgba(201,160,99,0.06)] hover:border-[#C9A063]/50'
         }`}
       >
         {/* 四角高亮装饰：与全站直角设计语言一致 */}
@@ -164,7 +164,7 @@ export default function SearchBox({
           {isSearching && <Typewriter messages={STAGE_MESSAGES} />}
         </div>
 
-        <div className="flex items-center gap-1 border border-[#C9A063]/40 bg-[#141312]/90 p-0.5 shadow-md backdrop-blur-md">
+        <div className="flex items-center gap-1 border border-[#C9A063]/40 bg-[#141312]/60 p-0.5 shadow-md backdrop-blur-md">
           {(['fast', 'deep'] as const).map(option => (
             <motion.button
               key={option}

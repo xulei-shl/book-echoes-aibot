@@ -177,7 +177,7 @@ export default function SemanticSearchPage({ covers }: SemanticSearchPageProps) 
           <motion.p
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mt-6 border border-[#D4A574]/40 bg-[#161514]/90 px-4 py-2 text-center font-body text-sm text-[#E5BE82] shadow-lg backdrop-blur-md"
+            className="mt-6 border border-[#D4A574]/40 bg-[#141312]/70 px-4 py-2 text-center font-body text-sm text-[#E5BE82] shadow-lg backdrop-blur-md"
           >
             {error}
           </motion.p>
@@ -191,7 +191,7 @@ export default function SemanticSearchPage({ covers }: SemanticSearchPageProps) 
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-              className="relative mt-12 w-full max-w-xl border border-[#C9A063]/40 bg-[#161514]/95 p-8 text-center shadow-2xl backdrop-blur-xl"
+              className="relative mt-12 w-full max-w-xl border border-[#C9A063]/40 bg-[#141312]/80 p-8 text-center shadow-2xl backdrop-blur-2xl"
             >
               <p className="font-display text-lg text-[#F2F0E9]">{abstainCopy.title}</p>
               <p className="mt-3 font-body text-sm leading-relaxed text-[#DCD9D0]">
@@ -206,7 +206,7 @@ export default function SemanticSearchPage({ covers }: SemanticSearchPageProps) 
                 <button
                   type="button"
                   onClick={() => setShowAbstainedMore(true)}
-                  className="mt-6 border border-[#C9A063]/40 bg-[#161514]/90 px-4 py-2 font-body text-sm text-[#E5BE82] transition-colors hover:border-[#C9A063]/80 hover:text-[#F2F0E9]"
+                  className="mt-6 border border-[#C9A063]/40 bg-[#141312]/60 px-4 py-2 font-body text-sm text-[#E5BE82] shadow-sm backdrop-blur-md transition-all hover:border-[#C9A063]/80 hover:bg-[#161514]/80 hover:text-[#F2F0E9]"
                 >
                   查看低相关度结果（{response.more.length} 条）
                 </button>
