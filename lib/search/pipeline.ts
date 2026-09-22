@@ -1,10 +1,19 @@
 import { systemOne } from '@/lib/jev/client';
 import { JevDisabledError } from '@/lib/jev/errors';
 import {
+  FIT_LEVELS,
+  RATING_FLOOR_VALUES,
+  RECENCY_LEVELS,
+  STYLE_LEVELS,
+  WIDER_RECALL_LEVELS,
+  YEAR_FLOOR_VALUES,
   buildRerankRequest,
   buildUnderstandRequest,
   buildWideRequest,
-  fitsKey
+  fitsKey,
+  nearestLevelLabel,
+  nearestLevelValue,
+  normalizeLevel
 } from '@/lib/jev/questions';
 import type { SystemOneRequest, SystemOneResult } from '@/lib/jev/types';
 import { getLogger } from '@/src/utils/logger';
@@ -22,22 +31,32 @@ import {
   readJevConfig,
   wideShardSize
 } from './config';
+import {
+  FALLBACK_LONG_QUERY_CHARS,
+  FALLBACK_WIDER_RECALL_LONG,
+  FALLBACK_WIDER_RECALL_SHORT,
+  getTuning
+} from './tuning';
 import { getSearchCorpus } from './corpus';
 import { DenseIndexMismatch, loadVectors, type EncodedQuery, type VectorIndex } from './dense';
 import { createDenseLane, createLexicalLane } from './lanes';
 import { NONE_KEY } from './options';
-import { normalizeQuery } from './query';
+import { normalizeQuery, explicitToFilters } from './query';
 import { eligibility, facetBonusFor, type RerankCandidate, type ScoredCandidate } from './rank';
 import { fuseAndFilter, recallLanes } from './recall';
 import { normalizeText } from './tokenize';
 import type {
+  AppliedConstraint,
+  DroppedConstraint,
   IntentType,
   JudgeMeta,
   QueryFacets,
   QueryIntent,
+  QueryPlanTrace,
   RecallLane,
   RecallResult,
   SearchDoc,
+  SearchFilters,
   SearchInput,
   SearchMode,
   SearchResultItem,
@@ -129,12 +148,18 @@ export function resetPipelineState(): void {
   judgeCache.clear();
 }
 
-// ── 阶段 ①：意图与 facets ───────────────────────────────────────────────────
+// ── 阶段 ①：意图与口味 ───────────────────────────────────────────────────────
 interface Understanding {
   type: IntentType;
   confidence: number;
   needsWiderRecall: number;
   facets: QueryFacets;
+  /** 模型档位推出的年份/评分条件（尚未决定是否升级成硬过滤） */
+  modelConstraints: SearchFilters;
+  /** `constraint_strictness`：模型认为这些条件是硬条件的概率 */
+  strictness: number;
+  /** `negation_present`：句中有否定/排除表达的概率 */
+  negation: number;
 }
 
 async function understand(
@@ -152,6 +177,30 @@ async function understand(
       const answer = result.answers[key];
       return answer && answer.type === 'noul' ? answer.noul : fallback;
     };
+    /** 档位题 → [0,1] 连续偏好（档位数由问题表决定，跨题可比） */
+    const levelPreference = (key: string, levels: readonly unknown[], fallback: number): number => {
+      const answer = result.answers[key];
+      return answer && answer.type === 'score' ? normalizeLevel(answer.score, levels.length) : fallback;
+    };
+    /** 档位题 → 离散档位取值（如年份/评分下限表格） */
+    const levelBucket = (key: string, values: readonly number[]): number => {
+      const answer = result.answers[key];
+      return answer && answer.type === 'score' ? nearestLevelValue(answer.score, values) : 0;
+    };
+
+    const genre = result.answers.genre_preference;
+    const wantsFiction =
+      genre && genre.type === 'choice'
+        ? genre.choice === 'fiction'
+          ? 1
+          : genre.choice === 'nonfiction'
+            ? 0
+            : 0.5
+        : 0.5;
+
+    const yearFloor = levelBucket('year_floor', YEAR_FLOOR_VALUES);
+    const ratingFloor = levelBucket('rating_floor', RATING_FLOOR_VALUES);
+
     return {
       value: {
         type:
@@ -159,13 +208,20 @@ async function understand(
             ? (intentAnswer.choice as IntentType)
             : 'other',
         confidence: intentAnswer && intentAnswer.type === 'choice' ? intentAnswer.confidence : 0,
-        needsWiderRecall: noul('needs_wider_recall', 0),
+        needsWiderRecall: levelPreference('needs_wider_recall', WIDER_RECALL_LEVELS, 0),
         facets: {
-          wantsFiction: noul('wants_fiction', 0.5),
-          wantsRecent: noul('wants_recent', 0.5),
-          avoidTheory: noul('avoid_theory', 0.5),
+          wantsFiction,
+          wantsRecent: levelPreference('recency_preference', RECENCY_LEVELS, 0.5),
+          // 风格档位越高越偏理论，而 facet 的语义是「越通俗越好」，所以取反
+          avoidTheory: 1 - levelPreference('style_preference', STYLE_LEVELS, 0.5),
           wantsVerified: noul('wants_verified', 0.5)
-        }
+        },
+        modelConstraints: {
+          ...(yearFloor > 0 ? { pubYearFrom: yearFloor } : {}),
+          ...(ratingFloor > 0 ? { minRating: ratingFloor } : {})
+        },
+        strictness: noul('constraint_strictness', 0),
+        negation: noul('negation_present', 0)
       },
       failed: false,
       ms: Date.now() - started
@@ -178,9 +234,16 @@ async function understand(
       value: {
         type: 'other',
         confidence: 0,
-        // 启发式：长句更可能需要语义宽召回
-        needsWiderRecall: query.length >= 10 ? 0.7 : 0.2,
-        facets: { ...NEUTRAL_FACETS }
+        // 启发式：长句更可能需要语义宽召回（阈值见 tuning.ts）
+        needsWiderRecall:
+          query.length >= FALLBACK_LONG_QUERY_CHARS
+            ? FALLBACK_WIDER_RECALL_LONG
+            : FALLBACK_WIDER_RECALL_SHORT,
+        facets: { ...NEUTRAL_FACETS },
+        // 模型不可用时不猜任何硬条件
+        modelConstraints: {},
+        strictness: 0,
+        negation: 0
       },
       failed: true,
       ms: Date.now() - started
@@ -234,23 +297,32 @@ async function runWide(
     }
     // pick = __none__ 胜出的片整片丢弃
     if (answer.choice === NONE_KEY) continue;
-    // 每片取 top-5（按片内概率），跨片不做归一化
+    // 片内取 top-5（按片内概率）；片级 `shard_fit` 档位分才是**跨片可比**的信号
+    const fitAnswer = result.answers.shard_fit;
+    const shardFit =
+      fitAnswer && fitAnswer.type === 'score'
+        ? normalizeLevel(fitAnswer.score, FIT_LEVELS.length)
+        : null;
     shard
       .map((doc, index) => ({ doc, probability: answer.probabilities[`b${index}`] ?? 0 }))
       .sort((a, b) => b.probability - a.probability)
       .slice(0, 5)
       .forEach(item => {
+        // 档位题缺失时退回片内概率（跨片不可比，但至少不丢这批候选）
+        const score = shardFit ?? item.probability;
         results.push({
           docId: item.doc.id,
-          score: item.probability,
+          score,
           lanes: ['wide'],
           matched: [],
-          laneScores: { wide: item.probability }
+          laneScores: { wide: score }
         });
       });
   }
 
   if (failed > 0) degraded.push(`wide:${failed}`);
+  // 跨片按贴合度排序：此前按分片顺序拼接，RRF 名次实际由分片下标决定
+  results.sort((a, b) => b.score - a.score || a.docId.localeCompare(b.docId));
   return { results, ms: Date.now() - started };
 }
 
@@ -260,7 +332,12 @@ interface RerankOutcome {
   pNone: number;
   batchHasMatch: boolean | null;
   bestProbability: number[];
+  /** 归一化适配度 = score / (档数-1) ∈ [0,1]，缺失记 null */
   fits: (number | null)[];
+  /** 原始档位（0..3），供 UI 直接展示「按哪一档判的」 */
+  fitLevels: (number | null)[];
+  /** 档位答案的置信度 */
+  fitConfidences: (number | null)[];
 }
 
 async function runRerank(
@@ -273,14 +350,32 @@ async function runRerank(
 ): Promise<RerankOutcome> {
   const bestProbability = new Array<number>(candidates.length).fill(0);
   const fits = new Array<number | null>(candidates.length).fill(null);
+  const fitLevels = new Array<number | null>(candidates.length).fill(null);
+  const fitConfidences = new Array<number | null>(candidates.length).fill(null);
   if (candidates.length === 0) {
-    return { ok: false, pNone: 0, batchHasMatch: null, bestProbability, fits };
+    return {
+      ok: false,
+      pNone: 0,
+      batchHasMatch: null,
+      bestProbability,
+      fits,
+      fitLevels,
+      fitConfidences
+    };
   }
 
   const batches = chunk(candidates, RERANK_BATCH);
   if (!budget.tryConsume(batches.length)) {
     degraded.push('rerank-budget');
-    return { ok: false, pNone: 0, batchHasMatch: null, bestProbability, fits };
+    return {
+      ok: false,
+      pNone: 0,
+      batchHasMatch: null,
+      bestProbability,
+      fits,
+      fitLevels,
+      fitConfidences
+    };
   }
 
   const settled = await Promise.allSettled(
@@ -310,7 +405,11 @@ async function runRerank(
     }
     batch.forEach((_, index) => {
       const answer = answers[fitsKey(index)];
-      fits[offset + index] = answer && answer.type === 'noul' ? answer.noul : null;
+      if (answer && answer.type === 'score') {
+        fits[offset + index] = normalizeLevel(answer.score, FIT_LEVELS.length);
+        fitLevels[offset + index] = Math.round(answer.score);
+        fitConfidences[offset + index] = answer.confidence;
+      }
     });
     const batchHasMatch = answers.batch_has_match;
     if (batchHasMatch && batchHasMatch.type === 'noul') {
@@ -324,7 +423,9 @@ async function runRerank(
     pNone,
     batchHasMatch: batchHasMatchValues.length === 0 ? null : batchHasMatchValues.some(Boolean),
     bestProbability,
-    fits
+    fits,
+    fitLevels,
+    fitConfidences
   };
 }
 
@@ -348,6 +449,10 @@ function toResultItem(candidate: ScoredCandidate, passedGate = true): SearchResu
       matched: candidate.matched,
       recallRank: candidate.recallRank,
       fit: candidate.fit,
+      fitLevel: candidate.fitLevel,
+      fitLevelLabel:
+        candidate.fitLevel === null ? null : nearestLevelLabel(candidate.fitLevel, FIT_LEVELS),
+      fitConfidence: candidate.fitConfidence,
       matchPct: candidate.matchPct,
       rankScore: candidate.rankScore
     },
@@ -384,6 +489,9 @@ function unrankedFromRecall(
         matched: result.matched,
         recallRank: 0,
         fit: null,
+        fitLevel: null,
+        fitLevelLabel: null,
+        fitConfidence: null,
         matchPct: 0,
         rankScore: 0
       },
@@ -409,6 +517,95 @@ function findExactMatch(corpus: SearchDoc[], raw: string): SearchDoc | null {
 }
 
 /**
+ * 硬条件的最终裁决（三层：规则 → 模型档位 → 请求级 filters）。
+ *
+ * **规则层（用户原句的字面条件）永远生效**；模型档位只有在三件事同时成立时才升级成硬过滤：
+ * 1. 句中没有否定表达（`negation` ≤ `negationMax`）—— 「不要 2015 年以后」不能被反过来执行；
+ * 2. 模型认为它是硬条件（`strictness` ≥ `hardStrictness`）；
+ * 3. 规则层没有给出同名条件（字面证据优先，避免两套标准）。
+ *
+ * 不满足时进入 `plan.dropped`：模型可以提出条件，但不能单方面删结果（延续 facets「只能微调」的纪律）。
+ * 请求级 `filters` 是调用方显式声明的，同名下限取更大者。
+ */
+function resolveConstraints(args: {
+  rule: SearchFilters;
+  model: SearchFilters;
+  strictness: number;
+  negation: number;
+  /** 生效门槛（默认来自 tuning.ts，可被环境变量覆盖） */
+  hardStrictness: number;
+  negationMax: number;
+  requested: SearchFilters | undefined;
+  terms: string[];
+}): { filters: SearchFilters; plan: QueryPlanTrace } {
+  const filters: SearchFilters = {};
+  const applied: AppliedConstraint[] = [];
+  const dropped: DroppedConstraint[] = [];
+
+  // ① 规则层：字面条件，永远生效
+  if (args.rule.minRating !== undefined) {
+    filters.minRating = args.rule.minRating;
+    applied.push({ field: 'minRating', value: args.rule.minRating, source: 'rule' });
+  }
+  if (args.rule.pubYearFrom !== undefined) {
+    filters.pubYearFrom = args.rule.pubYearFrom;
+    applied.push({ field: 'pubYearFrom', value: args.rule.pubYearFrom, source: 'rule' });
+  }
+  if (args.rule.excludeFiction) {
+    filters.excludeFiction = true;
+    applied.push({ field: 'excludeFiction', value: true, source: 'rule' });
+  }
+
+  // ② 模型档位：需要过否定 / 严格性 / 不与规则冲突三道门
+  const negated = args.negation > args.negationMax;
+  const strict = args.strictness >= args.hardStrictness;
+  const considerModel = (field: 'pubYearFrom' | 'minRating', value: number | undefined): void => {
+    if (value === undefined) return;
+    if (filters[field] !== undefined) {
+      dropped.push({ field, value, reason: 'rule-conflict' });
+      return;
+    }
+    if (negated) {
+      dropped.push({ field, value, reason: 'negated' });
+      return;
+    }
+    if (!strict) {
+      dropped.push({ field, value, reason: 'soft' });
+      return;
+    }
+    filters[field] = value;
+    applied.push({ field, value, source: 'model' });
+  };
+  considerModel('pubYearFrom', args.model.pubYearFrom);
+  considerModel('minRating', args.model.minRating);
+
+  // ③ 请求级 filters：显式传参，下限取更强约束
+  const requested = args.requested;
+  if (requested) {
+    const claim = (field: 'pubYearFrom' | 'minRating', value: number): void => {
+      const current = filters[field];
+      if (current === undefined || value > current) {
+        filters[field] = value;
+        const existing = applied.findIndex(entry => entry.field === field);
+        const entry: AppliedConstraint = { field, value, source: 'api' };
+        if (existing >= 0) applied[existing] = entry;
+        else applied.push(entry);
+      }
+    };
+    if (requested.minRating !== undefined) claim('minRating', requested.minRating);
+    if (requested.pubYearFrom !== undefined) claim('pubYearFrom', requested.pubYearFrom);
+    if (requested.excludeFiction) {
+      filters.excludeFiction = true;
+      if (!applied.some(entry => entry.field === 'excludeFiction')) {
+        applied.push({ field: 'excludeFiction', value: true, source: 'api' });
+      }
+    }
+  }
+
+  return { filters, plan: { terms: args.terms, applied, dropped } };
+}
+
+/**
  * 检索主链路：确定性前置 → 意图/召回并发 → wide（deep）→ RRF → 精排 → 门控 → 排序。
  * 模型失败 = 降级而非中断，且降级必须可见（degraded[]）。
  */
@@ -422,6 +619,9 @@ export async function runSemanticSearch(
   const mode: SearchMode = input.mode ?? 'fast';
   const limit = Math.max(1, Math.min(LIMIT_MAX, input.limit ?? LIMIT_DEFAULT));
   const degraded: string[] = [];
+  // 本次请求的生效调参（默认值 ∪ 白名单环境变量覆盖），全链路只用这一份，
+  // 并原样回传在响应里 —— 「线上为什么和本地不一样」不再靠猜。
+  const tuning = getTuning();
 
   const judge: JudgeFn =
     deps.judge ?? ((request, innerSignal) => systemOne(request, { signal: innerSignal }));
@@ -456,7 +656,10 @@ export async function runSemanticSearch(
   const corpus = deps.corpus ?? (await getSearchCorpus());
   const docs = new Map(corpus.map(doc => [doc.id, doc]));
   const index = indexFor(corpus);
-  const normalized = normalizeQuery(input.query, { idf: term => termIdf(index, term) });
+  const normalized = normalizeQuery(input.query, {
+    idf: term => termIdf(index, term, tuning.effective.unseenTermIdf),
+    now
+  });
 
   const timing: SearchTiming = {
     lexicalMs: 0,
@@ -468,8 +671,11 @@ export async function runSemanticSearch(
     rankMs: 0,
     totalMs: 0
   };
-  const finalize = (response: Omit<SemanticSearchResponse, 'timing'>): SemanticSearchResponse => ({
+  const finalize = (
+    response: Omit<SemanticSearchResponse, 'timing' | 'tuning'>
+  ): SemanticSearchResponse => ({
     ...response,
+    tuning,
     timing: { ...timing, totalMs: Date.now() - startedAt }
   });
 
@@ -494,6 +700,9 @@ export async function runSemanticSearch(
         matched: [],
         recallRank: 1,
         fit: null,
+        fitLevel: null,
+        fitLevelLabel: null,
+        fitConfidence: null,
         matchPct: 100,
         rankScore: 1
       },
@@ -508,7 +717,8 @@ export async function runSemanticSearch(
         confidence: 1,
         needsWiderRecall: 0,
         retrieval: { lanes: ['exact'], lexicalHits: 0, denseHits: 0, fusedCandidates: 1 },
-        facets: neutralFacets()
+        facets: neutralFacets(),
+        plan: { terms: normalized.terms, applied: [], dropped: [] }
       },
       results: [item],
       more: [],
@@ -561,7 +771,10 @@ export async function runSemanticSearch(
   });
 
   // ── ① + 2A/2B 投机并发：意图理解与两条召回同时发出，绝不串行等待 ──────────
-  const understandKey = `v1|${mode}|${normalized.core}`;
+  // 缓存键用**原句**（归一化后）而非降噪产物 `core`：降噪是有损的，
+  // 而现在意图里还带着模型档位推出的硬条件，用有损键会让两条不同问题共用一份约束。
+  // 版本号 v2：题型从 noul 换成 score/choice，旧缓存不可复用。
+  const understandKey = `v2|${mode}|${normalizeText(normalized.raw)}`;
   const cachedUnderstanding = cacheGet<Understanding>(understandKey);
   const understandPromise = cachedUnderstanding
     ? Promise.resolve({ value: cachedUnderstanding, failed: false, ms: 0 })
@@ -570,7 +783,8 @@ export async function runSemanticSearch(
         return outcome;
       });
 
-  const deepTopK = mode === 'deep' ? RERANK_TOP_K + 20 : RERANK_TOP_K;
+  const deepTopK =
+    mode === 'deep' ? RERANK_TOP_K + tuning.effective.deepTopKSlack : RERANK_TOP_K;
   const lanesPromise = recallLanes(
     { raw: normalized.raw, core: normalized.terms },
     [timedLexical, denseLane]
@@ -582,7 +796,7 @@ export async function runSemanticSearch(
 
   // ── 2C wide（仅 deep，且 needs_wider_recall 高置信）：作为第三条 lane 并入 RRF ─
   let allLaneResults = laneResults;
-  if (mode === 'deep' && understanding.value.needsWiderRecall > 0.5) {
+  if (mode === 'deep' && understanding.value.needsWiderRecall > tuning.effective.widerRecallTrigger) {
     const wide = await runWide(normalized.raw, corpus, trackedJudge, model, degraded, signal);
     timing.wideMs = wide.ms;
     if (wide.results.length > 0) {
@@ -590,9 +804,48 @@ export async function runSemanticSearch(
     }
   }
 
-  const fused = fuseAndFilter(allLaneResults, docs, input.filters, deepTopK);
+  const constraints = resolveConstraints({
+    rule: explicitToFilters(normalized.explicit),
+    model: understanding.value.modelConstraints,
+    strictness: understanding.value.strictness,
+    negation: understanding.value.negation,
+    hardStrictness: tuning.effective.jevHardStrictness,
+    negationMax: tuning.effective.jevNegationMax,
+    requested: input.filters,
+    terms: normalized.terms
+  });
+  // 被丢弃的模型约束不标 degraded（不是降级，是可解释的策略结果），看 intent.plan.dropped
+  const fused = fuseAndFilter(allLaneResults, docs, constraints.filters, deepTopK);
   const lexicalHits = fused.filter(result => result.lanes.includes('lexical')).length;
   const denseHits = fused.filter(result => result.lanes.includes('dense')).length;
+
+  // 硬条件把候选全部滤掉：这是用户的确定性约束，直接诚实弃权，
+  // 不烧一次 Jev 精排，也不能误标成 'rerank' 降级。
+  if (fused.length === 0 && constraints.plan.applied.length > 0) {
+    return finalize({
+      query: normalized.raw,
+      mode,
+      basedOn: 'retrieval',
+      intent: {
+        type: understanding.value.type,
+        confidence: understanding.value.confidence,
+        needsWiderRecall: understanding.value.needsWiderRecall,
+        retrieval: {
+          lanes: [...new Set(allLaneResults.flatMap(lane => lane.map(result => result.lanes)).flat())],
+          lexicalHits: 0,
+          denseHits: 0,
+          fusedCandidates: 0
+        },
+        facets: understanding.value.facets,
+        plan: constraints.plan
+      },
+      results: [],
+      more: [],
+      abstained: true,
+      degraded,
+      judge: judgeMeta
+    });
+  }
 
   const topK = fused.slice(0, RERANK_TOP_K);
   const candidates: SearchDoc[] = [];
@@ -623,7 +876,8 @@ export async function runSemanticSearch(
       denseHits,
       fusedCandidates: topK.length
     },
-    facets: understanding.value.facets
+    facets: understanding.value.facets,
+    plan: constraints.plan
   };
 
   // rerank 整批失败：结果全部保留、ranked=false 沉底，绝不返回「0 结果」
@@ -652,18 +906,29 @@ export async function runSemanticSearch(
       doc,
       bestProbability: rerankOutcome.bestProbability[index] ?? 0,
       fit: rerankOutcome.fits[index] ?? null,
+      fitLevel: rerankOutcome.fitLevels[index] ?? null,
+      fitConfidence: rerankOutcome.fitConfidences[index] ?? null,
       recallRank: index + 1,
       lanes: result.lanes,
       laneScores: result.laneScores,
       matched: result.matched,
-      facetBonus: facetBonusFor(doc, understanding.value.facets, now.getFullYear())
+      facetBonus: facetBonusFor(
+        doc,
+        understanding.value.facets,
+        now.getFullYear(),
+        tuning.effective
+      )
     });
   });
 
-  const outcome = eligibility(rerankCandidates, {
-    pNone: rerankOutcome.pNone,
-    batchHasMatch: rerankOutcome.batchHasMatch
-  });
+  const outcome = eligibility(
+    rerankCandidates,
+    {
+      pNone: rerankOutcome.pNone,
+      batchHasMatch: rerankOutcome.batchHasMatch
+    },
+    tuning.effective
+  );
   timing.rankMs = Date.now() - rankStarted;
 
   // 「加载更多」：本页未展示的已判分候选 = 通过门控的溢出项 + 未通过门控的 rejected，

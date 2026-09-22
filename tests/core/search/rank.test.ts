@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { eligibility, softmax, clip, logOdds, type RerankCandidate } from '@/lib/search/rank';
-import type { SearchDoc } from '@/lib/search/types';
+import {
+  eligibility,
+  facetBonusFor,
+  softmax,
+  clip,
+  logOdds,
+  type RerankCandidate
+} from '@/lib/search/rank';
+import type { QueryFacets, SearchDoc } from '@/lib/search/types';
 
 function makeDoc(id: string, options: { callNumber?: string; rating?: number; pubYear?: number } = {}): SearchDoc {
   return {
@@ -50,6 +57,8 @@ function candidate(
   return {
     doc: makeDoc(id),
     fit,
+    fitLevel: fit === null ? null : Math.round(fit * 3),
+    fitConfidence: null,
     bestProbability,
     recallRank,
     lanes: ['lexical'],
@@ -70,6 +79,50 @@ describe('rank / softmax', () => {
     expect(clip(1)).toBeLessThan(1);
     expect(Number.isFinite(logOdds(0))).toBe(true);
     expect(Number.isFinite(logOdds(1))).toBe(true);
+  });
+});
+
+const NEUTRAL: QueryFacets = {
+  wantsFiction: 0.5,
+  wantsRecent: 0.5,
+  avoidTheory: 0.5,
+  wantsVerified: 0.5
+};
+
+describe('rank / facetBonusFor（连续 facets）', () => {
+  it('中性 0.5 贡献为 0，不给任何书白送加成', () => {
+    expect(facetBonusFor(makeDoc('fiction', { callNumber: 'I247.5' }), NEUTRAL, 2026)).toBeCloseTo(0);
+    expect(facetBonusFor(makeDoc('theory', { callNumber: 'B842' }), NEUTRAL, 2026)).toBeCloseTo(0);
+  });
+
+  it('偏好强度连续生效，不再用 > 0.5 二值化', () => {
+    const mild = facetBonusFor(
+      makeDoc('f', { callNumber: 'I247.5' }),
+      { ...NEUTRAL, wantsFiction: 0.75 },
+      2026
+    );
+    const strong = facetBonusFor(
+      makeDoc('f', { callNumber: 'I247.5' }),
+      { ...NEUTRAL, wantsFiction: 1 },
+      2026
+    );
+    expect(mild).toBeGreaterThan(0);
+    expect(strong).toBeGreaterThan(mild);
+  });
+
+  it('要非虚构时，I 类虚构书反而被扣分', () => {
+    const bonus = facetBonusFor(
+      makeDoc('f', { callNumber: 'I247.5' }),
+      { ...NEUTRAL, wantsFiction: 0 },
+      2026
+    );
+    expect(bonus).toBeLessThan(0);
+  });
+
+  it('越通俗越好时，理论类类目被扣分、非理论类加分', () => {
+    const facets = { ...NEUTRAL, avoidTheory: 1 };
+    expect(facetBonusFor(makeDoc('t', { callNumber: 'B842' }), facets, 2026)).toBeLessThan(0);
+    expect(facetBonusFor(makeDoc('n', { callNumber: 'I247.5' }), facets, 2026)).toBeGreaterThan(0);
   });
 });
 

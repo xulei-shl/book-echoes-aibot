@@ -109,6 +109,13 @@ function parseRequest(body: unknown): ParseResult | ParseFailure {
       }
       filters.pubYearFrom = value;
     }
+    // SearchFilters 声明了 excludeFiction（types.ts），解析层不能默默丢掉它
+    if (source.excludeFiction !== undefined) {
+      if (typeof source.excludeFiction !== 'boolean') {
+        return { ok: false, message: 'filters.excludeFiction 必须是布尔值' };
+      }
+      if (source.excludeFiction) filters.excludeFiction = true;
+    }
   }
 
   return {

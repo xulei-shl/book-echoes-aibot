@@ -15,6 +15,8 @@
 
 # testing
 /coverage
+# 评测产物（报表 / 工作表 / cassette）：本地生成，不进仓库
+evals/runs/
 /components/aibot/
 /app/api/local-aibot/
 # next.js

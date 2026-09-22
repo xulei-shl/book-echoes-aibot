@@ -1,6 +1,6 @@
 'use client';
 
-import type { QueryIntent, SearchMode } from '@/lib/search/types';
+import type { AppliedConstraint, QueryIntent, SearchMode } from '@/lib/search/types';
 
 const INTENT_LABELS: Record<string, string> = {
   concept: '按主题/概念找书',
@@ -35,6 +35,13 @@ interface ResultChipsProps {
   degraded: string[];
 }
 
+/** 生效的硬条件：让「凭什么把这些书排除了」看得见（来源与是否被丢弃在 API 里，不展示在这里） */
+function describeConstraint(entry: AppliedConstraint): string {
+  if (entry.field === 'pubYearFrom') return `已按 ${entry.value} 年以后出版过滤`;
+  if (entry.field === 'minRating') return `已按评分 ${entry.value} 分以上过滤`;
+  return '已排除虚构类';
+}
+
 export default function ResultChips({ intent, mode, degraded }: ResultChipsProps) {
   const facetChips: string[] = [];
   const facets = intent.facets;
@@ -60,6 +67,14 @@ export default function ResultChips({ intent, mode, degraded }: ResultChipsProps
           需要全库语义扫描
         </span>
       )}
+      {intent.plan.applied.map(entry => (
+        <span
+          key={`${entry.field}-${entry.value}`}
+          className="border border-[#C9A063]/30 bg-[#161514]/90 px-3 py-1 font-mono text-[11px] tracking-wider text-[#E5BE82] shadow-sm backdrop-blur-md"
+        >
+          {describeConstraint(entry)}
+        </span>
+      ))}
       {facetChips.map(chip => (
         <span
           key={chip}

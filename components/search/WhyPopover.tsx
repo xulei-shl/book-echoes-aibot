@@ -14,6 +14,20 @@ export default function WhyPopover({ item }: { item: SearchResultItem }) {
           <dt>相关度 fit</dt>
           <dd className="text-[#F2F0E9]">{item.fit === null ? '未返回' : item.fit.toFixed(2)}</dd>
         </div>
+        {item.why.fitLevelLabel !== null && (
+          <div className="flex justify-between gap-3">
+            <dt>档位判定</dt>
+            <dd className="text-right text-[#F2F0E9]">
+              {item.why.fitLevel}（{item.why.fitLevelLabel}）
+            </dd>
+          </div>
+        )}
+        {item.why.fitConfidence !== null && (
+          <div className="flex justify-between gap-3">
+            <dt>档位置信度</dt>
+            <dd className="text-[#F2F0E9]">{item.why.fitConfidence.toFixed(2)}</dd>
+          </div>
+        )}
         <div className="flex justify-between gap-3">
           <dt>choice 概率</dt>
           <dd className="text-[#F2F0E9]">{item.matchPct}%</dd>

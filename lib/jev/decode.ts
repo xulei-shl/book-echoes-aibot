@@ -3,6 +3,18 @@ import type { Answer, Question, SystemOneResponse, TokenUsage } from './types';
 
 /** 选项数 ≤ 50，比 SkillRanker 的 0.1 收紧。 */
 const SUM_TOLERANCE = 0.05;
+/** score 题目的档位数区间（官方：至少 2 级，最多 10 级）。 */
+const SCORE_LEVEL_MIN = 2;
+const SCORE_LEVEL_MAX = 10;
+/**
+ * `score = Σ(级号 × 概率)` 是官方给出的确定性公式，所以档位位置可以被严格校验。
+ * 容差同时用作「档位位置越界」的允许误差。
+ */
+const SCORE_TOLERANCE = 0.05;
+
+/** 级号键：`['0', '1', …, n-1]`（score 的 probabilities / legend 都按级号索引，而非标签）。 */
+const levelKeysFor = (levels: number): string[] =>
+  Array.from({ length: levels }, (_, index) => String(index));
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -63,6 +75,63 @@ export function decodeResponse(
         throw new JevProtocolError(`答案 ${key} 的 noul 不是 [0,1] 内的有限数`);
       }
       answers[key] = { type: 'noul', noul: answer.noul };
+      continue;
+    }
+
+    if (question.type === 'score') {
+      const levels = question.criteria;
+      if (!Array.isArray(levels) || levels.length < SCORE_LEVEL_MIN || levels.length > SCORE_LEVEL_MAX) {
+        throw new JevProtocolError(
+          `问题 ${key} 的 score criteria 必须是 ${SCORE_LEVEL_MIN}–${SCORE_LEVEL_MAX} 个档位的数组`
+        );
+      }
+      const levelKeys = levelKeysFor(levels.length);
+      if (!isPlainObject(answer.probabilities)) {
+        throw new JevProtocolError(`答案 ${key} 缺少 probabilities`);
+      }
+      if (!sameKeySet(levelKeys, Object.keys(answer.probabilities))) {
+        throw new JevProtocolError(`答案 ${key} 的档位概率键必须是 0..${levels.length - 1}`);
+      }
+      let sum = 0;
+      let expected = 0;
+      const probabilities: Record<string, number> = {};
+      for (const levelKey of levelKeys) {
+        const value = answer.probabilities[levelKey];
+        if (!isUnitNumber(value)) {
+          throw new JevProtocolError(`答案 ${key} 的档位概率 ${levelKey} 不在 [0,1] 内`);
+        }
+        probabilities[levelKey] = value;
+        sum += value;
+        expected += Number(levelKey) * value;
+      }
+      if (Math.abs(sum - 1) > SUM_TOLERANCE) {
+        throw new JevProtocolError(`答案 ${key} 的档位概率和越界：${sum}`);
+      }
+      // ⑤ score 必须等于 Σ(级号 × 概率)：公式是确定的，不自洽即协议错误
+      if (
+        typeof answer.score !== 'number' ||
+        !Number.isFinite(answer.score) ||
+        answer.score < -SCORE_TOLERANCE ||
+        answer.score > levels.length - 1 + SCORE_TOLERANCE
+      ) {
+        throw new JevProtocolError(`答案 ${key} 的 score 越界`);
+      }
+      if (Math.abs(answer.score - expected) > SCORE_TOLERANCE) {
+        throw new JevProtocolError(`答案 ${key} 的 score 与档位概率不自洽`);
+      }
+      if (!isUnitNumber(answer.confidence)) {
+        throw new JevProtocolError(`答案 ${key} 的 confidence 不在 [0,1] 内`);
+      }
+      if (!isPlainObject(answer.legend) || !sameKeySet(levelKeys, Object.keys(answer.legend))) {
+        throw new JevProtocolError(`答案 ${key} 的 legend 档位键必须是 0..${levels.length - 1}`);
+      }
+      answers[key] = {
+        type: 'score',
+        score: answer.score,
+        confidence: answer.confidence,
+        legend: answer.legend,
+        probabilities
+      };
       continue;
     }
 

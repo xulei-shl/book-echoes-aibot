@@ -9,6 +9,9 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
+    "eval": "vitest run --config vitest.eval.config.ts evals/search-eval.eval.ts",
+    "eval:sweep": "vitest run --config vitest.eval.config.ts evals/sweep.eval.ts",
+    "eval:worksheet": "vitest run --config vitest.eval.config.ts evals/make-worksheet.eval.ts",
     "init-fonts": "node scripts/init-fonts.mjs",
     "build:vectors": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/build-search-vectors.mjs"
   },

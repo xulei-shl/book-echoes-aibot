@@ -1,4 +1,5 @@
 import { tokenize } from './tokenize';
+import { FIELD_WEIGHTS, getTuning } from './tuning';
 import type { ScoredDoc, SearchDoc, SearchFields } from './types';
 
 /**
@@ -24,21 +25,7 @@ export interface Bm25Index {
   avgLen: number;
 }
 
-/** 字段权重（按字段加权求和 tf） */
-export const FIELD_WEIGHTS: Record<keyof SearchFields, number> = {
-  title: 3.0,
-  subtitle: 1.5,
-  author: 2.0,
-  translator: 0.8,
-  publisher: 0.8,
-  subjects: 1.0,
-  reason: 1.2,
-  summary: 1.0,
-  toc: 0.6
-};
-
-const K1 = 1.2;
-const B = 0.75;
+// 字段权重与 BM25 参数在 tuning.ts（调参入口），本文件只消费。
 
 export function buildIndex(docs: SearchDoc[]): Bm25Index {
   const postings = new Map<string, Map<number, number>>();
@@ -55,7 +42,7 @@ export function buildIndex(docs: SearchDoc[]): Bm25Index {
         counts.set(token, (counts.get(token) ?? 0) + 1);
       }
       for (const [term, count] of counts) {
-        const weightedTf = Math.max(1, Math.round(count * weight));
+        const weightedTf = Math.max(1,      Math.round(count * weight));
         let plist = postings.get(term);
         if (!plist) {
           plist = new Map<number, number>();
@@ -120,10 +107,14 @@ export function findTerm(index: Bm25Index, term: string): number {
   return -1;
 }
 
-export function termIdf(index: Bm25Index, term: string): number {
+/**
+ * 查询侧 IDF：用于 `normalizeQuery` 的按区分度截断（不参与打分）。
+ * `unseenIdf` 由调用方从生效调参传入（避免排序比较器里反复解析环境变量）。
+ */
+export function termIdf(index: Bm25Index, term: string, unseenIdf?: number): number {
   const termIndex = findTerm(index, term);
+  if (termIndex < 0) return unseenIdf ?? getTuning().effective.unseenTermIdf;
   const n = index.docs.length;
-  if (termIndex < 0) return Math.log(1 + n + 0.5);
   const df = index.df[termIndex];
   return Math.log(1 + (n - df + 0.5) / (df + 0.5));
 }
@@ -132,6 +123,7 @@ export function termIdf(index: Bm25Index, term: string): number {
 export function search(index: Bm25Index, queryTerms: string[], topK: number): ScoredDoc[] {
   const n = index.docs.length;
   if (n === 0) return [];
+  const { k1, b } = getTuning().effective.bm25;
   const scores = new Float64Array(n);
   const touched = new Map<number, string[]>();
 
@@ -145,8 +137,8 @@ export function search(index: Bm25Index, queryTerms: string[], topK: number): Sc
     for (let p = start; p < end; p += 1) {
       const docId = index.docIds[p];
       const tf = index.tfs[p];
-      const denom = tf + K1 * (1 - B + (B * index.docLen[docId]) / (index.avgLen || 1));
-      scores[docId] += (idf * (tf * (K1 + 1))) / denom;
+      const denom = tf + k1 * (1 - b + (b * index.docLen[docId]) / (index.avgLen || 1));
+      scores[docId] += (idf * (tf * (k1 + 1))) / denom;
       const matched = touched.get(docId);
       if (matched) matched.push(term);
       else touched.set(docId, [term]);

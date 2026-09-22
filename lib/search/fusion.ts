@@ -1,4 +1,4 @@
-import { RRF_K } from './config';
+import { getTuning } from './tuning';
 import type { RecallResult } from './types';
 
 /**
@@ -7,7 +7,7 @@ import type { RecallResult } from './types';
  * score(d) = Σ_lane 1 / (k + rank_lane(d))     k = 60（标准默认）
  */
 export function rrfFuse(lanes: RecallResult[][], options: { k?: number } = {}): RecallResult[] {
-  const k = options.k ?? RRF_K;
+  const k = options.k ?? getTuning().effective.rrfK;
   const merged = new Map<string, RecallResult>();
 
   for (const lane of lanes) {

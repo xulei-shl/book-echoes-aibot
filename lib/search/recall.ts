@@ -1,5 +1,6 @@
 import { LANE_LIMIT } from './config';
 import { rrfFuse } from './fusion';
+import { isFictionDoc } from './rank';
 import type { RecallLane, RecallResult, SearchDoc, SearchFilters } from './types';
 
 export interface RecallContext {
@@ -17,7 +18,12 @@ export function applyFilters(
   docs: Map<string, SearchDoc>,
   filters?: SearchFilters
 ): RecallResult[] {
-  if (!filters || (filters.minRating === undefined && filters.pubYearFrom === undefined)) {
+  if (
+    !filters ||
+    (filters.minRating === undefined &&
+      filters.pubYearFrom === undefined &&
+      filters.excludeFiction !== true)
+  ) {
     return results;
   }
   return results.filter(result => {
@@ -32,6 +38,8 @@ export function applyFilters(
     ) {
       return false;
     }
+    // 虚构类由索书号可判定，无「未知即豁免」问题
+    if (filters.excludeFiction === true && isFictionDoc(doc)) return false;
     return true;
   });
 }

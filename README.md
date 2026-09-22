@@ -76,6 +76,8 @@ cp .env.local.example .env.local     # 敏感配置（LLM key、embedding key、
 | `npm run lint` | ESLint |
 | `npm run init-fonts` | 初始化 Web 字体并上传到 R2 |
 | `npm run build:vectors` | 生成 / 增量更新语义检索的向量索引 |
+| `npm run eval` | 语义检索评测（离线、无需 Jev key），报表写到 `evals/runs/` |
+| `npm run eval:worksheet` | 生成人工标注工作表 `evals/runs/worksheet.md`（相关性档次真值） |
 
 ## 4. 环境变量
 
@@ -97,6 +99,8 @@ cp .env.local.example .env.local     # 敏感配置（LLM key、embedding key、
 > 两个开关都是 **`0` 关、`1` 开，且都要设成 `1` 才真正可用**（一个管接口、一个管入口）。`NEXT_PUBLIC_*` 在构建期内联，改完需重启 dev server 或重新 build。
 >
 > 另见 `UPLOAD_TO_R2`（默认 `true`）：设为 `false` 时三个 R2 相关脚本只做本地处理、不真正上传。
+>
+> **检索质量阈值**默认写在 `lib/search/tuning.ts`（签名与不变量见同目录 `tests/core/search/tuning.test.ts`）；需要线上应急调参时，可用 `SEMANTIC_SEARCH_*` 环境变量**临时覆盖**（白名单与取值范围见 `.env.example`）。非法值会被拒绝并随响应回传原因，本次生效值也在响应的 `tuning` 字段里 —— 不存在「线上为什么和本地不一样」这种悬案。结构上限（分片/预算/TTL/截断长度）在 `config.ts`，不建议用环境变量改。
 
 ### 4.2 `.env.local.example` → `.env.local`（敏感）
 
@@ -274,9 +278,10 @@ TYPESAFE_API_KEY=...                   # 必需，缺失时接口返回 503
   "query": "适合通勤读的短篇推理",     // 必填，≤ 300 字符
   "mode": "fast",                    // 可选：fast | deep
   "limit": 12,                       // 可选：1–24
-  "filters": {                       // 可选
+  "filters": {                       // 可选（硬条件，与查询句解析出的条件取更强约束）
     "minRating": 8,                  //   0–10
-    "pubYearFrom": 2015              //   1900–2100
+    "pubYearFrom": 2015,             //   1900–2100
+    "excludeFiction": true           //   排除中图法 I 类（虚构类）
   }
 }
 ```
@@ -287,21 +292,34 @@ TYPESAFE_API_KEY=...                   # 必需，缺失时接口返回 503
   "query": "…",
   "mode": "fast",
   "basedOn": "exact",                // exact = 显式命中，retrieval = 走召回
-  "intent": { "type": "concept", "facets": { … } },
+  "intent": {
+    "type": "concept",
+    "facets": { "wantsFiction": 0.5, "wantsRecent": 0.67, … },   // 连续量，0.5 = 中性
+    "plan": {                          // 本次真正生效的硬条件与被丢弃的模型约束
+      "terms": ["焦虑", "情绪"],       //   送去词法 lane 的 term（已降噪 + IDF 截断）
+      "applied": [{ "field": "pubYearFrom", "value": 2015, "source": "rule" }],
+      "dropped": [{ "field": "pubYearFrom", "value": 2000, "reason": "rule-conflict" }]
+    }
+  },
   "results": [{
     "book": { … },
     "sourceId": "2025-09",
-    "relevancePct": 82,              // 显示值 == 排序键
-    "matchPct": 0.82,
+    "relevancePct": 82,              // 显示值 == 排序键（fit 量化到 1%）
+    "matchPct": 47,                  // choice(best) 的概率百分比
     "rankScore": 0.44,
-    "fit": 1.24,
+    "fit": 0.82,                     // 档位归一化适配度 ∈ [0,1]
     "ranked": true,                  // false = 召回成功但语义排序不可用，沉底但仍返回
     "deepLink": "/2025-09?focus=<条码>",
     "lanes": ["lexical", "dense"],
-    "why": { "lanes": […], "matched": […], "recallRank": 1, "matchPct": 0.82 }
+    "why": { "lanes": […], "matched": […], "recallRank": 1, "fitLevel": 3, "fitLevelLabel": "直接回应 query 描述的主题…", "fitConfidence": 0.52, "matchPct": 47 }
   }],
   "abstained": false,                // 证据不足时的一等状态
-  "degraded": [],                    // 如 dense-unavailable / dense-timeout / dense-error
+  "degraded": [],                    // 如 dense-unavailable / dense-timeout / rerank / understand
+  "tuning": {                        // 本次生效的阈值，以及被 env 覆盖/拒绝的项
+    "effective": { "fitGate": 0.3, "rrfK": 60, … },
+    "overridden": [],                 // 如 [{ "env": "SEMANTIC_SEARCH_RRF_K", "field": "rrfK", "value": 30 }]
+    "rejected": []                    // 如 [{ "env": "…", "raw": "abc", "reason": "不是有限数字" }]
+  },
   "timing": { "totalMs": 1830, … },
   "judge": { "requestedModel": "jev-latest", "returnedModel": "…", "attempts": 1, … }
 }
@@ -319,6 +337,25 @@ TYPESAFE_API_KEY=...                   # 必需，缺失时接口返回 503
 | `lib/jev/` | Jev 客户端、响应解码与严格校验、问答组装 |
 | `app/api/semantic-search/route.ts` | 接口层：开关、同源、限流、入参校验 |
 | `app/search/page.tsx`、`components/search/` | 检索页与结果 UI |
+
+### 6.5 评测集
+
+调参（§4.3 的环境变量）只有在能**测出好坏**时才有意义，所以仓库里带一套离线评测：
+
+```bash
+npm run eval            # 自动真值层：硬条件 / 否定守卫 / 精确命中 / 降级 / 条件违规
+npm run eval:worksheet  # 摊开候选池，人工填 0–3 档（P1 的前置）
+```
+
+- **自动层**（`evals/lib/generate.ts`）真值由语料本身推出，因此可以直接进 CI 当回归门：
+  `exact`（书名 / ISBN / 条码 → 0 次 Jev）、`work`（作者名下全部馆藏必须被召回）、
+  `constraint`（「2015 年以后」「8 分以上」必须真正过滤）、`constraint-trap`（「不要 2015 年以后」
+  「评分不超过 8 分」必须被守卫拦下，而不是反向执行）、`trap`（通用书名不等于精确请求）。
+- **排序质量**（nDCG@10 / Recall@40 / 档位 MAE）只记录不断言：没有人工相关性标注之前，
+  对它们设阈值等于把噪声写进 CI。自动层跑的是**中性 stub**，量的是结构正确性而非模型水平。
+- 真值需要人判的是 `concept` / `similar` / `list` 三层，工作表生成后人工约 1–2 小时；
+  录好的真实答卷可用 cassette 回放（`evals/lib/judge.ts`），离线扫阈值零 Jev 成本。
+- 产物（`evals/runs/`）不进仓库。
 
 ## 7. AIBot 对话助手
 
