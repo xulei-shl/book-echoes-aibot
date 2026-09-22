@@ -13,9 +13,9 @@ export interface BookDetailPanelProps {
     onNext?: () => void;
     /** 右上角菜单抽屉内容（画板传入下载/全部下载）。不传则渲染直接关闭按钮 */
     menu?: ReactNode;
-    /** 标题下方的入口专属信息（检索：语义相关度） */
+    /** 评分行右侧的入口专属信息（检索：语义相关度徽标） */
     meta?: ReactNode;
-    /** 元数据区的入口专属操作（检索：前往期刊档案） */
+    /** 资源链接行（馆藏/豆瓣旁）的入口专属操作（检索：前往画布） */
     actions?: ReactNode;
 }
 
@@ -137,11 +137,8 @@ export default function BookDetailPanel({
                         {book.subtitle && <h2 className="font-body text-xl text-white/60 tracking-wide">{book.subtitle}</h2>}
                     </div>
 
-                    {/* 入口专属补充信息 */}
-                    {meta}
-
-                    {/* Rating */}
-                    <div className="flex items-center gap-3">
+                    {/* Rating & Meta */}
+                    <div className="flex flex-wrap items-center gap-3 sm:gap-4">
                         <div className="flex items-baseline gap-2">
                             <span className="text-3xl font-light text-[#E8E6DC]">{book.rating}</span>
                             <span className="text-sm text-white/40">/ 10</span>
@@ -171,6 +168,12 @@ export default function BookDetailPanel({
                                 );
                             })}
                         </div>
+                        {meta && (
+                            <div className="flex items-center gap-3">
+                                <div className="h-4 w-px bg-white/15" aria-hidden="true" />
+                                {meta}
+                            </div>
+                        )}
                     </div>
 
                     {/* Recommendation */}
@@ -227,48 +230,49 @@ export default function BookDetailPanel({
                             )}
                         </div>
 
-                        {/* 索书号与豆瓣链接 */}
-                        <div className="flex flex-wrap items-center gap-4 pt-4 border-t border-white/10">
-                            {book.callNumber && (
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xs text-white/40">馆藏</span>
-                                    {book.callNumberLink ? (
-                                        <a
-                                            href={book.callNumberLink}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#C9A063]/10 text-[#C9A063] font-mono text-xs hover:bg-[#C9A063]/20 transition-colors"
-                                        >
-                                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                                            </svg>
-                                            {book.callNumber}
-                                        </a>
-                                    ) : (
-                                        <span className="px-3 py-1.5 rounded-full bg-[#E8E6DC]/10 font-mono text-xs text-white/40">
-                                            {book.callNumber}
-                                        </span>
-                                    )}
-                                </div>
-                            )}
+                        {/* 索书号、豆瓣链接与入口专属操作 */}
+                        {(book.callNumber || book.doubanLink || actions) && (
+                            <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-white/10">
+                                {book.callNumber && (
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs text-white/40">馆藏</span>
+                                        {book.callNumberLink ? (
+                                            <a
+                                                href={book.callNumberLink}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#C9A063]/20 bg-[#C9A063]/10 text-[#C9A063] font-mono text-xs hover:bg-[#C9A063]/20 transition-colors"
+                                            >
+                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                                </svg>
+                                                {book.callNumber}
+                                            </a>
+                                        ) : (
+                                            <span className="px-3 py-1.5 rounded-full border border-[#E8E6DC]/10 bg-[#E8E6DC]/10 font-mono text-xs text-white/40">
+                                                {book.callNumber}
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
 
-                            {book.doubanLink && (
-                                <a
-                                    href={book.doubanLink}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-50 text-green-700 text-xs hover:bg-green-100 transition-colors"
-                                >
-                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                                        <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-8z" />
-                                    </svg>
-                                    豆瓣页面
-                                </a>
-                            )}
-                        </div>
+                                {book.doubanLink && (
+                                    <a
+                                        href={book.doubanLink}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 text-xs hover:bg-emerald-500/20 hover:text-emerald-300 transition-colors"
+                                    >
+                                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-8z" />
+                                        </svg>
+                                        豆瓣页面
+                                    </a>
+                                )}
 
-                        {/* 入口专属操作 */}
-                        {actions}
+                                {actions}
+                            </div>
+                        )}
                     </div>
 
                     {/* Deep Reading */}

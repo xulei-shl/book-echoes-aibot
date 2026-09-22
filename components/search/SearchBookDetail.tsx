@@ -67,16 +67,17 @@ export default function SearchBookDetail({
                 onPrev={() => goTo(-1)}
                 onNext={() => goTo(1)}
                 meta={
-                    <div className="flex flex-wrap items-center gap-4 border border-[#C9A063]/30 bg-[#C9A063]/10 px-4 py-3">
-                        <div>
-                            <span className="block font-mono text-[11px] text-[#A2A09A]">Jev 语义相关度</span>
-                            <span className="font-mono text-2xl font-bold tabular-nums text-[#C9A063]">
-                                {item.relevancePct}%
-                            </span>
-                        </div>
+                    <div
+                        className="inline-flex items-center gap-2 rounded border border-[#C9A063]/30 bg-[#C9A063]/10 px-2.5 py-1 text-xs"
+                        title={item.lanes.length > 0 ? `通道: ${item.lanes.join(' + ')}` : undefined}
+                    >
+                        <span className="font-mono text-[11px] text-[#A2A09A]">Jev 相关度</span>
+                        <span className="font-mono font-bold tabular-nums text-[#C9A063]">
+                            {item.relevancePct}%
+                        </span>
                         {item.lanes.length > 0 && (
-                            <span className="font-mono text-[10px] text-[#8C8982]">
-                                通道: {item.lanes.join(' + ')}
+                            <span className="hidden font-mono text-[10px] text-[#8C8982] sm:inline">
+                                ({item.lanes.join('+')})
                             </span>
                         )}
                     </div>
@@ -85,12 +86,13 @@ export default function SearchBookDetail({
                     <button
                         type="button"
                         onClick={() => onOpenArchive(item.deepLink)}
-                        className="inline-flex items-center gap-2 bg-[#C9A063] px-5 py-2.5 font-display text-sm font-medium text-[#161514] transition-all hover:bg-[#D4A574]"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#C9A063]/40 bg-[#C9A063]/20 text-[#F0D5A3] font-medium text-xs hover:bg-[#C9A063]/30 hover:border-[#C9A063]/60 hover:text-white transition-colors cursor-pointer"
                     >
-                        <span>前往期刊档案完整阅览</span>
-                        <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 7.5V4.5a.75.75 0 01.75-.75h3m9 0h3a.75.75 0 01.75.75v3m0 9v3a.75.75 0 01-.75.75h-3m-9 0h-3a.75.75 0 01-.75-.75v-3" />
+                            <circle cx="12" cy="12" r="2.25" />
                         </svg>
+                        <span>前往画布</span>
                     </button>
                 }
             />
