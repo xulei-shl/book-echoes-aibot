@@ -8,7 +8,7 @@ import ResultCard from './ResultCard';
 interface ResultGalleryProps {
   /** 首屏主列表：通过门控的候选 */
   results: SearchResultItem[];
-  /** 「加载更多」来源：本页未展示的已判分候选（含未通过门控项） */
+  /** 「加载更多」来源：本次已判分但首屏没展示的候选（含未列入推荐项） */
   more?: SearchResultItem[];
   /** 初始已揭示的 more 条数（弃权态下显式展开时可直接显示一批） */
   initialVisible?: number;
@@ -40,7 +40,7 @@ export default function ResultGallery({
       <ResultCard
         item={item}
         onOpen={onOpen}
-        {...(item.passedGate ? {} : { badge: '未通过门控' })}
+        {...(item.passedGate ? {} : { badge: '未列入推荐' })}
       />
     </motion.div>
   );

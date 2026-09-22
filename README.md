@@ -311,9 +311,10 @@ TYPESAFE_API_KEY=...                   # 必需，缺失时接口返回 503
     "ranked": true,                  // false = 召回成功但语义排序不可用，沉底但仍返回
     "deepLink": "/2025-09?focus=<条码>",
     "lanes": ["lexical", "dense"],
-    "why": { "lanes": […], "matched": […], "recallRank": 1, "fitLevel": 3, "fitLevelLabel": "直接回应 query 描述的主题…", "fitConfidence": 0.52, "matchPct": 47 }
+    "why": { "lanes": […], "matched": […], "recallRank": 1, "fitLevel": 3, "fitLevelLabel": "直接回应 query 描述的主题…", "fitConfidence": 0.52, "matchPct": 47, "pNone": 0.12 }
   }],
-  "abstained": false,                // 证据不足时的一等状态
+  "abstained": false,                // 首屏为空 == true；只描述首屏，不代表「馆藏里没有相关的书」
+  "abstainReason": null,             // 'hard-filter' | 'fit' | 'batch'；abstained = false 时为 null
   "degraded": [],                    // 如 dense-unavailable / dense-timeout / rerank / understand
   "tuning": {                        // 本次生效的阈值，以及被 env 覆盖/拒绝的项
     "effective": { "fitGate": 0.3, "rrfK": 60, … },

@@ -42,7 +42,13 @@ import { DenseIndexMismatch, loadVectors, type EncodedQuery, type VectorIndex } 
 import { createDenseLane, createLexicalLane } from './lanes';
 import { NONE_KEY } from './options';
 import { normalizeQuery, explicitToFilters } from './query';
-import { eligibility, facetBonusFor, type RerankCandidate, type ScoredCandidate } from './rank';
+import {
+  eligibility,
+  facetBonusFor,
+  isFacetQuery,
+  type RerankCandidate,
+  type ScoredCandidate
+} from './rank';
 import { fuseAndFilter, recallLanes } from './recall';
 import { normalizeText } from './tokenize';
 import type {
@@ -430,7 +436,12 @@ async function runRerank(
 }
 
 // ── 结果组装 ────────────────────────────────────────────────────────────────
-function toResultItem(candidate: ScoredCandidate, passedGate = true): SearchResultItem {
+function toResultItem(
+  candidate: ScoredCandidate,
+  passedGate = true,
+  /** 本批 `choice(best)` 的 `__none__` 概率；只作展示与排查，不参与门控（见 `rank.ts::eligibility`） */
+  pNone: number | null = null
+): SearchResultItem {
   return {
     book: candidate.doc.book,
     sourceId: candidate.doc.sourceId,
@@ -454,7 +465,8 @@ function toResultItem(candidate: ScoredCandidate, passedGate = true): SearchResu
         candidate.fitLevel === null ? null : nearestLevelLabel(candidate.fitLevel, FIT_LEVELS),
       fitConfidence: candidate.fitConfidence,
       matchPct: candidate.matchPct,
-      rankScore: candidate.rankScore
+      rankScore: candidate.rankScore,
+      pNone
     },
     ...(candidate.doc.alsoIn ? { alsoIn: candidate.doc.alsoIn } : {})
   };
@@ -493,7 +505,9 @@ function unrankedFromRecall(
         fitLevelLabel: null,
         fitConfidence: null,
         matchPct: 0,
-        rankScore: 0
+        rankScore: 0,
+        // 精排未跑（rerank 不可用），不存在 p_none
+        pNone: null
       },
       ...(doc.alsoIn ? { alsoIn: doc.alsoIn } : {})
     });
@@ -704,7 +718,9 @@ export async function runSemanticSearch(
         fitLevelLabel: null,
         fitConfidence: null,
         matchPct: 100,
-        rankScore: 1
+        rankScore: 1,
+        // 精确命中走 0 次 Jev 直通，没有精排批、也没有 p_none
+        pNone: null
       },
       ...(exact.alsoIn ? { alsoIn: exact.alsoIn } : {})
     };
@@ -723,6 +739,7 @@ export async function runSemanticSearch(
       results: [item],
       more: [],
       abstained: false,
+      abstainReason: null,
       degraded,
       judge: judgeMeta
     });
@@ -842,6 +859,7 @@ export async function runSemanticSearch(
       results: [],
       more: [],
       abstained: true,
+      abstainReason: 'hard-filter',
       degraded,
       judge: judgeMeta
     });
@@ -891,6 +909,7 @@ export async function runSemanticSearch(
       results: unrankedFromRecall(fused, docs, limit),
       more: [],
       abstained: false,
+      abstainReason: null,
       degraded,
       judge: judgeMeta
     });
@@ -921,18 +940,21 @@ export async function runSemanticSearch(
     });
   });
 
+  // 条件型查询（筛选/书单）不用批级的「有没有在主题上回应 query」来弃权：
+  // 「评分大于8分」这类句子的主词是「作品」，条件由硬过滤负责，模型答「没回应主题」是错答而非误判
+  const facetQuery = isFacetQuery(understanding.value.type, constraints.plan.applied);
   const outcome = eligibility(
     rerankCandidates,
     {
-      pNone: rerankOutcome.pNone,
-      batchHasMatch: rerankOutcome.batchHasMatch
+      batchHasMatch: rerankOutcome.batchHasMatch,
+      facetQuery
     },
     tuning.effective
   );
   timing.rankMs = Date.now() - rankStarted;
 
-  // 「加载更多」：本页未展示的已判分候选 = 通过门控的溢出项 + 未通过门控的 rejected，
-  // 统一按 relevancePct → matchPct → recallRank 降序；不触发任何新 Jev 请求（§6.5）。
+  // 「加载更多」：全部已判分候选里首屏没展示的 = 通过门控的溢出项 + 未上首屏的其余项
+  // （含被批级否决压下来的），统一按 relevancePct → matchPct → recallRank 降序；不触发新 Jev 请求（§6.5）。
   const more = [
     ...outcome.items.slice(limit).map(candidate => ({ candidate, passedGate: true })),
     ...outcome.rejected.map(candidate => ({ candidate, passedGate: false }))
@@ -943,16 +965,17 @@ export async function runSemanticSearch(
         b.candidate.matchPct - a.candidate.matchPct ||
         a.candidate.recallRank - b.candidate.recallRank
     )
-    .map(entry => toResultItem(entry.candidate, entry.passedGate));
+    .map(entry => toResultItem(entry.candidate, entry.passedGate, rerankOutcome.pNone));
 
   return finalize({
     query: normalized.raw,
     mode,
     basedOn: 'retrieval',
     intent,
-    results: outcome.items.slice(0, limit).map(item => toResultItem(item)),
+    results: outcome.items.slice(0, limit).map(item => toResultItem(item, true, rerankOutcome.pNone)),
     more,
     abstained: outcome.abstained,
+    abstainReason: outcome.reason,
     degraded,
     judge: judgeMeta
   });

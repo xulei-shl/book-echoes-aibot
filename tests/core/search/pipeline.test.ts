@@ -10,7 +10,7 @@ import {
 import type { SystemOneRequest, SystemOneResult, Answer } from '@/lib/jev/types';
 import { FIT_GATE } from '@/lib/search/tuning';
 import { resetPipelineState, runSemanticSearch, type JudgeFn } from '@/lib/search/pipeline';
-import type { SearchDoc } from '@/lib/search/types';
+import type { IntentType, SearchDoc } from '@/lib/search/types';
 
 function makeDoc(
   id: string,
@@ -101,6 +101,10 @@ const levelAt = (levels: readonly unknown[], preference: number): number =>
 
 interface StubOptions {
   understand?: 'ok' | 'fail';
+  /** 意图 choice 胜出的类型（默认 concept） */
+  intentType?: IntentType;
+  /** 精排批级 noul `batch_has_match` 的值（默认 0.9 = true） */
+  batchHasMatch?: number;
   /** 返回每本候选的 fit（0..1）；'fail' 表示整批失败 */
   rerank?: 'ok' | 'fail' | ((index: number) => number);
   pNone?: number;
@@ -128,10 +132,17 @@ function makeJudge(options: StubOptions = {}) {
 
     if (keys.includes('intent')) {
       if (options.understand === 'fail') throw new Error('understand failed');
-      answers.intent = choice(
-        { concept: 0.8, work: 0.05, similar: 0.05, list: 0.05, other: 0.05 },
-        'concept'
-      );
+      // choice 必须自洽：胜出项就是 argmax，概率和 = 1
+      const intentType = options.intentType ?? 'concept';
+      const intentProbabilities: Record<string, number> = {
+        concept: 0.05,
+        work: 0.05,
+        similar: 0.05,
+        list: 0.05,
+        other: 0.05
+      };
+      intentProbabilities[intentType] = 0.8;
+      answers.intent = choice(intentProbabilities, intentType);
       answers.needs_wider_recall = score(
         WIDER_RECALL_LEVELS.length,
         levelAt(WIDER_RECALL_LEVELS, options.needsWiderRecall ?? 0.2)
@@ -181,7 +192,7 @@ function makeJudge(options: StubOptions = {}) {
       });
       const argmax = Object.entries(probabilities).reduce((a, b) => (b[1] > a[1] ? b : a))[0];
       answers.best = choice(probabilities, argmax, 0.5);
-      answers.batch_has_match = noul(0.9);
+      answers.batch_has_match = noul(options.batchHasMatch ?? 0.9);
       candidates.forEach((item, index) => {
         const fitFn = typeof options.rerank === 'function' ? options.rerank : () => 0.8;
         // 逐本用 score 档位（而不是 noul 是非题），fit = 档位位置 / (档数-1)
@@ -244,6 +255,7 @@ describe('runSemanticSearch', () => {
       { judge, corpus, vectors: null }
     );
     expect(result.abstained).toBe(true);
+    expect(result.abstainReason).toBe('fit');
     expect(result.results).toEqual([]);
     // 弃权不污染主列表，但已判分候选仍保留在 more（由用户显式展开）
     expect(result.more.length).toBeGreaterThan(0);
@@ -359,6 +371,7 @@ describe('runSemanticSearch', () => {
     );
     // 语料全部是 I 类虚构书：候选被硬条件清空 → 弃权而非硬凑
     expect(result.abstained).toBe(true);
+    expect(result.abstainReason).toBe('hard-filter');
     expect(result.results).toEqual([]);
   });
 
@@ -381,6 +394,7 @@ describe('runSemanticSearch', () => {
       { judge, corpus, vectors: null }
     );
     expect(result.abstained).toBe(true);
+    expect(result.abstainReason).toBe('hard-filter');
     expect(result.results).toEqual([]);
     // 只有意图 1 次请求；精排因候选为空未发生
     expect(calls.filter(call => 'best' in call.questions)).toHaveLength(0);
@@ -398,9 +412,13 @@ describe('runSemanticSearch', () => {
 
     expect(result.results).toHaveLength(1);
     expect(result.results[0].passedGate).toBe(true);
-    // more = 通过门控的溢出项 + 未通过门控的 rejected
+    // more = 通过门控的溢出项 + 未上首屏的其余项
     expect(result.more.length).toBeGreaterThan(0);
     expect(result.more.some(item => item.passedGate === false)).toBe(true);
+    // 不变式：首屏 + 「加载更多」= 本次全部已判分候选，不重不漏
+    expect(result.results.length + result.more.length).toBe(
+      result.intent.retrieval.fusedCandidates
+    );
     const pcts = result.more.map(item => item.relevancePct);
     expect([...pcts].sort((a, b) => b - a)).toEqual(pcts);
 
@@ -538,6 +556,7 @@ describe('runSemanticSearch', () => {
     );
     // fit 0.6 在默认门槛（0.30）下过得了，抬高门槛后全部出局 → 诚实弃权
     expect(result.abstained).toBe(true);
+    expect(result.abstainReason).toBe('fit');
     expect(result.tuning.effective.fitGate).toBeCloseTo(2.6 / 3, 9);
     expect(result.tuning.overridden).toEqual([
       { env: 'SEMANTIC_SEARCH_FIT_GATE_POSITION', field: 'fitGatePosition', value: 2.6 }
@@ -594,5 +613,68 @@ describe('runSemanticSearch', () => {
     expect(result.results[0].book.id).toBe('d3');
     expect(result.results[0].lanes).toContain('wide');
     expect(result.results[0].why.laneScores.wide).toBe(1);
+  });
+
+  it('回归：best.p 输给 __none__ 不再导致整批弃权', async () => {
+    // 「世界艺术」形态：40 本候选互相分散概率，__none__ 只需赢过最大的那一本
+    // pNone 0.9 → 每本只剩 0.1/N，旧门控会把整批 fit 达标的书全部拒掉
+    const { judge } = makeJudge({ rerank: () => 0.68, pNone: 0.9 });
+    const result = await runSemanticSearch(
+      { query: '焦虑' },
+      { judge, corpus, vectors: null }
+    );
+    expect(result.abstained).toBe(false);
+    expect(result.results.length).toBeGreaterThan(0);
+    expect(result.results[0].relevancePct).toBe(68);
+    // 单本 choice 概率远低于 p_none，但仍是合格结果
+    expect(result.results[0].why.pNone).toBeCloseTo(0.9, 9);
+    expect(result.results[0].matchPct).toBeLessThan(90);
+    expect(result.results.every(item => item.passedGate)).toBe(true);
+    expect(result.abstainReason).toBeNull();
+  });
+
+  it('回归：条件型查询不因批级 batch_has_match 否定而弃权', async () => {
+    // 「评分大于8分的作品」形态：命题的主词是「作品」，条件由硬过滤负责，
+    // 模型答「没有在主题上回应 query 的书」是错配的答案，不应据此把候选全藏起来
+    const { judge } = makeJudge({
+      intentType: 'other',
+      rerank: () => 0.91,
+      batchHasMatch: 0.1,
+      pNone: 0.9
+    });
+    const result = await runSemanticSearch(
+      { query: '评分大于8分的焦虑书' },
+      { judge, corpus, vectors: null }
+    );
+    expect(result.intent.plan.applied).toEqual([
+      { field: 'minRating', value: 8, source: 'rule' }
+    ]);
+    expect(result.abstained).toBe(false);
+    expect(result.abstainReason).toBeNull();
+    expect(result.results.length).toBeGreaterThan(0);
+    expect(result.results.every(item => item.relevancePct === 91)).toBe(true);
+  });
+
+  it('主题型查询仍然采信 batch_has_match = false，但 fit 达标的候选经 more 可达', async () => {
+    const { judge } = makeJudge({
+      intentType: 'concept',
+      rerank: () => 0.91,
+      batchHasMatch: 0.1
+    });
+    const result = await runSemanticSearch(
+      { query: '焦虑' },
+      { judge, corpus, vectors: null }
+    );
+    expect(result.intent.type).toBe('concept');
+    expect(result.abstained).toBe(true);
+    expect(result.abstainReason).toBe('batch');
+    expect(result.results).toEqual([]);
+    // 回归：批级否决只压首屏，不能把 fit 达标的候选藏到「哪都不显示」
+    expect(result.more.length).toBeGreaterThan(0);
+    expect(result.more.every(item => item.passedGate === false)).toBe(true);
+    expect(result.more.every(item => item.fit !== null && item.fit >= FIT_GATE)).toBe(true);
+    expect(result.results.length + result.more.length).toBe(
+      result.intent.retrieval.fusedCandidates
+    );
   });
 });

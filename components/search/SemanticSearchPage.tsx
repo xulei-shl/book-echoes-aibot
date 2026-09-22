@@ -4,12 +4,42 @@ import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { SearchCoverItem } from '@/lib/content';
-import type { SearchMode, SearchResultItem, SemanticSearchResponse } from '@/lib/search/types';
+import type {
+  AbstainReason,
+  SearchMode,
+  SearchResultItem,
+  SemanticSearchResponse
+} from '@/lib/search/types';
 import SearchBookDetail from './SearchBookDetail';
 import CoverTunnel from './CoverTunnel';
 import ResultChips from './ResultChips';
 import ResultGallery from './ResultGallery';
 import SearchBox from './SearchBox';
+
+/**
+ * 弃权文案：**标题与正文都按成因分流**。`abstained` 不是无因的布尔 —— 三种成因该做的事完全不同，
+ * 一句笼统的「馆藏里没有高度契合的书」会把「放宽筛选条件」误导成「换个主题」，让用户白跑一轮。
+ */
+const ABSTAIN_COPY: Record<AbstainReason, { title: string; body: string }> = {
+    'hard-filter': {
+        title: '这些条件下没有可推荐的书',
+        body: '这次没有勉强提供不精准的结果。你给的年份、评分或类型条件把候选全排除了 —— 放宽其中一项再试。'
+    },
+    fit: {
+        title: '馆藏里没有高度契合的书籍',
+        body: '这次没有勉强提供不精准的结果。没有候选达到相关度门槛，换成更具体的主题、作者或时代线索再试。'
+    },
+    batch: {
+        title: '有几本主题相关，但没有真正契合的',
+        body: '这次没有勉强提供不精准的结果。其中几本已判定为主题相关，只是整体上看没有真正回应你要找的东西 —— 可展开下面的低相关度结果自行判断。'
+    }
+};
+
+/** `abstained` 为真时 `abstainReason` 必然非空；这里只是给类型收窄一个安全的兜底。 */
+const ABSTAIN_FALLBACK = {
+    title: '馆藏里没有高度契合的书籍',
+    body: '这次没有勉强提供不精准的结果。建议补充作者、主题背景或时代线索再试。'
+};
 
 /** idle → searching → results / abstained → idle */
 type View = 'idle' | 'searching' | 'results' | 'abstained';
@@ -87,6 +117,11 @@ export default function SemanticSearchPage({ covers }: SemanticSearchPageProps) 
   // 获取结果命中的图书ID列表，联动 3D 背景进行光影高亮呼应
   const matchedIds = response?.results.map(r => r.book.id);
 
+  // 弃权卡片文案：按成因分流（见 ABSTAIN_COPY）
+  const abstainCopy = response?.abstainReason
+    ? ABSTAIN_COPY[response.abstainReason]
+    : ABSTAIN_FALLBACK;
+
   return (
     <>
       <CoverTunnel
@@ -158,9 +193,9 @@ export default function SemanticSearchPage({ covers }: SemanticSearchPageProps) 
               transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
               className="relative mt-12 w-full max-w-xl border border-[#C9A063]/40 bg-[#161514]/95 p-8 text-center shadow-2xl backdrop-blur-xl"
             >
-              <p className="font-display text-lg text-[#F2F0E9]">馆藏里没有高度契合的书籍</p>
+              <p className="font-display text-lg text-[#F2F0E9]">{abstainCopy.title}</p>
               <p className="mt-3 font-body text-sm leading-relaxed text-[#DCD9D0]">
-                这次没有检索到真正相关的藏书，因此没有勉强提供不精准的结果。建议补充作者、主题背景或时代线索再试。
+                {abstainCopy.body}
               </p>
               {response && response.degraded.length > 0 && (
                 <p className="mt-4 font-mono text-[11px] text-[#A8A59E]">

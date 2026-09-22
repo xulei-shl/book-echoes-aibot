@@ -1,5 +1,11 @@
 import { PREFERENCE_NEUTRAL, getTuning } from './tuning';
-import type { EffectiveTuning, QueryFacets, SearchDoc } from './types';
+import type {
+  AppliedConstraint,
+  EffectiveTuning,
+  IntentType,
+  QueryFacets,
+  SearchDoc
+} from './types';
 
 /**
  * 本地算术层：门控 + 排序 + 量化。纯代码，不调 Jev。
@@ -44,10 +50,22 @@ export interface ScoredCandidate extends RerankCandidate {
 }
 
 export interface RankedOutcome {
+  /** 首屏为空。与 `reason !== null`、`items.length === 0` 三者等价（有测试守） */
   abstained: boolean;
-  /** 通过门控的候选，已排序 */
+  /**
+   * 弃权成因（`abstained === false` 时为 null）：
+   * - `fit`：没有候选够到 `fit` 门（或不足 `minResults`）——换种说法描述想要的**主题**；
+   * - `batch`：有候选够格，但主题型批级否决把首屏压了下来 —— 可展开低相关度结果。
+   */
+  reason: 'fit' | 'batch' | null;
+  /** 首屏候选，已排序。`abstained` 时恒为空 */
   items: ScoredCandidate[];
-  /** 未通过门控的已判分候选，同样按 relevancePct 排序；供「加载更多」分区展示（§6.5） */
+  /**
+   * 未上首屏的已判分候选，按 relevancePct 排序；供「加载更多」分区展示（§6.5）。
+   *
+   * 不变式：`items ∪ rejected` **恰好等于**传入的全部候选（不重不漏）——包括被批级否决
+   * 压下来的那些（它们 `fit` 达标，绝不能被静默丢掉）。
+   */
   rejected: ScoredCandidate[];
 }
 
@@ -142,19 +160,52 @@ export function rank(items: RerankCandidate[], tuning: EffectiveTuning = getTuni
 }
 
 export interface EligibilityContext {
-  /** choice(best).probabilities['__none__'] */
-  pNone: number;
-  /** noul batch_has_match；false 直接弃权 */
+  /** noul batch_has_match；false 且查询是主题型时弃权（条件型查询不采信，见 `isFacetQuery`） */
   batchHasMatch: boolean | null;
+  /** 条件型查询（见 `isFacetQuery`）：只用 `fit` 门，不用批级否定信号弃权 */
+  facetQuery: boolean;
 }
 
 /**
- * 门控：`fit` 已返回且 ≥ 0.30（= score 档位 0.9/3，即至少够到「主题邻接」），
- * 且 best.p **严格大于** p_none（平局取消）。
+ * 本次查询是**条件型**（筛选/书单：`评分大于8分的作品`、`2025年以后的作品`）
+ * 还是**主题型**（`世界艺术`、`有没有讲孤独的书`）。
+ *
+ * 这个区分只决定一件事：要不要采信 `batch_has_match` 的否定答案。该题问的是
+ * 「这批候选里有没有在**主题上**直接回应 query 的书」——对纯条件句本身是错配的问题：
+ * 句子的主词是「作品」，条件由代码的硬过滤负责，模型答「没有回应主题的书」完全合理，
+ * 但据此弃权会把整批**确定满足条件**的书全部藏起来（实测即如此）。
+ *
+ * - `list`：要的就是「一批书」，天然不是单一主题诉求 → 条件型；
+ * - `concept` / `similar` / `work`：诉求本身就是主题或某一本书 → 主题型；
+ * - `other`（模型无法判断）：只有句子里真的解析出了硬条件才按条件型处理，
+ *   避免在意图不明时把唯一的批级否定信号也关掉。
+ */
+export function isFacetQuery(intent: IntentType, applied: AppliedConstraint[]): boolean {
+  if (intent === 'list') return true;
+  if (intent === 'concept' || intent === 'similar' || intent === 'work') return false;
+  return applied.length > 0;
+}
+
+/**
+ * 门控：逐本 `fit` 已返回且 ≥ `fitGate`（= 档位 0.9 的位置，即至少够到「主题邻接」）。
  * 全部出局 → abstained。
  *
- * 门控只决定**首屏主列表**显示什么，不丢弃已判分候选：未通过门控的项照常按
- * relevancePct 排序后放进 `rejected`，供「加载更多」分区展示（§6.5）。
+ * ⚠️ 这里**不再**用 `choice(best).p > p_none` 做门控。那个比较只在候选集很小时成立：
+ * `best` 是 K+1 选一的**互斥**分布，K = 40 时单本概率上限被摊薄到个位数百分比，
+ * 而 `__none__` 是**一个**聚合桶、只需赢过最大的那一本 —— 于是「有多本都相关」会被
+ * 系统性地判成「一本都不相关」，整批弃权。SkillRanker 的 rerank shortlist 是 ≤ 8
+ * （`docs/jev-docs/projects/skillranker-usage-reference/ANALYSIS.md` §3.2），
+ * 这个尺度假设没有跟着搬过来。`best` 概率仍然参与排序（`rank` 的 utility）与展示
+ * （`matchPct` / `why.pNone`），只是不再当弃权门。
+ *
+ * 真正的弃权信号是 `fit`：逐本独立判定，「部分相关」与「直接回应」能区分开 ——
+ * 这正是 `fits::bN` 逐本独立（而非互斥排序）的意义（§5.3）。
+ *
+ * 门控只决定**首屏**显示什么：`items ∪ rejected` 恰好等于传入的全部候选（不重不漏），
+ * 未上首屏的项照常按 relevancePct 排序后放进 `rejected`，供「加载更多」分区展示（§6.5）。
+ * 所以**被批级否决压下来的候选也在 `rejected` 里**（它们 fit 达标，不能「哪都不显示」）。
+ * `abstained` 只表示「首屏为空」这一件事，不用它表达「馆藏里没有相关的书」。
+ *
  * 注意：`rejected` 的 rankScore 是在 rejected 子集内单独 softmax 的相对分，
  * 与 `items` 的 rankScore 不同源，两者不可直接比较。
  */
@@ -164,17 +215,23 @@ export function eligibility(
   tuning: EffectiveTuning = getTuning().effective
 ): RankedOutcome {
   const eligible = candidates.filter(
-    candidate =>
-      candidate.fit !== null &&
-      candidate.fit >= tuning.fitGate &&
-      candidate.bestProbability > ctx.pNone
+    candidate => candidate.fit !== null && candidate.fit >= tuning.fitGate
   );
-  const eligibleSet = new Set(eligible);
-  const rejected = candidates.filter(candidate => !eligibleSet.has(candidate));
-  const rankedRejected = rank(rejected, tuning);
 
-  if (ctx.batchHasMatch === false || eligible.length < tuning.minResults) {
-    return { abstained: true, items: [], rejected: rankedRejected };
-  }
-  return { abstained: false, items: rank(eligible, tuning), rejected: rankedRejected };
+  // 主题型的批级否定只压制**首屏**，不否定逐本的 fit 判定（被压下来的照样进 rejected）
+  const batchVetoed = ctx.batchHasMatch === false && !ctx.facetQuery;
+  // 两种成因互斥，且只在真的扣下了候选时才算 'batch'：一本都不够格时，原因就是不够格
+  const reason: RankedOutcome['reason'] =
+    eligible.length < tuning.minResults ? 'fit' : batchVetoed ? 'batch' : null;
+  const items = reason === null ? eligible : [];
+
+  const shown = new Set(items);
+  const rejected = candidates.filter(candidate => !shown.has(candidate));
+
+  return {
+    abstained: reason !== null,
+    reason,
+    items: rank(items, tuning),
+    rejected: rank(rejected, tuning)
+  };
 }

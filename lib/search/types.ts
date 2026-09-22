@@ -152,6 +152,12 @@ export interface SearchResultWhy {
   fitConfidence: number | null;
   matchPct: number;
   rankScore: number;
+  /**
+   * 本批 `choice(best)` 里 `__none__` 的概率（精排未跑时为 null）。
+   * **不参与门控**：它是 K+1 选一的互斥分布，与逐本独立的 `fit` 不同源，
+   * 只用于回答「这次为什么被判成没有相关」。
+   */
+  pNone: number | null;
 }
 
 export interface SearchResultItem {
@@ -167,8 +173,11 @@ export interface SearchResultItem {
   /** false 表示召回已完成但语义排序不可用（rerank 失败），结果沉底但仍返回 */
   ranked: boolean;
   /**
-   * 是否通过门控（fit ≥ 0.30 且 best.p > p_none）。
-   * `results` 恒为 true；`more[]` 中可能为 false（未通过门控），UI 据此标注（§6.5）。
+   * 是否**上了首屏**：通过 `fit` 门，且主题型的批级否决没有生效。
+   * `results` 恒为 true；`more[]` 中可能为 false，UI 据此标注「未列入推荐」（§6.5）。
+   *
+   * ⚠️ `passedGate === false` 有**两种**成因，看 `fit` 才能分开：`fit < fitGate`（真的不够格）与
+   * `fit >= fitGate` 但被批级否决压下来（此时 `abstainReason === 'batch'`）。
    */
   passedGate: boolean;
   deepLink: string;
@@ -248,6 +257,14 @@ export interface JudgeMeta {
   usage: { inputTokens: number | null; outputTokens: number | null };
 }
 
+/**
+ * 弃权成因 —— `abstained` 不是无因的布尔，每种成因对应的下一步动作不同：
+ * - `hard-filter`：候选被硬条件（年份/评分/虚构）全部筛掉 —— 放宽筛选条件；
+ * - `fit`：没有任何候选够到 `fit` 门 —— 换个说法描述想要的**主题**；
+ * - `batch`：有候选够格，但主题型整体判定认为这批没有真正契合的 —— 可展开低相关度结果。
+ */
+export type AbstainReason = 'hard-filter' | 'fit' | 'batch';
+
 export interface SemanticSearchResponse {
   query: string;
   mode: SearchMode;
@@ -256,11 +273,18 @@ export interface SemanticSearchResponse {
   /** 首屏主列表：通过门控的候选，取前 limit 条 */
   results: SearchResultItem[];
   /**
-   * 「加载更多」来源：本页未展示的已判分候选（通过门控的溢出项 + 未通过门控的 rejected），
+   * 「加载更多」来源：**本次全部已判分候选里首屏没展示的**（通过门控但超出 `limit` 的溢出项 + 未上首屏的其余项），
    * 按 relevancePct 降序。客户端分页揭示，不触发任何新请求（§6.5）。
+   *
+   * 不变式（有语义排序的路径，即 `ranked === true`）：`results ∪ more` 恰好等于本次已判分的
+   * 全部候选，不重不漏 —— 门控只决定**首屏**放什么，绝不静默丢弃任何已判分候选。
+   * （`rerank` 整批失败时走降级路径：`ranked === false`、`results` 是召回序的前 `limit` 条、`more` 为空。）
    */
   more: SearchResultItem[];
+  /** 首屏是否为空：`abstained ⟺ results.length === 0`。只描述首屏，**不**表示「馆藏里没有相关的书」 */
   abstained: boolean;
+  /** 弃权成因；`abstained === false` 时为 null。与 `abstained` 同时成立，用于回答「这次为什么没有首屏结果」 */
+  abstainReason: AbstainReason | null;
   /** 可见的降级记录，绝不静默伪装成正常结果 */
   degraded: string[];
   /** 本次生效的调参值与环境变量覆盖记录（「线上为什么和本地不一样」的直接答案） */

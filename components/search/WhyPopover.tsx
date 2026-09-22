@@ -32,6 +32,12 @@ export default function WhyPopover({ item }: { item: SearchResultItem }) {
           <dt>choice 概率</dt>
           <dd className="text-[#F2F0E9]">{item.matchPct}%</dd>
         </div>
+        {item.why.pNone !== null && (
+          <div className="flex justify-between gap-3">
+            <dt>本批 __none__</dt>
+            <dd className="text-[#F2F0E9]">{Math.round(item.why.pNone * 100)}%</dd>
+          </div>
+        )}
         <div className="flex justify-between gap-3">
           <dt>本地相对分</dt>
           <dd className="text-[#F2F0E9]">{item.rankScore.toFixed(3)}</dd>
