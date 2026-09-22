@@ -4,6 +4,7 @@ import { LIMIT_MAX, QUERY_MAX_CHARS, isSemanticSearchEnabled, readJevConfig } fr
 import { runSemanticSearch } from '@/lib/search/pipeline';
 import type { SearchFilters, SearchInput, SearchMode } from '@/lib/search/types';
 import { getLogger } from '@/src/utils/logger';
+import { sameOrigin } from '@/src/utils/same-origin';
 
 const logger = getLogger('search.api');
 
@@ -29,24 +30,6 @@ function rateLimited(key: string): boolean {
 
 function clientKey(request: Request): string {
   return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'anonymous';
-}
-
-/**
- * 同源校验。带 Origin / Sec-Fetch-Site 时必须一致；两者都缺失（curl、服务端调用）放行。
- * README 式诚实标注：这不是认证。
- */
-function sameOrigin(request: Request): boolean {
-  const origin = request.headers.get('origin');
-  if (origin) {
-    try {
-      return origin === new URL(request.url).origin;
-    } catch {
-      return false;
-    }
-  }
-  const fetchSite = request.headers.get('sec-fetch-site');
-  if (fetchSite) return fetchSite === 'same-origin';
-  return true;
 }
 
 interface ParseResult {

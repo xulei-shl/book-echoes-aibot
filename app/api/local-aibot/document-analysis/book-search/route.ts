@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { assertAIBotEnabled, AIBotDisabledError } from '@/src/utils/aibot-env';
 import { getLogger } from '@/src/utils/logger';
+import { sameOrigin } from '@/src/utils/same-origin';
 import { multiQuery } from '@/src/core/aibot/retrievalService';
 
 const logger = getLogger('aibot.api.document-analysis.book-search');
@@ -18,6 +19,10 @@ export async function POST(request: Request) {
             return NextResponse.json({ message: 'Not Found' }, { status: 404 });
         }
         throw error;
+    }
+
+    if (!sameOrigin(request)) {
+        return NextResponse.json({ error: 'forbidden' }, { status: 403 });
     }
 
     try {
