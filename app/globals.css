@@ -192,36 +192,6 @@ body {
   }
 }
 
-/*
- * 随机漫步：按列错位，找回「错位瀑布流」的观感。
- *
- * 卡片尺寸是统一的（固定比例占位框），所以错位只能由列偏移营造。
- * 偏移写成 transform，不占布局：既不会在图片加载时重排，
- * 也不会在追加新批次时把已有卡片挤走（grid 中卡片位置只取决于序号）。
- * 断点与组件里的 md:grid-cols-2 / xl:grid-cols-3 保持一致。
- */
-.random-masonry-card {
-  transform: translate3d(0, var(--stack-offset, 0px), 0);
-}
-
-/* 两列：第二列下移 */
-@media (min-width: 768px) and (max-width: 1279.98px) {
-  .random-masonry-grid > *:nth-child(2n) {
-    --stack-offset: 48px;
-  }
-}
-
-/* 三列：依次下移。范围限定在 xl 以上，避免与上方两列的 2n 规则互相覆盖 */
-@media (min-width: 1280px) {
-  .random-masonry-grid > *:nth-child(3n + 2) {
-    --stack-offset: 48px;
-  }
-
-  .random-masonry-grid > *:nth-child(3n) {
-    --stack-offset: 96px;
-  }
-}
-
 /* 首页封面区统一容器,避免卡片无限拉伸 */
 .magazine-cover-wrapper {
   max-width: min(1040px, 92vw);

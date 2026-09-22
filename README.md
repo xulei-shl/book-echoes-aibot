@@ -201,7 +201,7 @@ node scripts/build-content.mjs month 2025-09 --skip-vectors               # 跳�
 | 脚本 | 运行方式 | 作用 |
 |---|---|---|
 | `scripts/build-content.mjs` | 手动，带类型参数 | Excel + 图片 → `metadata.json`，并联动 Step 5 / Step 6 |
-| `scripts/build-random-index.mjs` | 被 Step 5 调用，也可单独跑 | 汇总全库为扁平的 `random_index.json` |
+| `scripts/build-random-index.mjs` | 被 Step 5 调用，也可单独跑；`--with-images` 才生成原图 WebP 显示图 | 汇总全库为扁平的 `random_index.json`（含原图尺寸与等比占位图）；`--with-images` 时额外把原图重编码为 WebP 并写回索引（需可写 R2） |
 | `scripts/build-search-vectors.mjs` | `npm run build:vectors` 或被 Step 6 调用 | 语料 → `search_vectors.bin` |
 | `scripts/clean-r2-content.mjs` | 手动，支持 `--dry-run` | 删除 R2 上指定路径的对象 |
 | `scripts/init-fonts.mjs` | `npm run init-fonts` | 处理并上传 Web 字体，输出 CSS 片段 |

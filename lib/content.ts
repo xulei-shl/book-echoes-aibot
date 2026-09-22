@@ -43,6 +43,13 @@ export interface RandomIndexItem {
   month: string;
   thumbnailUrl: string;
   imageUrl: string;
+  /** 原图的 WebP 显示版（可选，未重编码时为空），随机页首选 */
+  displayUrl?: string;
+  /** 原图的等比轻量缩略图，用于即时占位与兜底 */
+  placeholderUrl?: string;
+  /** 原图像素尺寸，用于在图片到达前按比例占位 */
+  width?: number;
+  height?: number;
 }
 
 // Keep MonthData for backward compatibility, alias to ArchiveItem (or subset)
@@ -345,7 +352,11 @@ async function loadRandomIndex(): Promise<RandomIndexItem[]> {
         sourceId: String(item?.sourceId ?? ''),
         month: String(item?.month ?? ''),
         thumbnailUrl: String(item?.thumbnailUrl ?? ''),
-        imageUrl: String(item?.imageUrl ?? '')
+        imageUrl: String(item?.imageUrl ?? ''),
+        displayUrl: String(item?.displayUrl ?? ''),
+        placeholderUrl: String(item?.placeholderUrl ?? ''),
+        width: Number(item?.width) || 0,
+        height: Number(item?.height) || 0
       })).filter(item => item.id)
       : [];
     randomIndexCache = { loadedAt: Date.now(), items };
