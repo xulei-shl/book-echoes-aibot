@@ -107,6 +107,10 @@ export function findTerm(index: Bm25Index, term: string): number {
   return -1;
 }
 
+/** BM25 的 IDF（Lucene 的概率性变体）。打分与查询侧截断共用同一份公式。 */
+const idfOf = (docCount: number, docFreq: number): number =>
+  Math.log(1 + (docCount - docFreq + 0.5) / (docFreq + 0.5));
+
 /**
  * 查询侧 IDF：用于 `normalizeQuery` 的按区分度截断（不参与打分）。
  * `unseenIdf` 由调用方从生效调参传入（避免排序比较器里反复解析环境变量）。
@@ -114,9 +118,7 @@ export function findTerm(index: Bm25Index, term: string): number {
 export function termIdf(index: Bm25Index, term: string, unseenIdf?: number): number {
   const termIndex = findTerm(index, term);
   if (termIndex < 0) return unseenIdf ?? getTuning().effective.unseenTermIdf;
-  const n = index.docs.length;
-  const df = index.df[termIndex];
-  return Math.log(1 + (n - df + 0.5) / (df + 0.5));
+  return idfOf(index.docs.length, index.df[termIndex]);
 }
 
 /**
@@ -141,8 +143,7 @@ export function search(
   for (const term of new Set(queryTerms)) {
     const termIndex = findTerm(index, term);
     if (termIndex < 0) continue;
-    const df = index.df[termIndex];
-    const idf = Math.log(1 + (n - df + 0.5) / (df + 0.5));
+    const idf = idfOf(n, index.df[termIndex]);
     const start = index.offsets[termIndex];
     const end = index.offsets[termIndex + 1];
     for (let p = start; p < end; p += 1) {

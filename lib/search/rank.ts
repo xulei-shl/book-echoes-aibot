@@ -81,9 +81,8 @@ export function isFictionDoc(doc: SearchDoc): boolean {
   return isFictionClc(doc.clc);
 }
 
-function genreMatch(doc: SearchDoc, kind: 'fiction'): number {
-  return isFictionDoc(doc) === (kind === 'fiction') ? 1 : 0;
-}
+/** 虚构维度的符号：命中偏好记 +1、反向记 -1，乘上偏好强度即得加减分。 */
+const fictionSign = (doc: SearchDoc): number => (isFictionDoc(doc) ? 1 : -1);
 
 function theoryScore(doc: SearchDoc): number {
   const class1 = doc.clc.level1?.code;
@@ -117,7 +116,7 @@ export function facetBonusFor(
 ): number {
   const weights = tuning.facetWeights;
   return (
-    weights.fiction * centered(facets.wantsFiction) * (genreMatch(doc, 'fiction') === 1 ? 1 : -1) +
+    weights.fiction * centered(facets.wantsFiction) * fictionSign(doc) +
     weights.recent * centered(facets.wantsRecent) * yearScore(doc.numeric.pubYear, nowYear, tuning) +
     weights.theory * centered(facets.avoidTheory) * (theoryScore(doc) < 0.5 ? 1 : -1) +
     weights.verified * centered(facets.wantsVerified) * Math.min(doc.numeric.rating / 10, 1)

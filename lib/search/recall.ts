@@ -1,17 +1,14 @@
-import { matchesClc } from './clc';
+import { isFictionClc, matchesClc } from './clc';
 import { LANE_LIMIT } from './config';
 import { rrfFuse } from './fusion';
-import { isFictionDoc } from './rank';
 import type { RecallLane, RecallResult, SearchDoc, SearchFilters } from './types';
 
-export interface RecallContext {
+/** 两条 lane 共用的入参：原句给稠密、降噪 term 给词法、允许集合下推给两者。 */
+export interface RecallLaneContext {
   /** 原句 → 稠密 lane */
   raw: string;
   /** 降噪后的 term → 词法 lane */
   core: string[];
-  filters?: SearchFilters;
-  /** 融合后取多少（K ≤ 40） */
-  limit: number;
   /** 下推给 lane 的允许集合；null / undefined 表示无硬条件 */
   allow?: ReadonlySet<string> | null;
 }
@@ -60,8 +57,9 @@ export function compileDocFilter(filters?: SearchFilters): DocFilter | null {
     ) {
       return false;
     }
-    // 虚构类由索书号可判定，无「未知即豁免」问题
-    if (excludeFiction && isFictionDoc(doc)) return false;
+    // 虚构类由索书号可判定，无「未知即豁免」问题；判定直接用 clc 层，
+    // 检索层不该为了一个谓词去依赖打分层（rank.ts）
+    if (excludeFiction && isFictionClc(doc.clc)) return false;
     if (callClasses !== null && !matchesClc(doc.clc, callClasses)) return false;
     return true;
   };
@@ -102,7 +100,7 @@ export function applyFilters(
 
 /** 每条 lane 并发取结果；某条失败不影响另一条（返回空数组）。 */
 export async function recallLanes(
-  ctx: Pick<RecallContext, 'raw' | 'core' | 'allow'>,
+  ctx: RecallLaneContext,
   lanes: RecallLane[]
 ): Promise<RecallResult[][]> {
   const settled = await Promise.allSettled(
@@ -121,14 +119,4 @@ export function fuseAndFilter(
   limit: number
 ): RecallResult[] {
   return applyFilters(rrfFuse(laneResults), docs, filters).slice(0, limit);
-}
-
-/** 两条 lane 并发的便捷入口。 */
-export async function recall(
-  ctx: RecallContext,
-  lanes: RecallLane[],
-  docs: Map<string, SearchDoc>
-): Promise<RecallResult[]> {
-  const laneResults = await recallLanes(ctx, lanes);
-  return fuseAndFilter(laneResults, docs, ctx.filters, ctx.limit);
 }

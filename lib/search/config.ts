@@ -30,7 +30,6 @@ export const EXCERPT_MAX_CHARS = 600;
 export const LABEL_MAX_CHARS = 160;
 export const GIST_MAX_CHARS = 160;
 export const QUERY_MAX_CHARS = 300;
-export const PAYLOAD_SOFT_LIMIT_BYTES = 96 * 1024;
 
 // ── 缓存 TTL（§7.2）────────────────────────────────────────────────────────
 export const CORPUS_TTL_MS = 5 * 60 * 1000;
@@ -58,7 +57,6 @@ export const forceFastAbove = (): number => readNumber('SEMANTIC_SEARCH_FORCE_FA
 export const jevBudgetPerMinute = (): number => readNumber('SEMANTIC_SEARCH_JEV_BUDGET_PER_MIN', DEFAULT_JEV_BUDGET_PER_MIN);
 
 export const isSemanticSearchEnabled = (): boolean => process.env.SEMANTIC_SEARCH_ENABLED === '1';
-export const isClientSemanticSearchEnabled = (): boolean => process.env.NEXT_PUBLIC_ENABLE_SEMANTIC_SEARCH === '1';
 
 export const defaultMode = (): 'fast' | 'deep' =>
   process.env.SEMANTIC_SEARCH_DEFAULT_MODE === 'deep' ? 'deep' : 'fast';

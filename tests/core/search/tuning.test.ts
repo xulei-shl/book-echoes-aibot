@@ -6,7 +6,7 @@ import {
   STYLE_LEVELS,
   WIDER_RECALL_LEVELS,
   YEAR_FLOOR_LEVELS
-} from '@/lib/jev/questions';
+} from '@/lib/search/levels';
 import { LIMIT_MAX, RERANK_TOP_K } from '@/lib/search/config';
 import {
   BM25_B,

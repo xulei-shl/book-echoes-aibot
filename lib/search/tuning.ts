@@ -1,4 +1,4 @@
-import { FIT_LEVELS } from '@/lib/jev/questions';
+import { FIT_LEVELS } from './levels';
 import type { EffectiveTuning, SearchFields, TuningOverride, TuningRejection, TuningSnapshot } from './types';
 
 /**
@@ -10,7 +10,7 @@ import type { EffectiveTuning, SearchFields, TuningOverride, TuningRejection, Tu
  *
  * 两条纪律：
  * 1. **阈值尽量写成与模型输出同单位的派生式**。例：门控不是魔法数 0.30，而是「0.9 个档位」再除以
- *    档位表长度 —— 以后把 `FIT_LEVELS` 从 4 档改成 5 档，门控会自己跟着动，不会静默脱钩。
+ *    档位表长度（见 `levels.ts`）—— 以后把 `FIT_LEVELS` 从 4 档改成 5 档，门控会自己跟着动，不会静默脱钩。
  * 2. 改任何值都要跑 `tests/core/search`；`tuning.test.ts` 守护着「facets 合计 ≤ 预算」「档位表 2–10 档」
  *    「字段权重覆盖所有检索字段」这些不变量，破坏了会直接报错。
  *

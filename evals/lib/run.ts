@@ -1,7 +1,7 @@
-import { resetPipelineState, runSemanticSearch } from '@/lib/search/pipeline';
+import { runSemanticSearch } from '@/lib/search/pipeline';
+import { resetPipelineState } from '@/lib/search/judge-cache';
 import { isFictionDoc } from '@/lib/search/rank';
-import type { SearchDoc } from '@/lib/search/types';
-import type { JudgeFn } from '@/lib/search/pipeline';
+import type { JudgeFn, SearchDoc } from '@/lib/search/types';
 import { stubJudge } from './judge';
 import {
   EXPECTED_DEGRADED,

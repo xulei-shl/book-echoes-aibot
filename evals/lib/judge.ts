@@ -5,9 +5,9 @@ import {
   STYLE_LEVELS,
   WIDER_RECALL_LEVELS,
   YEAR_FLOOR_LEVELS
-} from '@/lib/jev/questions';
+} from '@/lib/search/levels';
 import type { Answer, SystemOneRequest, SystemOneResult } from '@/lib/jev/types';
-import type { JudgeFn } from '@/lib/search/pipeline';
+import type { JudgeFn } from '@/lib/search/types';
 
 /**
  * 评测用的 judge 层：把「模型怎么答」与「我们怎么算」彻底解耦。

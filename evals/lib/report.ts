@@ -1,4 +1,4 @@
-import { FIT_LEVELS } from '@/lib/jev/questions';
+import { FIT_LEVELS } from '@/lib/search/levels';
 import {
   abstainScore,
   constraintViolationRate,

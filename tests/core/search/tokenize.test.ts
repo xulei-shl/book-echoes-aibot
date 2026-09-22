@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeText, tokenize, tokenizeUnique } from '@/lib/search/tokenize';
+import { normalizeText, tokenize } from '@/lib/search/tokenize';
 
 describe('tokenize', () => {
   it('分词为 CJK 滑动 bigram', () => {
@@ -46,7 +46,4 @@ describe('tokenize', () => {
     expect(tokenize('   ')).toEqual([]);
   });
 
-  it('tokenizeUnique 去重保序', () => {
-    expect(tokenizeUnique('焦虑 焦虑')).toEqual(['焦虑']);
-  });
 });

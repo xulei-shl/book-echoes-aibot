@@ -1,5 +1,15 @@
+import type { SystemOneRequest, SystemOneResult } from '@/lib/jev/types';
 import type { Book } from '@/types';
 import type { ClcPath } from './clc';
+
+/**
+ * 判题函数：默认走 `lib/jev/client` 的真实 HTTP 调用，测试与评测注入桩。
+ * 编排与各阶段（意图 / wide / 精排）都只依赖这个签名，不依赖具体客户端。
+ */
+export type JudgeFn = (
+  request: SystemOneRequest,
+  signal?: AbortSignal
+) => Promise<SystemOneResult>;
 
 /**
  * 检索专用字段集合。分词后按字段加权送入 BM25（权重见 tuning.ts::FIELD_WEIGHTS）。
@@ -165,7 +175,7 @@ export interface SearchResultWhy {
   /** 原始召回名次，1-based */
   recallRank: number;
   fit: number | null;
-  /** 模型判定的档位（0..3，见 lib/jev/questions.ts 的 FIT_LEVELS），档位描述可直接展示给用户 */
+  /** 模型判定的档位（0..3，见 lib/search/levels.ts 的 FIT_LEVELS），档位描述可直接展示给用户 */
   fitLevel: number | null;
   /** 档位描述文本（服务端生成：客户端不引入任何服务端模块） */
   fitLevelLabel: string | null;

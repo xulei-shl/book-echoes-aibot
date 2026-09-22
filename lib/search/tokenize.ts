@@ -104,8 +104,3 @@ export function tokenize(text: string): string[] {
 
   return tokens.filter(token => token.length > 0 && !STOPWORDS.has(token));
 }
-
-/** 去重保序，供 query 侧使用。 */
-export function tokenizeUnique(text: string): string[] {
-  return [...new Set(tokenize(text))];
-}
