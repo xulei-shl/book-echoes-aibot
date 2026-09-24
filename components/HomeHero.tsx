@@ -5,65 +5,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import TopNav from './TopNav';
+import EchoWaveDecoration from './EchoWaveDecoration';
 
 interface HomeHeroProps {
     images: string[];
     targetLink: string;
     subtitle: string;
-}
-
-// 预计算书脊线条配置（固定精度避免水合问题）
-// 垂直线条配置 - 简洁的高级感线条
-const VERTICAL_LINES = [...Array(13)].map((_, i) => ({
-    id: i,
-    left: (i * 8) + 2, // 均匀分布
-    width: i % 4 === 0 ? 2 : 1, // 每4根有一根稍粗
-    opacity: 0.15 + (i % 3 === 0 ? 0.15 : 0), // 透明度变化
-    delay: i * 0.15
-}));
-
-// 背景线条装饰组件（内容确定性渲染，动画初始态为透明，无水合风险）
-function HeroLineDecoration() {
-    return (
-        <div className="absolute inset-0 z-[5] overflow-hidden pointer-events-none">
-            {/* 基础暗色渐变背景 - 增强文字可读性 */}
-            <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/60" />
-
-            {/* 垂直线条 */}
-            {VERTICAL_LINES.map((line) => (
-                <motion.div
-                    key={line.id}
-                    className="absolute top-0 bottom-0 bg-gradient-to-b from-transparent via-[#C9A063] to-transparent"
-                    style={{
-                        left: `${line.left}%`,
-                        width: `${line.width}px`,
-                        opacity: line.opacity * 0.5, // 降低整体不透明度，保持低调
-                    }}
-                    initial={{ scaleY: 0, opacity: 0 }}
-                    animate={{ scaleY: 1, opacity: line.opacity * 0.5 }}
-                    transition={{
-                        duration: 1.5,
-                        delay: line.delay,
-                        ease: "circOut"
-                    }}
-                />
-            ))}
-
-            {/* 额外的水平微光线条 - 增加层次感 */}
-            <motion.div
-                className="absolute top-[30%] left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#C9A063]/20 to-transparent"
-                initial={{ scaleX: 0, opacity: 0 }}
-                animate={{ scaleX: 1, opacity: 1 }}
-                transition={{ duration: 2, delay: 0.5 }}
-            />
-            <motion.div
-                className="absolute bottom-[30%] left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#C9A063]/20 to-transparent"
-                initial={{ scaleX: 0, opacity: 0 }}
-                animate={{ scaleX: 1, opacity: 1 }}
-                transition={{ duration: 2, delay: 0.8 }}
-            />
-        </div>
-    );
 }
 
 export default function HomeHero({ images, targetLink, subtitle }: HomeHeroProps) {
@@ -90,11 +37,11 @@ export default function HomeHero({ images, targetLink, subtitle }: HomeHeroProps
             {/* Logo - Top Left（全站统一顶部导航，首页仅显示 Logo） */}
             <TopNav showButtons={false} />
 
-            {/* 抽象线条装饰层 - 最底层 */}
-            <HeroLineDecoration />
+            {/* 动态同心水波纹装饰层 - 贴合“回响”意象 */}
+            <EchoWaveDecoration />
 
             {/* Background Image Carousel */}
-            <div className="absolute inset-0 z-[1]">
+            <div className="absolute inset-0 z-[1] pointer-events-none">
                 <AnimatePresence mode="wait">
                     {images.length > 0 && (
                         <motion.div
@@ -132,12 +79,12 @@ export default function HomeHero({ images, targetLink, subtitle }: HomeHeroProps
                 </AnimatePresence>
             </div>
 
-            {/* Text Content - Dynamic Calligraphy Style */}
+            {/* Text Content - Dynamic Calligraphy Style (pointer-events-none 允许背景捕获点击水波，交互子项恢复 auto) */}
             <div
-                className="relative z-[10] flex flex-col items-center justify-center"
+                className="relative z-[10] flex flex-col items-center justify-center pointer-events-none"
             >
                 <motion.div
-                    className="relative flex items-center gap-0 md:gap-2 cursor-pointer group"
+                    className="relative flex items-center gap-0 md:gap-2 cursor-pointer group pointer-events-auto"
                     onClick={() => router.push(targetLink)}
                     initial={{ opacity: 0, scale: 0.9, y: 30 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -217,7 +164,7 @@ export default function HomeHero({ images, targetLink, subtitle }: HomeHeroProps
                 </motion.p>
 
                 <motion.div
-                    className="mt-8"
+                    className="mt-8 pointer-events-auto"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 1.2, duration: 0.8, ease: "easeOut" }}
