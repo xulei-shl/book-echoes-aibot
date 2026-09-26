@@ -23,14 +23,14 @@ const gridClass = 'grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-
 /**
  * Top 1 电影级连续镜头破壁卡片：
  * 1. 破壁爆发（Phase: breaking，0~320ms）：
- *    - 初始深渊光子态（scale: 0.15, blur(14px), 过曝高亮）；
+ *    - 初始深渊光子态（scale: 0.3, opacity: 0）；
  *    - 同步引爆金色 Shockwave 冲击波光环撕裂背景；
- *    - 以爆炸式动量曲线 [0.16, 1, 0.3, 1] 破壁击穿屏幕，暴冲至视口绝对中心（scale: 1.42）！
+ *    - 以爆炸式动量曲线 [0.16, 1, 0.3, 1] 破壁击穿屏幕，暴冲至视口绝对中心（scale: 1.4）！
  * 2. 居中定格特写（Phase: focused，320ms~1120ms，从容停顿整整 800ms）：
- *    - 留出充足呼吸时间，金色脉冲呼吸光晕与流光徽标让用户看清第一名封面与书名；
- * 3. 弹簧滑翔入位（Phase: gliding，1120ms~1540ms，420ms）：
- *    - 沿物理弹簧曲线（stiffness: 320, damping: 26）从中央平滑收缩回 1.0 并飞入自身卡槽 (0, 0)；
- *    - 100% 严丝合缝落入 Slot 0！
+ *    - 留出充足呼吸时间，金色脉冲呼吸光晕让用户清晰看清第一名封面与书名；
+ * 3. 弹簧滑翔入座（Phase: gliding，1120ms~1540ms，420ms）：
+ *    - 沿物理弹簧曲线（stiffness: 320, damping: 26, mass: 0.85）从中央平滑收缩回 1.0 并飞入自身卡槽 (0, 0)；
+ *    - 100% 严丝合缝落入 Slot 0 第一格！
  * 4. 恢复交互（Phase: settled）：
  *    - 恢复常规层级与点击打开详情等操作。
  */
@@ -102,9 +102,8 @@ function TopResultHeroCard({
         initial={{
           x: delta.x,
           y: delta.y,
-          scale: 0.15,
+          scale: 0.3,
           opacity: 0,
-          filter: 'blur(14px) brightness(2.2)',
           zIndex: 70
         }}
         animate={
@@ -112,9 +111,8 @@ function TopResultHeroCard({
             ? {
                 x: delta.x,
                 y: delta.y,
-                scale: 1.42,
+                scale: 1.4,
                 opacity: 1,
-                filter: 'blur(0px) brightness(1)',
                 zIndex: 70,
                 transition: {
                   duration: 0.32,
@@ -125,9 +123,8 @@ function TopResultHeroCard({
             ? {
                 x: delta.x,
                 y: delta.y,
-                scale: 1.35,
+                scale: 1.36,
                 opacity: 1,
-                filter: 'blur(0px) brightness(1)',
                 zIndex: 70,
                 transition: {
                   duration: 0.3,
@@ -140,7 +137,6 @@ function TopResultHeroCard({
                 y: 0,
                 scale: 1.0,
                 opacity: 1,
-                filter: 'blur(0px) brightness(1)',
                 zIndex: 70,
                 transition: {
                   type: 'spring',
@@ -154,13 +150,14 @@ function TopResultHeroCard({
                 y: 0,
                 scale: 1.0,
                 opacity: 1,
-                filter: 'blur(0px) brightness(1)',
                 zIndex: 1
               }
         }
-        className={`absolute inset-0 transition-shadow duration-300 ${
+        className={`absolute inset-0 transition-shadow duration-300 will-change-transform ${
           phase === 'breaking' || phase === 'focused'
             ? 'shadow-[0_0_65px_rgba(201,160,99,0.85)] ring-2 ring-[#C9A063]'
+            : phase === 'gliding'
+            ? 'shadow-[0_0_35px_rgba(201,160,99,0.5)] ring-1 ring-[#C9A063]'
             : ''
         }`}
       >
@@ -189,7 +186,7 @@ export default function ResultGallery({
     <div className="w-full">
       <div className={gridClass}>
         {results.map((item, index) => {
-          // 第 1 张卡片：作为主角执行破壁爆发、居中停顿与弹簧落座动画
+          // 第 1 张卡片：作为主角执行破壁爆发、居中从容停顿 800ms 与物理弹簧落座动画
           if (index === 0) {
             return (
               <TopResultHeroCard

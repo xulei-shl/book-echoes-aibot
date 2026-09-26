@@ -63,7 +63,8 @@ export default function SemanticSearchPage({ covers }: SemanticSearchPageProps) 
     reset,
     clearError,
     stage,
-    stageInfo
+    stageInfo,
+    hits
   } = useSemanticSearch();
 
   const [isFocused, setIsFocused] = useState(false);
@@ -220,13 +221,28 @@ export default function SemanticSearchPage({ covers }: SemanticSearchPageProps) 
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -6 }}
                     transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
-                    className="inline-block"
+                    className="inline-block tabular-nums"
                   >
                     {getSearchingStatusText(stage, stageInfo)}
                   </motion.span>
                 </AnimatePresence>
                 <span className="inline-block h-3 w-1 bg-[#C9A063] animate-pulse" />
               </div>
+
+              {/* 流式召回候选感知：实时呈现最新命中图书，消解等待焦虑 */}
+              {hits.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="mt-3 flex items-center gap-1.5 font-mono text-[11px] text-[#A8A59E] tabular-nums"
+                >
+                  <span className="text-[#C9A063]/80">已捕获 {hits.length} 本候选：</span>
+                  <span className="max-w-[260px] truncate sm:max-w-md text-[#E8E6DC]/90">
+                    《{hits[hits.length - 1].book.title}》
+                  </span>
+                </motion.div>
+              )}
             </motion.div>
           )}
           {view === 'abstained' && (

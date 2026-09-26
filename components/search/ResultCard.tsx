@@ -59,6 +59,7 @@ export default function ResultCard({ item, onOpen, badge }: ResultCardProps) {
       <div className="group/why absolute right-1.5 top-1.5 z-30">
         <button
           type="button"
+          onClick={e => e.stopPropagation()}
           aria-label="查看判定依据"
           className="relative flex h-6 w-6 items-center justify-center border border-[#C9A063]/50 bg-[#141312]/75 font-mono text-[11px] text-[#C9A063] shadow-md backdrop-blur-md opacity-70 transition-[opacity,border-color,background-color] duration-200 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 after:absolute after:-inset-2 after:content-['']"
         >

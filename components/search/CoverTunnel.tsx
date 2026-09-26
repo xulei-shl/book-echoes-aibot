@@ -6,8 +6,8 @@ import type { SearchCoverItem } from '@/lib/content';
 /** 基础慢速巡航速度（px/s）：沉稳悠扬的书香漫游感 */
 const CRUISE_SPEED = 12;
 
-/** 检索态超光速穿梭速度（px/s）：星际折跃般的极速呼啸飞驰狂飙 */
-const WARP_SPEED = 3200;
+/** 检索态超光速穿梭速度（px/s）：兼具时空折跃张力与 60fps 丝滑稳定性 */
+const WARP_SPEED = 1200;
 
 /** 8 列交错位移序列（px），打破横平竖直的表格感，营造如同杂志展廊般的流动波浪律动 */
 const COLUMN_OFFSETS = [0, 68, 20, 84, 32, 76, 12, 52];
@@ -43,7 +43,9 @@ export default function CoverTunnel({
   // 速度阻尼状态机引用
   const currentSpeedRef = useRef(CRUISE_SPEED);
   const isSearchingRef = useRef(isSearching);
-  isSearchingRef.current = isSearching;
+  useEffect(() => {
+    isSearchingRef.current = isSearching;
+  }, [isSearching]);
 
   // 将全量封面平均分流到 8 个纵向流中
   const columns = useMemo(() => {
@@ -162,23 +164,29 @@ export default function CoverTunnel({
       className="fixed inset-0 z-0 overflow-hidden bg-[#0e0d0c] select-none pointer-events-none"
       aria-hidden="true"
     >
-      {/* 扫掠激光样式 */}
+      {/* 扫掠激光样式：纯 GPU 合成层驱动垂直位移，并在减弱动效下隐藏 */}
       <style>{`
         @keyframes laser-warp-sweep {
-          0% { top: -10%; opacity: 0.1; }
+          0% { transform: translateY(-10vh); opacity: 0.1; }
           50% { opacity: 0.95; }
-          100% { top: 110%; opacity: 0.1; }
+          100% { transform: translateY(110vh); opacity: 0.1; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .laser-warp-sweep-line {
+            animation: none !important;
+            display: none !important;
+          }
         }
       `}</style>
 
       {/* 空间暗角与柔和书香暖金色径向光 */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(201,160,99,0.06),transparent_70%)]" />
 
-      {/* 检索穿梭态激光全屏横扫 */}
+      {/* 检索穿梭态激光全屏横扫：精致纤细光芯 + 柔和暖金双层微晕（GPU 合成层加速） */}
       {isSearching && (
         <div
-          className="pointer-events-none absolute inset-x-0 h-2.5 bg-gradient-to-r from-transparent via-[#C9A063] to-transparent shadow-[0_0_35px_#C9A063] z-10"
-          style={{ animation: 'laser-warp-sweep 0.45s ease-in-out infinite' }}
+          className="laser-warp-sweep-line pointer-events-none absolute top-0 inset-x-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#FFF4DE] to-transparent shadow-[0_0_14px_1px_rgba(201,160,99,0.7),0_0_2px_#FFF] z-10 will-change-transform"
+          style={{ animation: 'laser-warp-sweep 0.85s ease-in-out infinite' }}
         />
       )}
 

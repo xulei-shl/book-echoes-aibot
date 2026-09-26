@@ -88,7 +88,7 @@ export default function SearchBox({
             onClick={onClear}
             aria-label={value.length > 0 ? '清空输入' : '退出检索状态'}
             title={value.length > 0 ? '清空输入' : '退出检索状态'}
-            className="flex h-7 w-7 shrink-0 items-center justify-center text-[#B8B5AD] transition-colors hover:bg-white/10 hover:text-[#F2F0E9]"
+            className="relative flex h-7 w-7 shrink-0 items-center justify-center text-[#B8B5AD] transition-colors hover:bg-white/10 hover:text-[#F2F0E9] after:absolute after:-inset-2 after:content-['']"
           >
             <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -117,7 +117,7 @@ export default function SearchBox({
         </motion.button>
       </form>
 
-      {/* 底部微调栏：模式胶囊居右对齐，左侧留白 */}
+      {/* 底部微调栏：模式胶囊居右对齐，带平滑滑块微交互 */}
       <div className="mt-3.5 flex min-h-6 items-center justify-end px-2 text-xs">
         <div className="flex items-center gap-1 border border-[#C9A063]/40 bg-[#141312]/60 p-0.5 shadow-md backdrop-blur-md">
           {(['fast', 'deep'] as const).map(option => (
@@ -126,14 +126,25 @@ export default function SearchBox({
               whileTap={{ scale: 0.96 }}
               type="button"
               onClick={() => onModeChange(option)}
-              className={`px-2.5 py-0.5 font-mono text-[11px] tracking-wider transition-[background-color,color] duration-150 ${
-                mode === option
-                  ? 'bg-[#C9A063] font-medium text-[#161514] shadow-sm'
-                  : 'text-[#DCD9D0] hover:text-[#F2F0E9]'
-              }`}
+              className="relative px-3 py-1 font-mono text-[11px] tracking-wider transition-colors duration-150 after:absolute after:-inset-1 after:content-['']"
               title={option === 'fast' ? '快速模式：两阶段语义判定' : '深入模式：补发全馆宽召回'}
             >
-              {option === 'fast' ? '快速' : '深入'}
+              {mode === option && (
+                <motion.span
+                  layoutId="activeSearchModeIndicator"
+                  className="absolute inset-0 bg-[#C9A063] shadow-sm"
+                  transition={{ type: 'spring', duration: 0.22, bounce: 0 }}
+                />
+              )}
+              <span
+                className={`relative z-10 transition-colors duration-150 ${
+                  mode === option
+                    ? 'font-medium text-[#161514]'
+                    : 'text-[#DCD9D0] hover:text-[#F2F0E9]'
+                }`}
+              >
+                {option === 'fast' ? '快速' : '深入'}
+              </span>
             </motion.button>
           ))}
         </div>
