@@ -54,6 +54,16 @@ export const FACET_WEIGHTS = {
 } as const;
 /** facets 合计上限：所有分项之和不得超过它，保证「只能微调、不能翻盘」 */
 export const FACET_BONUS_BUDGET = 0.95;
+/**
+ * 模型类目条件降级成的软先验权重（§6.3）：命中类目加分、未命中不扣分。
+ *
+ * 类目**不升级成硬过滤**（`constraints.ts::resolveConstraints`）：查询词与中图法类目名同形时
+ * （「世界历史」「中国地理」），模型几乎必然把它读成「按类目筛」，硬过滤会让语义检索退化成
+ * 单桶检索，仅因类号不同却同样相关的书被静默删除。软先验保留类目信号，但不删结果。
+ */
+export const CLASS_MATCH_WEIGHT = 0.25;
+/** 本地软先验总预算 = facets 各分项 + 类目软先验，保证「只能微调、不能翻盘」 */
+export const SOFT_PRIOR_BUDGET = FACET_BONUS_BUDGET + CLASS_MATCH_WEIGHT;
 /** 中性偏好值：等于它时贡献为 0，偏离越远加成越大（连续量，不做 > 0.5 二值化） */
 export const PREFERENCE_NEUTRAL = 0.5;
 

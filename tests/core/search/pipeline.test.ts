@@ -519,8 +519,8 @@ describe('模型类目条件（独立请求 + 两级两题）', () => {
     makeDoc('c3', '焦虑时代', '社会学观察', { callNumber: 'C913.9' })
   ];
 
-  it('模型给出类目即成为硬过滤，且与 API 显式传参结果一致', async () => {
-    // l1 = C 社会科学总论，l2 = C91 社会学：三本里只有 c3 属于这一类
+  it('模型给出类目只作为软先验：不删结果，类号记入 plan.dropped（soft）', async () => {
+    // l1 = C 社会科学总论，l2 = C91 社会学：两级同源 → 取更具体的二级
     const { judge } = makeJudge({
       rerank: () => 0.9,
       pNone: 0.05,
@@ -531,12 +531,13 @@ describe('模型类目条件（独立请求 + 两级两题）', () => {
       { query: '焦虑' },
       { judge, corpus: classCorpus, vectors: null }
     );
-    // 两级同源 → 取更具体的二级
-    expect(result.intent.plan.applied).toEqual([
-      { field: 'callClasses', value: ['C91'], source: 'model' }
+    // 类目不再升级成硬过滤：只进 dropped，由本地软先验加分
+    expect(result.intent.plan.applied).toEqual([]);
+    expect(result.intent.plan.dropped).toEqual([
+      { field: 'callClasses', value: ['C91'], reason: 'soft' }
     ]);
-    expect(result.intent.plan.dropped).toEqual([]);
-    expect(result.results.map(item => item.book.id)).toEqual(['c3']);
+    // 类号不同的书不再被删除 —— 这正是语义检索相对单桶过滤的增量
+    expect(result.results.map(item => item.book.id).sort()).toEqual(['c1', 'c2', 'c3']);
   });
 
   it('两级不一致时退回较粗的 l1（宁可不过滤，也不误删）', async () => {
@@ -551,10 +552,11 @@ describe('模型类目条件（独立请求 + 两级两题）', () => {
       { query: '焦虑' },
       { judge, corpus: classCorpus, vectors: null }
     );
-    expect(result.intent.plan.applied).toEqual([
-      { field: 'callClasses', value: ['K'], source: 'model' }
+    expect(result.intent.plan.applied).toEqual([]);
+    expect(result.intent.plan.dropped).toEqual([
+      { field: 'callClasses', value: ['K'], reason: 'soft' }
     ]);
-    expect(result.results.map(item => item.book.id)).toEqual(['c2']);
+    expect(result.results.length).toBe(3);
   });
 
   it('一级答「不是在按类目筛」时整条类目条件都不用（二级答案不单独采信）', async () => {
@@ -569,16 +571,17 @@ describe('模型类目条件（独立请求 + 两级两题）', () => {
     expect(result.results.length).toBeGreaterThan(1);
   });
 
-  it('一级给了大类、二级答「没有更具体的」时用 l1', async () => {
+  it('一级给了大类、二级答「没有更具体的」时用 l1（同样只做软先验）', async () => {
     const { judge } = makeJudge({ rerank: () => 0.9, pNone: 0.05, classL1: 'K' });
     const result = await runSemanticSearch(
       { query: '焦虑' },
       { judge, corpus: classCorpus, vectors: null }
     );
-    expect(result.intent.plan.applied).toEqual([
-      { field: 'callClasses', value: ['K'], source: 'model' }
+    expect(result.intent.plan.applied).toEqual([]);
+    expect(result.intent.plan.dropped).toEqual([
+      { field: 'callClasses', value: ['K'], reason: 'soft' }
     ]);
-    expect(result.results.map(item => item.book.id)).toEqual(['c2']);
+    expect(result.results.length).toBe(3);
   });
 
   it('答 __none__ 时不设任何类目条件（默认档）', async () => {
@@ -619,11 +622,11 @@ describe('模型类目条件（独立请求 + 两级两题）', () => {
       }
     );
 
-    expect(first.intent.plan.applied).toEqual([
-      { field: 'callClasses', value: ['C91'], source: 'model' }
+    expect(first.intent.plan.dropped).toEqual([
+      { field: 'callClasses', value: ['C91'], reason: 'soft' }
     ]);
-    expect(second.intent.plan.applied).toEqual([
-      { field: 'callClasses', value: ['K92'], source: 'model' }
+    expect(second.intent.plan.dropped).toEqual([
+      { field: 'callClasses', value: ['K92'], reason: 'soft' }
     ]);
   });
 
@@ -667,43 +670,37 @@ describe('模型类目条件（独立请求 + 两级两题）', () => {
     expect(result.results.map(item => item.book.id)).toEqual(['c1']);
   });
 
-  it('模型类目很选择性（候选薄）时补一次本地召回，落到与显式传参相同的结果', async () => {
-    // K92 中国地理极稀疏：两路 lane 各自前 LANE_LIMIT 名里可能一本都没有，
-    // 融合后过滤会得到空候选 → 必须靠第二段重跑捞回，且**不烧任何 Jev 请求**。
+  it('模型类目选择性极高也不再滤空候选（降级为软先验的核心收益）', async () => {
+    // 200 本 B842.6 + 唯一一本 K92。类目硬过滤时两路 lane 的前 N 名里几乎全是 B 类，
+    // 融合后过滤会得到空候选 → 旧实现要跑第二段补召回；现在类目只是软先验，压根不删结果。
     const sparse: SearchDoc[] = [];
     for (let i = 0; i < 200; i += 1) {
       sparse.push(makeDoc(`h${i}`, `焦虑研究${i}`, '焦虑主题专著', { callNumber: 'B842.6' }));
     }
-    // 唯一一本 K92：词面弱命中（仅在初评理由里出现），BM25 名次落在尾部窗口之外
     sparse.push(
       makeDoc('geo', '中国地理纲要', '中国自然地理专著，兼论焦虑的分布', { callNumber: 'K928.42' })
     );
 
-    const viaApi = await runSemanticSearch(
-      { query: '焦虑', limit: 10, filters: { callClasses: ['K92'] } },
-      { judge: makeJudge({ rerank: () => 0.9, pNone: 0.05 }).judge, corpus: sparse, vectors: null }
-    );
-    // 两轮跑同一句 query：清掉意图缓存，否则第二次会直接复用第一次的结论（无类目）
-    resetPipelineState();
-    const viaModel = await runSemanticSearch(
+    const { judge, calls } = makeJudge({
+      rerank: () => 0.9,
+      pNone: 0.05,
+      classL1: 'K',
+      classL2: 'K92'
+    });
+    const result = await runSemanticSearch(
       { query: '焦虑', limit: 10 },
-      {
-        judge: makeJudge({ rerank: () => 0.9, pNone: 0.05, classL1: 'K', classL2: 'K92' }).judge,
-        corpus: sparse,
-        vectors: null
-      }
+      { judge, corpus: sparse, vectors: null }
     );
 
-    expect(viaApi.intent.plan.applied).toEqual([
-      { field: 'callClasses', value: ['K92'], source: 'api' }
+    expect(result.intent.plan.applied).toEqual([]);
+    expect(result.intent.plan.dropped).toEqual([
+      { field: 'callClasses', value: ['K92'], reason: 'soft' }
     ]);
-    expect(viaModel.intent.plan.applied).toEqual([
-      { field: 'callClasses', value: ['K92'], source: 'model' }
-    ]);
-    // 两条路径必须给出同一本书 —— 模型引入的条件不能比显式条件「少召回」
-    expect(viaModel.results.map(item => item.book.id)).toEqual(['geo']);
-    expect(viaApi.results.map(item => item.book.id)).toEqual(['geo']);
-    expect(viaModel.abstained).toBe(false);
+    expect(result.abstained).toBe(false);
+    expect(result.results.length).toBeGreaterThan(1);
+    // 类目不再触发补召回：一次意图 + 一次类目 + 一次精排
+    expect(calls.filter(call => 'intent' in call.questions)).toHaveLength(1);
+    expect(calls.filter(call => 'best' in call.questions)).toHaveLength(1);
   });
 
   it('模型推出的年份下限（非类目）同样享受两段式补召回', async () => {
@@ -1005,10 +1002,10 @@ describe('两次 Jev 调用的失败隔离', () => {
 
     expect(result.degraded).toContain('understand');
     expect(result.degraded).not.toContain('understand-class');
-    // 拆成两次调用的直接收益：这边挂了不影响那边
-    expect(result.intent.plan.applied).toEqual([
-      { field: 'callClasses', value: ['K92'], source: 'model' }
+    // 拆成两次调用的直接收益：这边挂了不影响那边 —— 类目结论仍可用，只是作为软先验
+    expect(result.intent.plan.dropped).toEqual([
+      { field: 'callClasses', value: ['K92'], reason: 'soft' }
     ]);
-    expect(result.results.map(item => item.book.id)).toEqual(['n2']);
+    expect(result.results.length).toBe(2);
   });
 });

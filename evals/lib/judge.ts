@@ -6,6 +6,8 @@ import {
   WIDER_RECALL_LEVELS,
   YEAR_FLOOR_LEVELS
 } from '@/lib/search/levels';
+import { CALL_CLASS_L1_KEY, CALL_CLASS_L2_KEY } from '@/lib/jev/questions';
+import { NONE_KEY } from '@/lib/search/options';
 import type { Answer, SystemOneRequest, SystemOneResult } from '@/lib/jev/types';
 import type { JudgeFn } from '@/lib/search/types';
 
@@ -78,6 +80,31 @@ export function stubJudge(options: StubOptions = {}): StubJudge {
     const keys = Object.keys(request.questions);
     const answers: Record<string, Answer> = {};
 
+    /**
+     * 类目请求（①b）的中性作答：挑 `__none__`（不按类目筛）。
+     *
+     * 中性 stub 必须显式覆盖它 —— 类目判断是一次**独立请求**，缺这条分支时会掉进
+     * 精排分支、因 `state` 形状不符而报错，整轮评测被标成非预期降级 `understand-class`。
+     * 概率必须覆盖全部 criteria key（decode 校验 option keys == criteria keys、和为 1）。
+     */
+    const classNone = (questionKey: string): Answer => {
+      const criteria = (request.questions[questionKey]?.criteria ?? {}) as Record<
+        string,
+        string | null
+      >;
+      const all = Object.keys(criteria);
+      const others = all.filter(key => key !== NONE_KEY);
+      const probabilities: Record<string, number> = {};
+      for (const key of all) probabilities[key] = 0;
+      if (others.length === 0) {
+        probabilities[NONE_KEY] = 1;
+      } else {
+        probabilities[NONE_KEY] = 0.8;
+        for (const key of others) probabilities[key] = 0.2 / others.length;
+      }
+      return choice(probabilities, NONE_KEY);
+    };
+
     if (keys.includes('intent')) {
       answers.intent = choice(
         { concept: 0.7, work: 0.1, similar: 0.1, list: 0.05, other: 0.05 },
@@ -95,6 +122,11 @@ export function stubJudge(options: StubOptions = {}): StubJudge {
       answers.rating_floor = score(RATING_FLOOR_LEVELS.length, options.ratingFloor ?? 0);
       answers.constraint_strictness = noul(options.wantStrictness ?? 0);
       answers.negation_present = noul(options.wantNegation ?? 0);
+    } else if (keys.includes(CALL_CLASS_L1_KEY)) {
+      // 与年份/评分档位一样保持中性：不凭空产生模型侧类目条件
+      answers[CALL_CLASS_L1_KEY] = classNone(CALL_CLASS_L1_KEY);
+      answers[CALL_CLASS_L2_KEY] = classNone(CALL_CLASS_L2_KEY);
+      answers.negation_present = noul(0);
     } else if (keys.includes('pick')) {
       const shard = (request.state as { shard: { id: string; title: string }[] }).shard;
       const probabilities: Record<string, number> = {};

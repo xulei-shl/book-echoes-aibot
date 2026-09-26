@@ -10,7 +10,7 @@ import {
   type RerankCandidate
 } from '@/lib/search/rank';
 import { resolveClc } from '@/lib/search/clc';
-import { FIT_GATE } from '@/lib/search/tuning';
+import { CLASS_MATCH_WEIGHT, FIT_GATE } from '@/lib/search/tuning';
 import type { AppliedConstraint, QueryFacets, SearchDoc } from '@/lib/search/types';
 
 function makeDoc(id: string, options: { callNumber?: string; rating?: number; pubYear?: number } = {}): SearchDoc {
@@ -141,6 +141,17 @@ describe('rank / facetBonusFor（连续 facets）', () => {
     const facets = { ...NEUTRAL, avoidTheory: 1 };
     expect(facetBonusFor(makeDoc('t', { callNumber: 'B842' }), facets, 2026)).toBeLessThan(0);
     expect(facetBonusFor(makeDoc('n', { callNumber: 'I247.5' }), facets, 2026)).toBeGreaterThan(0);
+  });
+
+  it('模型类目软先验只加分、不扣分（类目不再删结果）', () => {
+    const soft = new Set(['K92']);
+    // K928.42 命中 K92 前缀 → 加分；B842.6 不在类目里 → 0（而不是扣分）
+    expect(
+      facetBonusFor(makeDoc('geo', { callNumber: 'K928.42' }), NEUTRAL, 2026, undefined, soft)
+    ).toBeCloseTo(CLASS_MATCH_WEIGHT);
+    expect(
+      facetBonusFor(makeDoc('psy', { callNumber: 'B842.6' }), NEUTRAL, 2026, undefined, soft)
+    ).toBeCloseTo(0);
   });
 });
 

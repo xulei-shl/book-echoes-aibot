@@ -24,6 +24,7 @@ import {
   OVERRIDABLE_ENV_KEYS,
   PREFERENCE_NEUTRAL,
   RRF_K,
+  SOFT_PRIOR_BUDGET,
   W_FACET,
   W_FIT,
   WIDER_RECALL_TRIGGER,
@@ -76,8 +77,9 @@ describe('tuning / 本地打分预算', () => {
     }
   });
 
-  it('本地软先验的总权重远小于 Jev 档位的权重', () => {
-    expect(W_FACET * FACET_BONUS_BUDGET).toBeLessThan(W_FIT);
+  it('本地软先验（facets + 类目软先验）的总权重远小于 Jev 档位的权重', () => {
+    expect(SOFT_PRIOR_BUDGET).toBeGreaterThanOrEqual(FACET_BONUS_BUDGET);
+    expect(W_FACET * SOFT_PRIOR_BUDGET).toBeLessThan(W_FIT);
   });
 
   it('中性偏好是 0..1 的中点（等于它时贡献为 0）', () => {

@@ -123,6 +123,12 @@ export function deterministicConstraints(
  * 3. 确定性层没有给出同名条件（字面证据优先，避免两套标准）。
  *
  * 不满足时进入 `plan.dropped`：模型可以提出条件，但不能单方面删结果（延续 facets「只能微调」的纪律）。
+ *
+ * **类目例外：永不升级成硬过滤，只作为软先验**（`softClasses`，§6.3）。
+ * 理由：类目名的字面即学科名，用户在句子里写「世界历史」「中国地理」时，
+ * 模型无法区分这是「按类目筛」还是「描述主题」，几乎必然判成前者；
+ * 一旦硬过滤，召回被锁死在一个类号桶里，仅因分类号不同却同样相关的书被静默删除 ——
+ * 那正好是语义检索相对关键词检索的增量所在。显式筛选仍可由调用方走 `filters.callClasses`（代码确认，无歧义）。
  */
 export function resolveConstraints(args: {
   base: DeterministicConstraints;
@@ -137,10 +143,11 @@ export function resolveConstraints(args: {
   /** 类目请求给出的类号（已按「退回较粗的 l1」合并完毕） */
   modelClasses?: string[];
   terms: string[];
-}): { filters: SearchFilters; plan: QueryPlanTrace } {
+}): { filters: SearchFilters; plan: QueryPlanTrace; softClasses: string[] } {
   const filters: SearchFilters = { ...args.base.filters };
   const applied: AppliedConstraint[] = [...args.base.applied];
   const dropped: DroppedConstraint[] = [];
+  const softClasses: string[] = [];
 
   const negated = args.negation > args.negationMax;
   const strict = args.strictness >= args.hardStrictness;
@@ -182,12 +189,10 @@ export function resolveConstraints(args: {
     }
   }
 
-  // 类目条件：两道门，**不看 `constraint_strictness`**。
-  // 那道题问的是「年份/评分/是否虚构是不是必须满足的硬条件」，与类目不是同一个判断；
-  // 而类目题本身就是在问「是不是在按类目筛」—— 模型给出具体类目（而非 `__none__`）
-  // 已经是这道题的答案，再叠一道 strictness 等于把同一个信号数两遍。
-  // 保留的两道门：确定性层已有类目则让位（字面/显式证据优先）；句中有否定则一律不用
-  // （「不要历史类的」不能被反向执行成「只要历史类」）。
+  // 类目条件：**永不硬过滤，只做软先验**（见函数头注释）。
+  // 两道让位门仍然保留：确定性层已有类目则字面/显式证据优先（`rule-conflict`）；
+  // 句中有否定则一律不用（`negated`，不能让「不要历史类的」被反向执行成「只要历史类」）。
+  // 其余情形一律记 `soft` 并把类号交给本地软加权 —— 模型可以提出类目，但不能据此删结果。
   const modelClasses = args.modelClasses;
   if (modelClasses && modelClasses.length > 0) {
     if (filters.callClasses !== undefined) {
@@ -195,10 +200,10 @@ export function resolveConstraints(args: {
     } else if (args.negated > args.negationMax) {
       dropped.push({ field: 'callClasses', value: modelClasses, reason: 'negated' });
     } else {
-      filters.callClasses = [...modelClasses];
-      applied.push({ field: 'callClasses', value: [...modelClasses], source: 'model' });
+      dropped.push({ field: 'callClasses', value: [...modelClasses], reason: 'soft' });
+      softClasses.push(...modelClasses);
     }
   }
 
-  return { filters, plan: { terms: args.terms, applied, dropped } };
+  return { filters, plan: { terms: args.terms, applied, dropped }, softClasses };
 }

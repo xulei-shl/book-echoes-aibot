@@ -379,13 +379,20 @@ export async function runSemanticSearch(
     negationMax: tuning.effective.jevNegationMax,
     terms: normalized.terms
   });
+  // 模型类目条件降级成的软先验（§6.3）：命中类目加分、不删结果。
+  // 类号在此处一次性规范化为 Set，避免每个候选重复分配（与 compileDocFilter 同一套纪律）。
+  const softClassSet =
+    constraints.softClasses.length > 0
+      ? new Set(constraints.softClasses.map(code => code.trim().toUpperCase()))
+      : null;
   // 被丢弃的模型约束不标 degraded（不是降级，是可解释的策略结果），看 intent.plan.dropped
   let fused = fuseAndFilter(allLaneResults, docs, constraints.filters, deepTopK);
 
   // ── 两段式：模型推出的硬条件赶不上下推时补一次本地召回 ──────────────────────
   // 模型答案与两条 lane **并发**返回，物理上赶不上开跑前的下推（见 deterministicConstraints）。
-  // 这类条件往往很选择性（类目实测 K92 只占全馆 5/509 ≈ 1%；「近两年」同样只剩一小撮），
+  // 这类条件往往很选择性（例：「近两年」升级成的 `pubYearFrom` 只剩一小撮，实测 K92 只占全馆 5/509 ≈ 1%），
   // 融合后 top-K 里常常一本都没有 —— 「馆藏里明明有」于是被误报成「没有」。
+  // 注：类目已不再升级硬过滤（只做软先验，见 resolveConstraints），因此这里只剩年份/评分/虚构。
   // 只在候选确实偏薄时付这一次本地重跑：查询向量已在 LRU、understand 已缓存 → **0 次 Jev 请求**。
   //
   // 触发面覆盖**所有**模型推出的硬条件（年份/评分/虚构/类目），不是只有类目：
@@ -529,7 +536,8 @@ export async function runSemanticSearch(
         doc,
         understanding.value.facets,
         now.getFullYear(),
-        tuning.effective
+        tuning.effective,
+        softClassSet
       )
     });
   });

@@ -1,5 +1,5 @@
-import { isFictionClc } from './clc';
-import { PREFERENCE_NEUTRAL, getTuning } from './tuning';
+import { isFictionClc, matchesClc } from './clc';
+import { CLASS_MATCH_WEIGHT, PREFERENCE_NEUTRAL, getTuning } from './tuning';
 import type {
   AppliedConstraint,
   EffectiveTuning,
@@ -112,14 +112,22 @@ export function facetBonusFor(
   facets: QueryFacets,
   nowYear = new Date().getFullYear(),
   /** 调用方（pipeline）传入本次生效调参，避免每个候选重复解析环境变量 */
-  tuning: EffectiveTuning = getTuning().effective
+  tuning: EffectiveTuning = getTuning().effective,
+  /**
+   * 模型类目条件降级成的软先验（已规范化的类号集合）；null = 无类目信号。
+   * 命中即加分、未命中不扣分 —— 它是「倾向」，不是筛选（§6.3）。
+   */
+  softClasses: ReadonlySet<string> | null = null
 ): number {
   const weights = tuning.facetWeights;
   return (
     weights.fiction * centered(facets.wantsFiction) * fictionSign(doc) +
     weights.recent * centered(facets.wantsRecent) * yearScore(doc.numeric.pubYear, nowYear, tuning) +
     weights.theory * centered(facets.avoidTheory) * (theoryScore(doc) < 0.5 ? 1 : -1) +
-    weights.verified * centered(facets.wantsVerified) * Math.min(doc.numeric.rating / 10, 1)
+    weights.verified * centered(facets.wantsVerified) * Math.min(doc.numeric.rating / 10, 1) +
+    (softClasses !== null && softClasses.size > 0 && matchesClc(doc.clc, softClasses)
+      ? CLASS_MATCH_WEIGHT
+      : 0)
   );
 }
 
