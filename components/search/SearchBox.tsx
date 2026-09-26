@@ -1,61 +1,7 @@
 'use client';
 
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import type { SearchMode } from '@/lib/search/types';
-
-interface StageInfoProps {
-  terms?: string[];
-  corpusSize?: number;
-  intent?: string;
-  confidence?: number;
-  lexicalHits?: number;
-  denseHits?: number;
-  fusedCandidates?: number;
-  candidateCount?: number;
-}
-
-function stageMessage(stage: string | null, info: StageInfoProps | null): string {
-  if (!stage) return '正在连接检索服务…';
-  switch (stage) {
-    case 'preparing':
-      return info?.corpusSize
-        ? `正在 ${info.corpusSize} 本馆藏中检索…`
-        : '正在分析检索意图…';
-    case 'scanning':
-      return '正在进行向量空间比对…';
-    case 'analyzed':
-      return info?.fusedCandidates
-        ? `已召回 ${info.fusedCandidates} 本候选`
-        : '语义分析完成';
-    case 'reranking':
-      return info?.candidateCount
-        ? `Jev 正在精排 ${info.candidateCount} 本候选…`
-        : '正在进行语义精排…';
-    default:
-      return '正在检索…';
-  }
-}
-
-function StageIndicator({ stage, info }: { stage: string | null; info: StageInfoProps | null }) {
-  const text = stageMessage(stage, info);
-  return (
-    <span className="inline-flex items-center gap-1.5 border border-[#C9A063]/30 bg-[#141312]/60 px-3 py-1 font-body text-xs tracking-wider text-[#E5BE82] shadow-md backdrop-blur-md tabular-nums relative overflow-hidden h-[26px]">
-      <AnimatePresence mode="popLayout">
-        <motion.span
-          key={text}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          transition={{ duration: 0.2, ease: "easeOut" }}
-          className="inline-block"
-        >
-          {text}
-        </motion.span>
-      </AnimatePresence>
-      <span className="inline-block h-3 w-1 bg-[#C9A063] animate-pulse" />
-    </span>
-  );
-}
 
 interface SearchBoxProps {
   value: string;
@@ -68,8 +14,6 @@ interface SearchBoxProps {
   mode: SearchMode;
   onModeChange: (mode: SearchMode) => void;
   hasActiveSearch?: boolean;
-  stage?: 'preparing' | 'scanning' | 'analyzed' | 'reranking' | null;
-  stageInfo?: StageInfoProps | null;
 }
 
 export default function SearchBox({
@@ -82,9 +26,7 @@ export default function SearchBox({
   isFocused,
   mode,
   onModeChange,
-  hasActiveSearch = false,
-  stage,
-  stageInfo
+  hasActiveSearch = false
 }: SearchBoxProps) {
   return (
     <div className="w-full">
@@ -175,12 +117,8 @@ export default function SearchBox({
         </motion.button>
       </form>
 
-      {/* 底部状态微调栏：打字机反馈与模式胶囊 */}
-      <div className="mt-3.5 flex min-h-6 items-center justify-between gap-4 px-2 text-xs">
-        <div className="min-w-0 flex-1">
-          {isSearching && <StageIndicator stage={stage ?? null} info={stageInfo ?? null} />}
-        </div>
-
+      {/* 底部微调栏：模式胶囊居右对齐，左侧留白 */}
+      <div className="mt-3.5 flex min-h-6 items-center justify-end px-2 text-xs">
         <div className="flex items-center gap-1 border border-[#C9A063]/40 bg-[#141312]/60 p-0.5 shadow-md backdrop-blur-md">
           {(['fast', 'deep'] as const).map(option => (
             <motion.button

@@ -21,10 +21,18 @@ const MORE_PAGE_SIZE = 12;
 const gridClass = 'grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6';
 
 /**
- * Top 1 电影级连续镜头卡片：
- * 1. 挂载时通过物理几何计算（getBoundingClientRect）求出从本卡槽到屏幕正中心的真实位移向量；
- * 2. 先在【屏幕正中央】优雅升起特写放大（scale: 1.35），金色瞄准光晕脉冲定格；
- * 3. 随后沿弹簧物理轨迹平滑缩放回 1.0 并飞回真实网格的第一格（Slot 0），绝无跳脱偏差！
+ * Top 1 电影级连续镜头破壁卡片：
+ * 1. 破壁爆发（Phase: breaking，0~320ms）：
+ *    - 初始深渊光子态（scale: 0.15, blur(14px), 过曝高亮）；
+ *    - 同步引爆金色 Shockwave 冲击波光环撕裂背景；
+ *    - 以爆炸式动量曲线 [0.16, 1, 0.3, 1] 破壁击穿屏幕，暴冲至视口绝对中心（scale: 1.42）！
+ * 2. 居中定格特写（Phase: focused，320ms~1120ms，从容停顿整整 800ms）：
+ *    - 留出充足呼吸时间，金色脉冲呼吸光晕与流光徽标让用户看清第一名封面与书名；
+ * 3. 弹簧滑翔入位（Phase: gliding，1120ms~1540ms，420ms）：
+ *    - 沿物理弹簧曲线（stiffness: 320, damping: 26）从中央平滑收缩回 1.0 并飞入自身卡槽 (0, 0)；
+ *    - 100% 严丝合缝落入 Slot 0！
+ * 4. 恢复交互（Phase: settled）：
+ *    - 恢复常规层级与点击打开详情等操作。
  */
 function TopResultHeroCard({
   item,
@@ -34,8 +42,8 @@ function TopResultHeroCard({
   onOpen: (item: SearchResultItem) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [phase, setPhase] = useState<'rising' | 'flying' | 'settled'>('rising');
-  const [delta, setDelta] = useState({ x: 0, y: 0 });
+  const [phase, setPhase] = useState<'breaking' | 'focused' | 'gliding' | 'settled'>('breaking');
+  const [delta, setDelta] = useState<{ x: number; y: number } | null>(null);
 
   useLayoutEffect(() => {
     if (!containerRef.current) return;
@@ -51,44 +59,92 @@ function TopResultHeroCard({
       y: centerY - cardCenterY
     });
 
-    // 正中央特写定格 260ms，随后启动缩放滑翔
-    const flyTimer = setTimeout(() => {
-      setPhase('flying');
-    }, 260);
+    // 拍 1：0~320ms 破壁暴冲冲至正中央，随后进入定格特写
+    const focusTimer = setTimeout(() => {
+      setPhase('focused');
+    }, 320);
 
-    // 飞回原位耗时 340ms 后 settle 恢复常规交互
+    // 拍 2：在正中央从容停顿 800ms（至 1120ms），随后启动弹簧滑翔
+    const glideTimer = setTimeout(() => {
+      setPhase('gliding');
+    }, 1120);
+
+    // 拍 3：滑翔归位耗时 420ms 后（至 1540ms）settle 恢复常规状态
     const settleTimer = setTimeout(() => {
       setPhase('settled');
-    }, 600);
+    }, 1540);
 
     return () => {
-      clearTimeout(flyTimer);
+      clearTimeout(focusTimer);
+      clearTimeout(glideTimer);
       clearTimeout(settleTimer);
     };
   }, []);
 
+  if (!delta) {
+    return <div ref={containerRef} className="relative aspect-[2/3] w-full invisible" />;
+  }
+
   return (
     <div ref={containerRef} className="relative aspect-[2/3] w-full">
+      {/* 破壁爆发冲击波光环（Shockwave Pulse） */}
+      {phase === 'breaking' && (
+        <motion.div
+          initial={{ x: delta.x, y: delta.y, scale: 0.2, opacity: 0.95 }}
+          animate={{ x: delta.x, y: delta.y, scale: 2.8, opacity: 0 }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          className="pointer-events-none absolute -inset-6 z-50 rounded-full border-2 border-[#C9A063] shadow-[0_0_60px_#C9A063]"
+        />
+      )}
+
+      {/* Top 1 破壁卡片本体 */}
       <motion.div
+        initial={{
+          x: delta.x,
+          y: delta.y,
+          scale: 0.15,
+          opacity: 0,
+          filter: 'blur(14px) brightness(2.2)',
+          zIndex: 70
+        }}
         animate={
-          phase === 'rising'
+          phase === 'breaking'
+            ? {
+                x: delta.x,
+                y: delta.y,
+                scale: 1.42,
+                opacity: 1,
+                filter: 'blur(0px) brightness(1)',
+                zIndex: 70,
+                transition: {
+                  duration: 0.32,
+                  ease: [0.16, 1, 0.3, 1]
+                }
+              }
+            : phase === 'focused'
             ? {
                 x: delta.x,
                 y: delta.y,
                 scale: 1.35,
                 opacity: 1,
-                zIndex: 60
+                filter: 'blur(0px) brightness(1)',
+                zIndex: 70,
+                transition: {
+                  duration: 0.3,
+                  ease: 'easeOut'
+                }
               }
-            : phase === 'flying'
+            : phase === 'gliding'
             ? {
                 x: 0,
                 y: 0,
                 scale: 1.0,
                 opacity: 1,
-                zIndex: 60,
+                filter: 'blur(0px) brightness(1)',
+                zIndex: 70,
                 transition: {
                   type: 'spring',
-                  stiffness: 340,
+                  stiffness: 320,
                   damping: 26,
                   mass: 0.85
                 }
@@ -98,19 +154,20 @@ function TopResultHeroCard({
                 y: 0,
                 scale: 1.0,
                 opacity: 1,
+                filter: 'blur(0px) brightness(1)',
                 zIndex: 1
               }
         }
         className={`absolute inset-0 transition-shadow duration-300 ${
-          phase === 'rising'
-            ? 'shadow-[0_0_55px_rgba(201,160,99,0.75)] ring-2 ring-[#C9A063]'
+          phase === 'breaking' || phase === 'focused'
+            ? 'shadow-[0_0_65px_rgba(201,160,99,0.85)] ring-2 ring-[#C9A063]'
             : ''
         }`}
       >
         <ResultCard
           item={item}
           onOpen={onOpen}
-          badge={phase !== 'settled' ? 'TOP 1 命中' : undefined}
+          badge={phase !== 'settled' ? 'TOP 1 破壁命中' : undefined}
           {...(item.passedGate ? {} : { badge: '未列入推荐' })}
         />
       </motion.div>
@@ -132,7 +189,7 @@ export default function ResultGallery({
     <div className="w-full">
       <div className={gridClass}>
         {results.map((item, index) => {
-          // 第 1 张卡片：作为主角执行物理居中升起与落座动画
+          // 第 1 张卡片：作为主角执行破壁爆发、居中停顿与弹簧落座动画
           if (index === 0) {
             return (
               <TopResultHeroCard
@@ -143,15 +200,15 @@ export default function ResultGallery({
             );
           }
 
-          // 其余卡片：在第 1 张卡片飞回时如涟漪般向四周优雅浮现
+          // 其余卡片：在 Top 1 居中特写从容停顿完毕启动滑翔入座时（1.12s 后）向四周如水波涟漪般错峰浮现
           return (
             <motion.div
               key={item.book.id}
-              initial={{ opacity: 0, y: 16, scale: 0.96 }}
+              initial={{ opacity: 0, y: 18, scale: 0.94 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{
-                delay: 0.28 + (index - 1) * 0.035,
-                duration: 0.28,
+                delay: 1.12 + (index - 1) * 0.04,
+                duration: 0.3,
                 ease: [0.23, 1, 0.32, 1]
               }}
             >

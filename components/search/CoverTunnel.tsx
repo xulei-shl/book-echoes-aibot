@@ -3,8 +3,11 @@
 import { useEffect, useMemo, useRef } from 'react';
 import type { SearchCoverItem } from '@/lib/content';
 
-/** 基础慢速巡航速度（px/s）：沉稳悠扬的书香漫游感，不受鼠标悬停干扰 */
+/** 基础慢速巡航速度（px/s）：沉稳悠扬的书香漫游感 */
 const CRUISE_SPEED = 12;
+
+/** 检索态超光速穿梭速度（px/s）：星际折跃般的极速呼啸飞驰狂飙 */
+const WARP_SPEED = 3200;
 
 /** 8 列交错位移序列（px），打破横平竖直的表格感，营造如同杂志展廊般的流动波浪律动 */
 const COLUMN_OFFSETS = [0, 68, 20, 84, 32, 76, 12, 52];
@@ -15,21 +18,32 @@ interface CoverTunnelProps {
   dimmed: boolean;
   /** 可选：当外部有高亮图书时的 ID 列表 */
   highlightIds?: string[];
+  /** 是否处于极速检索穿梭态 */
+  isSearching?: boolean;
 }
 
 /**
  * 3D 沉浸式动态背景书墙：
- * - 近似垂直立墙视场（rotateX: 10deg, perspective: 1600px），全面铺满屏幕，杜绝顶部与两侧死黑空白
- * - 恒速持续巡航：移除鼠标悬停停止逻辑，以 12px/s 极慢从容速度永恒向上漫游
- * - 真正的数学级双段无缝无限循环：Block A + Spacer + Block B，精确按周期像素复位，0 像素视觉跳动
- * - 8 列错位瀑布流（Staggered Waterfall Columns），呈现杂志级高级排版审美
+ * - 基础态：以 12px/s 悠扬漫步巡航，呈现静谧的书香世界；
+ * - 检索态：瞬间平滑爆发加速至 3200px/s 极速穿梭（Warp Speed），全屏 8 列书海瀑布纵向飞速疾驰，伴随高频暗金激光扫掠；
+ * - 结果态：以物理阻尼（Lerp Brake）平滑降速刹车回常态，为 Top 1 的破壁跃出提供震撼的沉浸舞台！
  */
-export default function CoverTunnel({ covers, dimmed, highlightIds }: CoverTunnelProps) {
+export default function CoverTunnel({
+  covers,
+  dimmed,
+  highlightIds,
+  isSearching = false
+}: CoverTunnelProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const firstBlockRef = useRef<HTMLDivElement>(null);
   const periodRef = useRef(0);
   const offsetRef = useRef(0);
   const lastTimeRef = useRef<number | null>(null);
+
+  // 速度阻尼状态机引用
+  const currentSpeedRef = useRef(CRUISE_SPEED);
+  const isSearchingRef = useRef(isSearching);
+  isSearchingRef.current = isSearching;
 
   // 将全量封面平均分流到 8 个纵向流中
   const columns = useMemo(() => {
@@ -64,9 +78,8 @@ export default function CoverTunnel({ covers, dimmed, highlightIds }: CoverTunne
     };
   }, [columns]);
 
-  // 60fps~120fps 恒速平滑循环流动（移除悬停减速停止，实现无间断漫游；支持减弱动画）
+  // 60fps~120fps 恒速平滑循环与超光速加速/阻尼刹车帧循环
   useEffect(() => {
-    // 尊重用户系统级减弱动态效果设置
     const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     if (mediaQuery.matches) return;
 
@@ -76,7 +89,12 @@ export default function CoverTunnel({ covers, dimmed, highlightIds }: CoverTunne
       const dt = Math.min(0.05, (time - last) / 1000);
       lastTimeRef.current = time;
 
-      offsetRef.current -= CRUISE_SPEED * dt;
+      // 目标速度计算与物理阻尼平滑插值：起步 0.35 闪电爆发加速，刹车 0.04 柔和滑行
+      const targetSpeed = isSearchingRef.current ? WARP_SPEED : CRUISE_SPEED;
+      const lerpRate = isSearchingRef.current ? 0.35 : 0.04;
+      currentSpeedRef.current += (targetSpeed - currentSpeedRef.current) * lerpRate;
+
+      offsetRef.current -= currentSpeedRef.current * dt;
 
       const period = periodRef.current;
       if (period > 0) {
@@ -144,22 +162,38 @@ export default function CoverTunnel({ covers, dimmed, highlightIds }: CoverTunne
       className="fixed inset-0 z-0 overflow-hidden bg-[#0e0d0c] select-none pointer-events-none"
       aria-hidden="true"
     >
+      {/* 扫掠激光样式 */}
+      <style>{`
+        @keyframes laser-warp-sweep {
+          0% { top: -10%; opacity: 0.1; }
+          50% { opacity: 0.95; }
+          100% { top: 110%; opacity: 0.1; }
+        }
+      `}</style>
+
       {/* 空间暗角与柔和书香暖金色径向光 */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(201,160,99,0.06),transparent_70%)]" />
 
-      {/* 退让景深层：聚焦检索框或检索中时通过纯 GPU opacity 进行平滑退让，杜绝动态 blur 滤镜导致掉帧 */}
+      {/* 检索穿梭态激光全屏横扫 */}
+      {isSearching && (
+        <div
+          className="pointer-events-none absolute inset-x-0 h-2.5 bg-gradient-to-r from-transparent via-[#C9A063] to-transparent shadow-[0_0_35px_#C9A063] z-10"
+          style={{ animation: 'laser-warp-sweep 0.45s ease-in-out infinite' }}
+        />
+      )}
+
+      {/* 退让景深层：聚焦检索框或检索中时通过纯 GPU opacity 进行平滑退让 */}
       <div
         className="absolute inset-0 transition-opacity duration-500 ease-out"
         style={{
-          opacity: dimmed ? 0.28 : 0.85
+          opacity: dimmed ? (isSearching ? 0.45 : 0.28) : 0.85
         }}
       >
         {/*
           3D 垂直近景视口：
-          - rotateX: 10deg 近乎垂直立墙，彻底告别原先 52deg 的卧倒地面感
-          - perspective: 1600px 消除近大远小的梯形夹角，保持书墙两翼平挺开阔
-          - 视口覆盖范围为 -10vw 到 110vw，消除左右两侧死黑三角区
-          - 上部羽化 Mask 仅在最顶部 8% 处轻微淡出，让书墙自然贯穿全屏
+          - rotateX: 10deg 近乎垂直立墙
+          - perspective: 1600px 保持书墙平挺开阔
+          - 上部羽化 Mask 让书墙自然贯穿全屏
         */}
         <div
           className="absolute -inset-x-[10vw] -inset-y-[12vh] w-[120vw] h-[124vh]"
@@ -181,7 +215,7 @@ export default function CoverTunnel({ covers, dimmed, highlightIds }: CoverTunne
               willChange: 'transform'
             }}
           >
-            {/* 8 列错位瀑布流阵列：各列纵向交错落差，双段 Block 保证无限无缝闭环 */}
+            {/* 8 列错位瀑布流阵列 */}
             <div
               ref={trackRef}
               className="grid grid-cols-4 gap-4 sm:gap-5 md:grid-cols-6 lg:gap-6 xl:grid-cols-8 px-6 w-full max-w-[1920px] justify-center"
@@ -221,7 +255,7 @@ export default function CoverTunnel({ covers, dimmed, highlightIds }: CoverTunne
         </div>
       </div>
 
-      {/* 聚焦/检索退让暗幕：纯 GPU 合成层，营造静谧内敛的沉浸聚焦感 */}
+      {/* 聚焦/检索退让暗幕 */}
       <div
         className={`pointer-events-none absolute inset-0 bg-[#0e0d0c]/60 transition-opacity duration-500 ease-out ${
           dimmed ? 'opacity-100' : 'opacity-0'

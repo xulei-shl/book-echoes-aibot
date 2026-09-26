@@ -10,11 +10,35 @@ import CoverTunnel from './CoverTunnel';
 import ResultChips from './ResultChips';
 import ResultGallery from './ResultGallery';
 import SearchBox from './SearchBox';
-import CoverMatrixScanner from './CoverMatrixScanner';
 import { useSemanticSearch } from './useSemanticSearch';
 
 interface SemanticSearchPageProps {
   covers: SearchCoverItem[];
+}
+
+function getSearchingStatusText(
+  stage: 'preparing' | 'scanning' | 'analyzed' | 'reranking' | null,
+  info: { corpusSize?: number; candidateCount?: number; fusedCandidates?: number } | null
+): string {
+  if (!stage) return '正在连接检索服务…';
+  switch (stage) {
+    case 'preparing':
+      return info?.corpusSize
+        ? `正在 ${info.corpusSize} 本馆藏中检索…`
+        : '正在分析检索意图…';
+    case 'scanning':
+      return '正在进行向量空间比对…';
+    case 'analyzed':
+      return info?.fusedCandidates
+        ? `已召回 ${info.fusedCandidates} 本候选`
+        : '语义分析完成';
+    case 'reranking':
+      return info?.candidateCount
+        ? `Jev 正在精排 ${info.candidateCount} 本候选…`
+        : '正在进行语义精排…';
+    default:
+      return '全景书海高速检索中…';
+  }
 }
 
 /**
@@ -98,6 +122,7 @@ export default function SemanticSearchPage({ covers }: SemanticSearchPageProps) 
         covers={covers}
         dimmed={isFocused || view !== 'idle'}
         highlightIds={matchedIds}
+        isSearching={view === 'searching'}
       />
 
       {/*
@@ -149,8 +174,6 @@ export default function SemanticSearchPage({ covers }: SemanticSearchPageProps) 
             mode={mode}
             onModeChange={setMode}
             hasActiveSearch={showTop}
-            stage={stage}
-            stageInfo={stageInfo}
           />
 
           <AnimatePresence>
@@ -177,16 +200,34 @@ export default function SemanticSearchPage({ covers }: SemanticSearchPageProps) 
 
         <AnimatePresence mode="wait">
           {view === 'searching' && (
-            <motion.section
-              key="scanning"
-              initial={{ opacity: 0, scale: 0.96 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, transition: { duration: 0.18, ease: [0.23, 1, 0.32, 1] } }}
-              transition={{ duration: 0.28, ease: [0.23, 1, 0.32, 1] }}
-              className="mt-4 w-screen max-w-[98vw] flex flex-col items-center overflow-x-hidden"
+            <motion.div
+              key="warp-indicator"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, transition: { duration: 0.16 } }}
+              transition={{ duration: 0.24, ease: [0.23, 1, 0.32, 1] }}
+              className="mt-14 flex flex-col items-center justify-center select-none"
             >
-              <CoverMatrixScanner covers={covers} stage={stage} />
-            </motion.section>
+              <div className="flex items-center gap-2.5 border border-[#C9A063]/40 bg-[#141312]/85 px-4.5 py-2 font-body text-xs tracking-wider text-[#E5BE82] shadow-2xl backdrop-blur-md">
+                <span className="relative flex h-2 w-2 shrink-0">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#C9A063] opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-[#C9A063]" />
+                </span>
+                <AnimatePresence mode="popLayout">
+                  <motion.span
+                    key={getSearchingStatusText(stage, stageInfo)}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+                    className="inline-block"
+                  >
+                    {getSearchingStatusText(stage, stageInfo)}
+                  </motion.span>
+                </AnimatePresence>
+                <span className="inline-block h-3 w-1 bg-[#C9A063] animate-pulse" />
+              </div>
+            </motion.div>
           )}
           {view === 'abstained' && (
             <motion.section
