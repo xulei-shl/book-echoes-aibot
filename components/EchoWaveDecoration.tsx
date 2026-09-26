@@ -13,9 +13,13 @@ interface EchoWaveDecorationProps {
     maxOpacity?: number;
     /** 是否开启点击触发涟漪交互 */
     interactive?: boolean;
+    /** 是否开启自然随机微澜 (空灵微风扰动) */
+    enableAmbient?: boolean;
+    /** 是否开启鼠标轻移微痕扰动 */
+    enableHover?: boolean;
 }
 
-interface ClickRipple {
+interface WaveRipple {
     id: number;
     x: number;
     y: number;
@@ -30,8 +34,9 @@ interface ClickRipple {
  * 首页背景“书海回响”动态同心水波纹组件
  * 特性：
  * 1. 中心常态微澜脉冲：呼应“回响”意象，宛如声波/水波向外平缓扩散
- * 2. 点击水波交互：点击画布任意位置激发多重递进衰减水波
- * 3. 性能优化：Canvas 2D + 自动 DPR 高清适配 + 离屏/后台休眠控制 + 卸载自动清理
+ * 2. 自然随机微澜：散落四周如偶发微风细雨，给深色背景带来空灵生机
+ * 3. 鼠标交互反馈：轻移激荡微澜游丝、点击产生双重能量回响
+ * 4. 性能优化：Canvas 2D + 自动 DPR 高清适配 + 离屏/后台休眠控制 + 卸载自动清理
  */
 export default function EchoWaveDecoration({
     ringCount = 10,
@@ -39,20 +44,33 @@ export default function EchoWaveDecoration({
     ringColorRgb = '201, 160, 99', // 宋金 #C9A063
     maxOpacity = 0.26,
     interactive = true,
+    enableAmbient = true,
+    enableHover = true,
 }: EchoWaveDecorationProps) {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const containerRef = useRef<HTMLDivElement | null>(null);
 
-    // 交互产生的涟漪队列
-    const ripplesRef = useRef<ClickRipple[]>([]);
+    // 交互与环境波纹队列
+    const ripplesRef = useRef<WaveRipple[]>([]);
     const nextRippleId = useRef(0);
+    // 鼠标移动节流记录
+    const lastMoveRef = useRef<{ x: number; y: number; time: number }>({ x: 0, y: 0, time: 0 });
 
     // 动画运行状态标记
     const isRunningRef = useRef(true);
     const animFrameIdRef = useRef<number | null>(null);
 
+    // 统一添加涟漪波纹
+    const pushRipples = useCallback((newRipples: Omit<WaveRipple, 'id'>[]) => {
+        const stamped: WaveRipple[] = newRipples.map((r) => ({
+            id: nextRippleId.current++,
+            ...r,
+        }));
+        ripplesRef.current = [...ripplesRef.current.slice(-20), ...stamped];
+    }, []);
+
     // 添加交互点击水波纹
-    const createRipple = useCallback((clientX: number, clientY: number) => {
+    const createClickRipple = useCallback((clientX: number, clientY: number) => {
         if (!canvasRef.current) return;
         const rect = canvasRef.current.getBoundingClientRect();
         const x = clientX - rect.left;
@@ -62,9 +80,8 @@ export default function EchoWaveDecoration({
         const maxRadius = Math.max(rect.width, rect.height) * 0.65;
 
         // 生成双重递进同心波纹（正如石子入水产生的连续两重回响，节奏柔和缓进）
-        const newRipples: ClickRipple[] = [
+        pushRipples([
             {
-                id: nextRippleId.current++,
                 x,
                 y,
                 radius: 2,
@@ -74,7 +91,6 @@ export default function EchoWaveDecoration({
                 lineWidth: 1.6,
             },
             {
-                id: nextRippleId.current++,
                 x,
                 y,
                 radius: 0,
@@ -83,11 +99,36 @@ export default function EchoWaveDecoration({
                 speed: 0.9,
                 lineWidth: 1.1,
             },
-        ];
+        ]);
+    }, [maxOpacity, pushRipples]);
 
-        // 队列上限控制，防止高频点击产生过多实例
-        ripplesRef.current = [...ripplesRef.current.slice(-18), ...newRipples];
-    }, [maxOpacity]);
+    // 鼠标移动轻微扰动
+    const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+        if (!interactive || !enableHover || !canvasRef.current) return;
+        const now = performance.now();
+        const last = lastMoveRef.current;
+
+        // 节流：位移大于 75px 且间隔大于 160ms 才激发微波，保持克制与性能
+        const dist = Math.hypot(e.clientX - last.x, e.clientY - last.y);
+        if (now - last.time < 160 || dist < 75) return;
+
+        lastMoveRef.current = { x: e.clientX, y: e.clientY, time: now };
+        const rect = canvasRef.current.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        pushRipples([
+            {
+                x,
+                y,
+                radius: 1,
+                maxRadius: 55,
+                opacity: maxOpacity * 0.42, // 轻柔微光
+                speed: 0.85,
+                lineWidth: 0.9,
+            },
+        ]);
+    }, [interactive, enableHover, maxOpacity, pushRipples]);
 
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -96,6 +137,9 @@ export default function EchoWaveDecoration({
 
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
+
+        // 恢复动画运行状态（避免客户端路由切换返回时残留 false 导致动画静止）
+        isRunningRef.current = true;
 
         let width = 0;
         let height = 0;
@@ -139,6 +183,8 @@ export default function EchoWaveDecoration({
         let startTime = performance.now();
         const cycleDuration = (1 / pulseSpeed) * 3500; // 单个周期时长(ms)
         let lastProgress = 0;
+        // 随机微澜下一次激发时间戳 (初始进入页面 1.5~3s 内出现首次微澜)
+        let nextAmbientTime = performance.now() + 1500 + Math.random() * 1500;
 
         // 渲染主循环
         const renderLoop = (timestamp: number) => {
@@ -185,9 +231,54 @@ export default function EchoWaveDecoration({
                 }
             }
 
-            // 2. 绘制用户点击产生的交互涟漪
+            // 2. 调度自然随机微澜 (空灵偶发回响，避开中心主文字区)
+            if (enableAmbient && timestamp >= nextAmbientTime) {
+                // 每隔 3.5 ~ 6.5 秒随机激发一次
+                nextAmbientTime = timestamp + 3500 + Math.random() * 3000;
+
+                if (ripplesRef.current.length < 12 && width > 0 && height > 0) {
+                    let rx = width * (0.08 + Math.random() * 0.84);
+                    let ry = height * (0.1 + Math.random() * 0.8);
+
+                    // 避让中心书法文字区 (32%~68% 宽, 32%~62% 高)
+                    const inCenterX = rx > width * 0.32 && rx < width * 0.68;
+                    const inCenterY = ry > height * 0.32 && ry < height * 0.62;
+                    if (inCenterX && inCenterY) {
+                        rx = Math.random() < 0.5
+                            ? width * (0.08 + Math.random() * 0.22)
+                            : width * (0.7 + Math.random() * 0.22);
+                    }
+
+                    const ambientMaxRadius = Math.min(width, height) * (0.18 + Math.random() * 0.12);
+                    const ambientSpeed = 0.6 + Math.random() * 0.2;
+
+                    pushRipples([
+                        {
+                            x: rx,
+                            y: ry,
+                            radius: 1,
+                            maxRadius: ambientMaxRadius,
+                            opacity: maxOpacity * 0.65,
+                            speed: ambientSpeed,
+                            lineWidth: 1.0,
+                        },
+                        // 35% 几率伴随第二重更轻柔微弱的回声
+                        ...(Math.random() < 0.35 ? [{
+                            x: rx,
+                            y: ry,
+                            radius: 0,
+                            maxRadius: ambientMaxRadius * 0.78,
+                            opacity: maxOpacity * 0.4,
+                            speed: ambientSpeed * 0.85,
+                            lineWidth: 0.75,
+                        }] : []),
+                    ]);
+                }
+            }
+
+            // 3. 绘制动态涟漪队列 (交互点击 + 随机微澜 + 移动微痕共用物理衰减)
             if (ripplesRef.current.length > 0) {
-                const updatedRipples: ClickRipple[] = [];
+                const updatedRipples: WaveRipple[] = [];
 
                 for (const ripple of ripplesRef.current) {
                     ripple.radius += ripple.speed;
@@ -198,7 +289,7 @@ export default function EchoWaveDecoration({
                     if (lifeProgress < 1 && currentAlpha > 0.005) {
                         ctx.beginPath();
                         ctx.arc(ripple.x, ripple.y, ripple.radius, 0, Math.PI * 2);
-                        ctx.lineWidth = Math.max(0.8, ripple.lineWidth * (1 - lifeProgress * 0.5));
+                        ctx.lineWidth = Math.max(0.7, ripple.lineWidth * (1 - lifeProgress * 0.5));
                         ctx.strokeStyle = `rgba(${ringColorRgb}, ${currentAlpha.toFixed(3)})`;
                         ctx.stroke();
 
@@ -220,21 +311,23 @@ export default function EchoWaveDecoration({
             isRunningRef.current = false;
             if (animFrameIdRef.current) {
                 cancelAnimationFrame(animFrameIdRef.current);
+                animFrameIdRef.current = null;
             }
             window.removeEventListener('resize', updateCanvasSize);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
-    }, [ringCount, pulseSpeed, ringColorRgb, maxOpacity]);
+    }, [ringCount, pulseSpeed, ringColorRgb, maxOpacity, enableAmbient, pushRipples]);
 
     const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
         if (!interactive) return;
-        createRipple(e.clientX, e.clientY);
+        createClickRipple(e.clientX, e.clientY);
     };
 
     return (
         <div
             ref={containerRef}
             onClick={handleClick}
+            onMouseMove={handleMouseMove}
             className="absolute inset-0 z-[5] overflow-hidden cursor-default select-none pointer-events-auto"
             title="点击激荡微光回响"
         >
