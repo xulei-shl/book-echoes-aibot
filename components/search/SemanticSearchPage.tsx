@@ -10,6 +10,7 @@ import CoverTunnel from './CoverTunnel';
 import ResultChips from './ResultChips';
 import ResultGallery from './ResultGallery';
 import SearchBox from './SearchBox';
+import CoverMatrixScanner from './CoverMatrixScanner';
 import { useSemanticSearch } from './useSemanticSearch';
 
 interface SemanticSearchPageProps {
@@ -36,7 +37,9 @@ export default function SemanticSearchPage({ covers }: SemanticSearchPageProps) 
     setMode,
     submit,
     reset,
-    clearError
+    clearError,
+    stage,
+    stageInfo
   } = useSemanticSearch();
 
   const [isFocused, setIsFocused] = useState(false);
@@ -146,6 +149,8 @@ export default function SemanticSearchPage({ covers }: SemanticSearchPageProps) 
             mode={mode}
             onModeChange={setMode}
             hasActiveSearch={showTop}
+            stage={stage}
+            stageInfo={stageInfo}
           />
 
           <AnimatePresence>
@@ -171,6 +176,18 @@ export default function SemanticSearchPage({ covers }: SemanticSearchPageProps) 
         </motion.div>
 
         <AnimatePresence mode="wait">
+          {view === 'searching' && (
+            <motion.section
+              key="scanning"
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, transition: { duration: 0.18, ease: [0.23, 1, 0.32, 1] } }}
+              transition={{ duration: 0.28, ease: [0.23, 1, 0.32, 1] }}
+              className="mt-4 w-screen max-w-[98vw] flex flex-col items-center overflow-x-hidden"
+            >
+              <CoverMatrixScanner covers={covers} stage={stage} />
+            </motion.section>
+          )}
           {view === 'abstained' && (
             <motion.section
               key="abstained"

@@ -37,7 +37,8 @@ import type {
   SearchInput,
   SearchMode,
   SearchTiming,
-  SemanticSearchResponse
+  SemanticSearchResponse,
+  SearchProgressCallback
 } from './types';
 
 /**
@@ -149,7 +150,8 @@ function mergeRecall(a: RecallResult[], b: RecallResult[], limit: number): Recal
 export async function runSemanticSearch(
   input: SearchInput,
   deps: PipelineDeps = {},
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  onProgress?: SearchProgressCallback
 ): Promise<SemanticSearchResponse> {
   const startedAt = Date.now();
   const now = deps.now ? deps.now() : new Date();
@@ -241,6 +243,9 @@ export async function runSemanticSearch(
     });
   }
 
+  // ── 流式进度：准备阶段完成 ──
+  onProgress?.({ event: 'phase', data: { stage: 'preparing', terms: normalized.terms, corpusSize: corpus.length } });
+
   // ── 向量索引（构建期产物；缺失/不一致即降级为纯词法，绝不静默算错余弦）────
   let vectors: VectorIndex | null;
   if (deps.vectors !== undefined) {
@@ -324,6 +329,7 @@ export async function runSemanticSearch(
   );
   const allow = buildAllowSet(corpus, deterministic.filters);
 
+  onProgress?.({ event: 'phase', data: { stage: 'scanning' } });
   const lanesPromise = recallLanes(
     { raw: normalized.raw, core: normalized.terms, allow },
     [timedLexical, denseLane]
@@ -403,6 +409,19 @@ export async function runSemanticSearch(
 
   const lexicalHits = fused.filter(result => result.lanes.includes('lexical')).length;
   const denseHits = fused.filter(result => result.lanes.includes('dense')).length;
+
+  onProgress?.({
+    event: 'phase',
+    data: {
+      stage: 'analyzed',
+      intent: understanding.value.type,
+      confidence: understanding.value.confidence,
+      lexicalHits,
+      denseHits,
+      fusedCandidates: fused.length
+    }
+  });
+
   /** 本次实际参与的 lane id（wide 命中时才出现），两条返回路径共用同一份推导 */
   const recallLaneIds = [
     ...new Set(allLaneResults.flatMap(lane => lane.map(result => result.lanes)).flat())
@@ -445,6 +464,7 @@ export async function runSemanticSearch(
   });
 
   // ── ③ rerank ─────────────────────────────────────────────────────────────
+  onProgress?.({ event: 'phase', data: { stage: 'reranking', candidateCount: candidates.length } });
   const rerankStarted = Date.now();
   const rerankOutcome = await runRerank(
     normalized.raw,
@@ -541,12 +561,30 @@ export async function runSemanticSearch(
     )
     .map(entry => toResultItem(entry.candidate, entry.passedGate, rerankOutcome.pNone));
 
+  const resultItems = outcome.items.slice(0, limit).map(item => toResultItem(item, true, rerankOutcome.pNone));
+  for (let i = 0; i < resultItems.length; i++) {
+    const ri = resultItems[i];
+    onProgress?.({
+      event: 'hit',
+      data: {
+        index: i,
+        total: resultItems.length,
+        book: {
+          title: ri.book.title,
+          author: ri.book.author,
+          coverUrl: ri.book.coverThumbnailUrl || ri.book.coverImageUrl || ri.book.coverUrl || ''
+        },
+        relevancePct: ri.relevancePct
+      }
+    });
+  }
+
   return finalize({
     query: normalized.raw,
     mode,
     basedOn: 'retrieval',
     intent,
-    results: outcome.items.slice(0, limit).map(item => toResultItem(item, true, rerankOutcome.pNone)),
+    results: resultItems,
     more,
     abstained: outcome.abstained,
     abstainReason: outcome.reason,

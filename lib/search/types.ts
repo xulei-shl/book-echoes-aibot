@@ -326,3 +326,32 @@ export interface SemanticSearchResponse {
   timing: SearchTiming;
   judge: JudgeMeta;
 }
+
+// ── 流式进度推送事件类型 ──
+
+export type SearchStage = 'preparing' | 'scanning' | 'analyzed' | 'reranking';
+
+export interface HitPreview {
+  index: number;
+  total: number;
+  book: { title: string; author: string; coverUrl: string };
+  relevancePct: number;
+}
+
+export type SearchProgressEvent =
+  | { event: 'phase'; data: { stage: 'preparing'; terms: string[]; corpusSize: number } }
+  | { event: 'phase'; data: { stage: 'scanning' } }
+  | { event: 'phase'; data: {
+      stage: 'analyzed';
+      intent: IntentType;
+      confidence: number;
+      lexicalHits: number;
+      denseHits: number;
+      fusedCandidates: number;
+    }}
+  | { event: 'phase'; data: { stage: 'reranking'; candidateCount: number } }
+  | { event: 'hit'; data: HitPreview }
+  | { event: 'done'; data: SemanticSearchResponse }
+  | { event: 'error'; data: { message: string } };
+
+export type SearchProgressCallback = (event: SearchProgressEvent) => void;

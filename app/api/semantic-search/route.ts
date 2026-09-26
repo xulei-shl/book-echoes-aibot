@@ -3,7 +3,7 @@ import { JevDisabledError, jevFailureMessage } from '@/lib/jev/errors';
 import { isKnownClcCode } from '@/lib/search/clc';
 import { LIMIT_MAX, QUERY_MAX_CHARS, isSemanticSearchEnabled, readJevConfig } from '@/lib/search/config';
 import { runSemanticSearch } from '@/lib/search/pipeline';
-import type { SearchFilters, SearchInput, SearchMode } from '@/lib/search/types';
+import type { SearchFilters, SearchInput, SearchMode, SearchProgressEvent } from '@/lib/search/types';
 import { getLogger } from '@/src/utils/logger';
 import { sameOrigin } from '@/src/utils/same-origin';
 
@@ -166,6 +166,39 @@ export async function POST(request: Request) {
   }
   if (!parsed.ok) {
     return NextResponse.json({ error: parsed.message }, { status: 400 });
+  }
+
+  const wantsStream = request.headers.get('accept')?.includes('application/x-ndjson');
+
+  if (wantsStream) {
+    const { readable, writable } = new TransformStream();
+    const writer = writable.getWriter();
+    const encoder = new TextEncoder();
+
+    const emit = (event: SearchProgressEvent) => {
+      writer.write(encoder.encode(JSON.stringify(event) + '\n'));
+    };
+
+    // 不 await：让流立刻返回给客户端
+    runSemanticSearch(parsed.input, {}, request.signal, emit)
+      .then(result => {
+        emit({ event: 'done', data: result });
+        writer.close();
+      })
+      .catch(error => {
+        const msg = error instanceof JevDisabledError ? error.message : jevFailureMessage(error);
+        logger.error('语义检索失败（流式）', { message: msg });
+        emit({ event: 'error', data: { message: msg } });
+        writer.close();
+      });
+
+    return new Response(readable, {
+      headers: {
+        'Content-Type': 'application/x-ndjson',
+        'Cache-Control': 'no-cache',
+        'X-Content-Type-Options': 'nosniff'
+      }
+    });
   }
 
   try {
