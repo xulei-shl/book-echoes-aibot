@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AnimatePresence, motion } from 'framer-motion';
+import { animate, AnimatePresence, motion, useMotionValue, useReducedMotion } from 'framer-motion';
 import type { SearchCoverItem } from '@/lib/content';
 import type { SearchResultItem } from '@/lib/search/types';
 import SearchBookDetail from './SearchBookDetail';
@@ -72,28 +72,67 @@ export default function SemanticSearchPage({ covers }: SemanticSearchPageProps) 
   const [showAbstainedMore, setShowAbstainedMore] = useState(false);
 
   const hubRef = useRef<HTMLDivElement>(null);
-  const [idleOffset, setIdleOffset] = useState(0);
+  const y = useMotionValue(0);
+  const opacity = useMotionValue(0);
+  const idleOffsetRef = useRef(0);
+  const measuredRef = useRef(false);
+  const showTopRef = useRef(showTop);
+  const reduceMotion = useReducedMotion();
+  const reduceMotionRef = useRef(!!reduceMotion);
 
-  // 空闲态检索枢纽精确垂直居中：实测枢纽自身高度与视口中心，得出纯 GPU 位移值，
-  // 并随窗口尺寸自适应，避免 magic number 也避免过渡链路引入重排。
   useEffect(() => {
+    showTopRef.current = showTop;
+    reduceMotionRef.current = !!reduceMotion;
+  }, [showTop, reduceMotion]);
+
+  // 空闲态检索枢纽精确垂直居中：测量在首帧绘制前完成（useLayoutEffect），
+  // 首帧即直接定格居中位，杜绝「从顶部滑入」的伪入场位移与卡顿；
+  // 位移动画仅在用户触发检索 / 退出的 showTop 切换时进行。
+  useLayoutEffect(() => {
+    const el = hubRef.current;
+    if (!el) return;
     const measure = () => {
-      const el = hubRef.current;
-      if (!el) return;
       const naturalTop = el.offsetTop;
       // 极端矮视口下不抬升越过自然顶部，避免与固定 Header 重叠
-      const offset = window.innerHeight / 2 - el.offsetHeight / 2 - naturalTop;
-      setIdleOffset(Math.max(0, offset));
+      const offset = Math.max(0, window.innerHeight / 2 - el.offsetHeight / 2 - naturalTop);
+      idleOffsetRef.current = offset;
+      if (!measuredRef.current) {
+        y.set(offset);
+        measuredRef.current = true;
+      } else if (!showTopRef.current) {
+        if (reduceMotionRef.current) y.set(offset);
+        else animate(y, offset, { duration: 0.3, ease: [0.23, 1, 0.32, 1] });
+      }
     };
     measure();
     window.addEventListener('resize', measure);
     const ro = new ResizeObserver(measure);
-    if (hubRef.current) ro.observe(hubRef.current);
+    ro.observe(el);
     return () => {
       window.removeEventListener('resize', measure);
       ro.disconnect();
     };
-  }, []);
+  }, [y]);
+
+  // showTop 切换（用户触发检索 / 清空 / 重置）：枢纽在顶部与居中位之间平滑位移；
+  // prefers-reduced-motion 下直接定格，不做位移。
+  useEffect(() => {
+    if (!measuredRef.current) return;
+    const target = showTop ? 0 : idleOffsetRef.current;
+    if (reduceMotionRef.current) {
+      y.set(target);
+    } else {
+      animate(y, target, {
+        duration: showTop ? 0.28 : 0.3,
+        ease: [0.23, 1, 0.32, 1],
+      });
+    }
+  }, [showTop, y]);
+
+  // 首次挂载淡入：纯 opacity 合成层动效，替代原先的位移入场
+  useEffect(() => {
+    animate(opacity, 1, { duration: 0.25, ease: [0.23, 1, 0.32, 1] });
+  }, [opacity]);
 
   // 详情面板与「展开低相关度结果」都是页面级 UI 状态：每次新检索都要归零
   const handleSubmit = () => {
@@ -137,12 +176,7 @@ export default function SemanticSearchPage({ covers }: SemanticSearchPageProps) 
         */}
         <motion.div
           ref={hubRef}
-          animate={{ y: showTop ? 0 : idleOffset }}
-          transition={
-            showTop
-              ? { duration: 0.28, ease: [0.23, 1, 0.32, 1] }
-              : { duration: 0.42, ease: [0.23, 1, 0.32, 1] }
-          }
+          style={{ y, opacity }}
           className="relative w-full max-w-2xl"
         >
           <AnimatePresence>
