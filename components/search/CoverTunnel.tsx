@@ -182,12 +182,14 @@ export default function CoverTunnel({
       {/* 空间暗角与柔和书香暖金色径向光 */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(201,160,99,0.06),transparent_70%)]" />
 
-      {/* 检索穿梭态激光全屏横扫：精致纤细光芯 + 柔和暖金双层微晕（GPU 合成层加速） */}
+      {/* 检索穿梭态激光扫描：居中收敛至 max-w-5xl（约 1024px），两端柔和羽化（GPU 合成层加速） */}
       {isSearching && (
-        <div
-          className="laser-warp-sweep-line pointer-events-none absolute top-0 inset-x-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#FFF4DE] to-transparent shadow-[0_0_14px_1px_rgba(201,160,99,0.7),0_0_2px_#FFF] z-10 will-change-transform"
-          style={{ animation: 'laser-warp-sweep 0.85s ease-in-out infinite' }}
-        />
+        <div className="pointer-events-none absolute inset-x-0 top-0 flex justify-center z-10 px-4">
+          <div
+            className="laser-warp-sweep-line w-full max-w-5xl h-[1.5px] bg-gradient-to-r from-transparent via-[#FFF4DE] to-transparent shadow-[0_0_14px_1px_rgba(201,160,99,0.7),0_0_2px_#FFF] will-change-transform"
+            style={{ animation: 'laser-warp-sweep 0.85s ease-in-out infinite' }}
+          />
+        </div>
       )}
 
       {/* 退让景深层：聚焦检索框或检索中时通过纯 GPU opacity 进行平滑退让 */}

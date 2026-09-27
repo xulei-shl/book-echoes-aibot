@@ -20,75 +20,204 @@ const MORE_PAGE_SIZE = 12;
 
 const gridClass = 'grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6';
 
+interface FanConfig {
+  xOffset: number;
+  yOffset: number;
+  rotate: number;
+  scale: number;
+  zIndex: number;
+  badge: string;
+  glowClass: string;
+  glideDelay: number;
+  settleDelay: number;
+}
+
 /**
- * Top 1 电影级连续镜头破壁卡片：
- * 1. 破壁爆发（Phase: breaking，0~320ms）：
- *    - 初始深渊光子态（scale: 0.3, opacity: 0）；
- *    - 同步引爆金色 Shockwave 冲击波光环撕裂背景；
- *    - 以爆炸式动量曲线 [0.16, 1, 0.3, 1] 破壁击穿屏幕，暴冲至视口绝对中心（scale: 1.4）！
- * 2. 居中定格特写（Phase: focused，320ms~1120ms，从容停顿整整 800ms）：
- *    - 留出充足呼吸时间，金色脉冲呼吸光晕让用户清晰看清第一名封面与书名；
- * 3. 弹簧滑翔入座（Phase: gliding，1120ms~1540ms，420ms）：
- *    - 沿物理弹簧曲线（stiffness: 320, damping: 26, mass: 0.85）从中央平滑收缩回 1.0 并飞入自身卡槽 (0, 0)；
- *    - 100% 严丝合缝落入 Slot 0 第一格！
+ * 依据位次（rankIndex）与前台 Hero 数量（totalHeroes）
+ * 计算扇形几何参数与方案 B（Top 1 ➔ Top 2 ➔ Top 3 依次入座 · 黄金从容档）时间表
+ */
+function getHeroFanConfig(rankIndex: number, totalHeroes: number, isMobile: boolean): FanConfig {
+  // 单本特写（退化兼容）
+  if (totalHeroes <= 1) {
+    return {
+      xOffset: 0,
+      yOffset: 0,
+      rotate: 0,
+      scale: 1.36,
+      zIndex: 75,
+      badge: 'TOP 1 破壁命中',
+      glowClass: 'shadow-[0_0_65px_rgba(201,160,99,0.85)] ring-2 ring-[#C9A063]',
+      glideDelay: 1180,
+      settleDelay: 1520,
+    };
+  }
+
+  // 双子星（2 本对开）
+  if (totalHeroes === 2) {
+    const isLeft = rankIndex === 0;
+    const xBase = isMobile ? 48 : 88;
+    return {
+      xOffset: isLeft ? -xBase : xBase,
+      yOffset: 0,
+      rotate: isLeft ? -5 : 5,
+      scale: 1.22,
+      zIndex: isLeft ? 75 : 74,
+      badge: isLeft ? 'TOP 1 破壁命中' : 'TOP 2 核心推荐',
+      glowClass: isLeft
+        ? 'shadow-[0_0_60px_rgba(201,160,99,0.8)] ring-2 ring-[#C9A063]'
+        : 'shadow-[0_0_45px_rgba(201,160,99,0.65)] ring-1.5 ring-[#C9A063]/80',
+      glideDelay: isLeft ? 1180 : 1300,
+      settleDelay: isLeft ? 1520 : 1640,
+    };
+  }
+
+  // 经典三剑客扇形展开（>= 3 本）
+  // 方案 A（黄金从容档）：定格约 860ms 后，Top 1（1180ms）➔ Top 2（1300ms）➔ Top 3（1420ms）依次平滑归位
+  const xSpan = isMobile ? 68 : 135;
+  if (rankIndex === 0) {
+    // 居中核心王者：微悬浮于拱顶中心，定格约 860ms 后最先启动滑翔归位
+    return {
+      xOffset: 0,
+      yOffset: -12,
+      rotate: 0,
+      scale: 1.26,
+      zIndex: 75,
+      badge: 'TOP 1 破壁命中',
+      glowClass: 'shadow-[0_0_65px_rgba(201,160,99,0.85)] ring-2 ring-[#C9A063]',
+      glideDelay: 1180,
+      settleDelay: 1520,
+    };
+  } else if (rankIndex === 1) {
+    // 左翼次席：向左偏转 -8°，随后紧跟滑翔归位
+    return {
+      xOffset: -xSpan,
+      yOffset: 8,
+      rotate: -8,
+      scale: 1.14,
+      zIndex: 72,
+      badge: 'TOP 2 核心推荐',
+      glowClass: 'shadow-[0_0_45px_rgba(201,160,99,0.65)] ring-1.5 ring-[#C9A063]/80',
+      glideDelay: 1300,
+      settleDelay: 1640,
+    };
+  } else {
+    // 右翼末席：向右偏转 8°，最后平滑归位
+    return {
+      xOffset: xSpan,
+      yOffset: 8,
+      rotate: 8,
+      scale: 1.14,
+      zIndex: 71,
+      badge: 'TOP 3 核心推荐',
+      glowClass: 'shadow-[0_0_35px_rgba(201,160,99,0.5)] ring-1 ring-[#C9A063]/60',
+      glideDelay: 1420,
+      settleDelay: 1760,
+    };
+  }
+}
+
+/**
+ * 领奖台前三名（Hero Podium）扇形卡片：
+ * 1. 破壁展开（Phase: breaking，0~320ms）：
+ *    - 从自身卡槽破壁暴冲冲向视口中心，并按扇形微角度（-8°/0°/+8°）平滑展开；
+ *    - Top 1 引爆金色 Shockwave 冲击波撕裂背景；
+ * 2. 扇形定格特写（Phase: focused，320ms~1180ms，黄金从容定格 860ms）：
+ *    - 三本封面呈扇形拱卫，徽章与呼吸光晕高光定格，从容尽览前三佳作；
+ * 3. 方案 B 依次滑翔归位（Phase: gliding，1180ms~1760ms）：
+ *    - Top 1 率先归位到 Slot 0，Top 2 紧随归位到 Slot 1，Top 3 紧随归位到 Slot 2；
+ *    - 沿物理弹簧曲线（stiffness: 340, damping: 28, mass: 0.85）角度回正并严丝合缝落入各自卡槽！
  * 4. 恢复交互（Phase: settled）：
  *    - 恢复常规层级与点击打开详情等操作。
  */
-function TopResultHeroCard({
+function HeroPodiumCard({
   item,
+  rankIndex,
+  totalHeroes,
   onOpen
 }: {
   item: SearchResultItem;
+  rankIndex: number;
+  totalHeroes: number;
   onOpen: (item: SearchResultItem) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [isReducedMotion] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    }
+    return false;
+  });
   const [phase, setPhase] = useState<'breaking' | 'focused' | 'gliding' | 'settled'>('breaking');
   const [delta, setDelta] = useState<{ x: number; y: number } | null>(null);
 
+  const isMobile = typeof window !== 'undefined' ? window.innerWidth < 640 : false;
+  const config = getHeroFanConfig(rankIndex, totalHeroes, isMobile);
+
   useLayoutEffect(() => {
-    if (!containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    const centerX = window.innerWidth / 2;
-    const centerY = window.innerHeight / 2;
-    const cardCenterX = rect.left + rect.width / 2;
-    const cardCenterY = rect.top + rect.height / 2;
+    if (isReducedMotion || !containerRef.current) return;
 
-    // 绝对精确计算出：从本卡槽自身位置到屏幕正中心的物理位移向量
-    setDelta({
-      x: centerX - cardCenterX,
-      y: centerY - cardCenterY
-    });
+    const measure = () => {
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const centerX = window.innerWidth / 2;
+      const centerY = window.innerHeight / 2;
+      const cardCenterX = rect.left + rect.width / 2;
+      const cardCenterY = rect.top + rect.height / 2;
 
-    // 拍 1：0~320ms 破壁暴冲冲至正中央，随后进入定格特写
+      // 计算从本卡槽自身位置到视口绝对中心的物理位移基准向量
+      setDelta({
+        x: centerX - cardCenterX,
+        y: centerY - cardCenterY
+      });
+    };
+
+    measure();
+
+    // 拍 1：0~320ms 破壁暴冲至扇形位置，随后进入定格特写
     const focusTimer = setTimeout(() => {
       setPhase('focused');
     }, 320);
 
-    // 拍 2：在正中央从容停顿 800ms（至 1120ms），随后启动弹簧滑翔
+    // 拍 2：方案 B 依次启动弹簧滑翔归位（Top 1 -> Top 2 -> Top 3）
     const glideTimer = setTimeout(() => {
       setPhase('gliding');
-    }, 1120);
+    }, config.glideDelay);
 
-    // 拍 3：滑翔归位耗时 420ms 后（至 1540ms）settle 恢复常规状态
+    // 拍 3：滑翔归位完成，settle 恢复常规状态
     const settleTimer = setTimeout(() => {
       setPhase('settled');
-    }, 1540);
+    }, config.settleDelay);
 
     return () => {
       clearTimeout(focusTimer);
       clearTimeout(glideTimer);
       clearTimeout(settleTimer);
     };
-  }, []);
+  }, [isReducedMotion, config.glideDelay, config.settleDelay]);
 
-  if (!delta) {
+  if (isReducedMotion) {
+    return (
+      <div className="relative aspect-[2/3] w-full">
+        <ResultCard
+          item={item}
+          onOpen={onOpen}
+          {...(item.passedGate ? {} : { badge: '未列入推荐' })}
+        />
+      </div>
+    );
+  }
+
+  if (!delta || !config) {
     return <div ref={containerRef} className="relative aspect-[2/3] w-full invisible" />;
   }
 
+  const fanX = delta.x + config.xOffset;
+  const fanY = delta.y + config.yOffset;
+
   return (
     <div ref={containerRef} className="relative aspect-[2/3] w-full">
-      {/* 破壁爆发冲击波光环（Shockwave Pulse） */}
-      {phase === 'breaking' && (
+      {/* 仅 Top 1 引爆金色 Shockwave 冲击波光环撕裂背景 */}
+      {rankIndex === 0 && phase === 'breaking' && (
         <motion.div
           initial={{ x: delta.x, y: delta.y, scale: 0.2, opacity: 0.95 }}
           animate={{ x: delta.x, y: delta.y, scale: 2.8, opacity: 0 }}
@@ -97,23 +226,25 @@ function TopResultHeroCard({
         />
       )}
 
-      {/* Top 1 破壁卡片本体 */}
+      {/* 破壁扇形卡片本体 */}
       <motion.div
         initial={{
           x: delta.x,
           y: delta.y,
+          rotate: 0,
           scale: 0.3,
           opacity: 0,
-          zIndex: 70
+          zIndex: config.zIndex
         }}
         animate={
           phase === 'breaking'
             ? {
-                x: delta.x,
-                y: delta.y,
-                scale: 1.4,
+                x: fanX,
+                y: fanY,
+                rotate: config.rotate,
+                scale: config.scale,
                 opacity: 1,
-                zIndex: 70,
+                zIndex: config.zIndex,
                 transition: {
                   duration: 0.32,
                   ease: [0.16, 1, 0.3, 1]
@@ -121,13 +252,14 @@ function TopResultHeroCard({
               }
             : phase === 'focused'
             ? {
-                x: delta.x,
-                y: delta.y,
-                scale: 1.36,
+                x: fanX,
+                y: fanY,
+                rotate: config.rotate,
+                scale: config.scale,
                 opacity: 1,
-                zIndex: 70,
+                zIndex: config.zIndex,
                 transition: {
-                  duration: 0.3,
+                  duration: 0.24,
                   ease: 'easeOut'
                 }
               }
@@ -135,19 +267,21 @@ function TopResultHeroCard({
             ? {
                 x: 0,
                 y: 0,
+                rotate: 0,
                 scale: 1.0,
                 opacity: 1,
-                zIndex: 70,
+                zIndex: config.zIndex,
                 transition: {
                   type: 'spring',
-                  stiffness: 320,
-                  damping: 26,
+                  stiffness: 340,
+                  damping: 28,
                   mass: 0.85
                 }
               }
             : {
                 x: 0,
                 y: 0,
+                rotate: 0,
                 scale: 1.0,
                 opacity: 1,
                 zIndex: 1
@@ -155,7 +289,7 @@ function TopResultHeroCard({
         }
         className={`absolute inset-0 transition-shadow duration-300 will-change-transform ${
           phase === 'breaking' || phase === 'focused'
-            ? 'shadow-[0_0_65px_rgba(201,160,99,0.85)] ring-2 ring-[#C9A063]'
+            ? config.glowClass
             : phase === 'gliding'
             ? 'shadow-[0_0_35px_rgba(201,160,99,0.5)] ring-1 ring-[#C9A063]'
             : ''
@@ -164,7 +298,7 @@ function TopResultHeroCard({
         <ResultCard
           item={item}
           onOpen={onOpen}
-          badge={phase !== 'settled' ? 'TOP 1 破壁命中' : undefined}
+          badge={phase !== 'settled' ? config.badge : undefined}
           {...(item.passedGate ? {} : { badge: '未列入推荐' })}
         />
       </motion.div>
@@ -182,29 +316,36 @@ export default function ResultGallery({
   const revealed = more.slice(0, visibleMore);
   const remaining = more.length - revealed.length;
 
+  // 前 1~3 本书作为 Hero 扇形领奖台卡片
+  const heroCount = Math.min(3, results.length);
+  // 画廊水波涟漪展开的起始延时：随着 Top 1 落座（约 1.52s）启动
+  const rippleStartDelay = heroCount === 3 ? 1.52 : heroCount === 2 ? 1.40 : 1.30;
+
   return (
     <div className="w-full">
       <div className={gridClass}>
         {results.map((item, index) => {
-          // 第 1 张卡片：作为主角执行破壁爆发、居中从容停顿 800ms 与物理弹簧落座动画
-          if (index === 0) {
+          // 前 heroCount 张卡片：执行破壁爆发、居中扇形定格特写与依次物理弹簧落座动画
+          if (index < heroCount) {
             return (
-              <TopResultHeroCard
+              <HeroPodiumCard
                 key={item.book.id}
                 item={item}
+                rankIndex={index}
+                totalHeroes={heroCount}
                 onOpen={onOpen}
               />
             );
           }
 
-          // 其余卡片：在 Top 1 居中特写从容停顿完毕启动滑翔入座时（1.12s 后）向四周如水波涟漪般错峰浮现
+          // 其余卡片：在 Top 1 撞入 Slot 0 瞬间向四周如水波涟漪般错峰浮现
           return (
             <motion.div
               key={item.book.id}
               initial={{ opacity: 0, y: 18, scale: 0.94 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{
-                delay: 1.12 + (index - 1) * 0.04,
+                delay: rippleStartDelay + (index - heroCount) * 0.04,
                 duration: 0.3,
                 ease: [0.23, 1, 0.32, 1]
               }}
