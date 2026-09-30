@@ -166,6 +166,15 @@ body {
   background: var(--accent-interactive);
 }
 
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
 
 /* 首页封面区统一容器,避免卡片无限拉伸 */
 .magazine-cover-wrapper {

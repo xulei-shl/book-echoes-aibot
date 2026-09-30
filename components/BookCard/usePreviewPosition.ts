@@ -1,8 +1,8 @@
 import { useState, useCallback, useEffect } from 'react';
 
-const PREVIEW_WIDTH = 480;
-const PREVIEW_HEIGHT = 680;
-const PREVIEW_OFFSET = 16;
+import { PREVIEW_WIDTH, PREVIEW_HEIGHT } from './HoverPreview';
+
+const PREVIEW_OFFSET = 12;
 
 /**
  * 自定义 Hook 用于管理悬停预览的位置计算
@@ -19,16 +19,38 @@ export function usePreviewPosition(
             return;
         }
         const rect = cardRef.current.getBoundingClientRect();
-        let left = rect.right + PREVIEW_OFFSET;
-        if (window.innerWidth - rect.right < PREVIEW_WIDTH + PREVIEW_OFFSET) {
-            left = rect.left - PREVIEW_WIDTH - PREVIEW_OFFSET;
+        
+        // 判断卡片是否位于屏幕下半部（如底部 Dock 题名列表）
+        const isBottomShelf = rect.bottom > window.innerHeight * 0.55;
+
+        let left: number;
+        let top: number;
+
+        if (isBottomShelf) {
+            // 底部 Dock 题名：水平跟随当前题名中心居中
+            left = rect.left + rect.width / 2 - PREVIEW_WIDTH / 2;
+            left = Math.max(PREVIEW_OFFSET, Math.min(window.innerWidth - PREVIEW_WIDTH - PREVIEW_OFFSET, left));
+
+            // 垂直方向：紧贴当前书签正上方 12px，消除距离过远的视觉脱节感
+            top = rect.top - PREVIEW_HEIGHT - 12;
+            if (top < PREVIEW_OFFSET) {
+                top = PREVIEW_OFFSET;
+            }
+        } else {
+            // 画布散落卡片：保持在卡片右侧/左侧优雅浮现
+            left = rect.right + PREVIEW_OFFSET;
+            if (window.innerWidth - rect.right < PREVIEW_WIDTH + PREVIEW_OFFSET) {
+                left = rect.left - PREVIEW_WIDTH - PREVIEW_OFFSET;
+            }
+            left = Math.max(PREVIEW_OFFSET, Math.min(window.innerWidth - PREVIEW_WIDTH - PREVIEW_OFFSET, left));
+
+            top = rect.top;
+            if (window.innerHeight - rect.top < PREVIEW_HEIGHT + PREVIEW_OFFSET) {
+                top = window.innerHeight - PREVIEW_HEIGHT - PREVIEW_OFFSET;
+            }
+            top = Math.max(PREVIEW_OFFSET, top);
         }
-        let top = rect.top;
-        if (window.innerHeight - rect.top < PREVIEW_HEIGHT + PREVIEW_OFFSET) {
-            top = window.innerHeight - PREVIEW_HEIGHT - PREVIEW_OFFSET;
-        }
-        top = Math.max(PREVIEW_OFFSET, top);
-        left = Math.max(PREVIEW_OFFSET, left);
+
         setPreviewPosition({ x: left, y: top });
     }, [cardRef]);
 
