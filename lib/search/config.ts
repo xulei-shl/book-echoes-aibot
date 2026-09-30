@@ -37,7 +37,7 @@ export const JUDGE_CACHE_TTL_MS = 10 * 60 * 1000;
 export const QUERY_VECTOR_CACHE_SIZE = 256;
 
 // ── 默认值与上限 ────────────────────────────────────────────────────────────
-export const LIMIT_DEFAULT = 12;
+export const LIMIT_DEFAULT = 5;
 export const LIMIT_MAX = 24;
 
 export const VECTORS_PATH = path.join(process.cwd(), 'public', 'content', 'search_vectors.bin');

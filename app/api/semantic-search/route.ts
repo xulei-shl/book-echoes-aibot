@@ -1,8 +1,15 @@
 import { NextResponse } from 'next/server';
 import { JevDisabledError, jevFailureMessage } from '@/lib/jev/errors';
 import { isKnownClcCode } from '@/lib/search/clc';
-import { LIMIT_MAX, QUERY_MAX_CHARS, isSemanticSearchEnabled, readJevConfig } from '@/lib/search/config';
+import {
+  LIMIT_DEFAULT,
+  LIMIT_MAX,
+  QUERY_MAX_CHARS,
+  isSemanticSearchEnabled,
+  readJevConfig
+} from '@/lib/search/config';
 import { runSemanticSearch } from '@/lib/search/pipeline';
+import { projectSearchResponse, type ResultView } from '@/lib/search/projection';
 import type { SearchFilters, SearchInput, SearchMode, SearchProgressEvent } from '@/lib/search/types';
 import { getLogger } from '@/src/utils/logger';
 import { sameOrigin } from '@/src/utils/same-origin';
@@ -12,8 +19,14 @@ const logger = getLogger('search.api');
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const RATE_LIMIT = 10;
+const RATE_LIMIT = 30; // 放宽给外部 API 与流式调用
 const RATE_WINDOW_MS = 60_000;
+
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-api-key'
+};
 
 const hits = new Map<string, number[]>();
 
@@ -30,12 +43,43 @@ function rateLimited(key: string): boolean {
 }
 
 function clientKey(request: Request): string {
+  const authHeader = request.headers.get('authorization');
+  if (authHeader) return `auth:${authHeader.slice(-12)}`;
+  const xApiKey = request.headers.get('x-api-key');
+  if (xApiKey) return `key:${xApiKey.slice(-12)}`;
   return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'anonymous';
+}
+
+function checkAuth(request: Request): { authorized: boolean } {
+  const configuredKey = process.env.SEARCH_API_KEY?.trim();
+  const authHeader = request.headers.get('authorization');
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
+  const xApiKey = request.headers.get('x-api-key')?.trim();
+  const providedKey = token || xApiKey;
+
+  // 1. 若配置了 SEARCH_API_KEY，且提供了有效 Key，通过
+  if (configuredKey && providedKey && providedKey === configuredKey) {
+    return { authorized: true };
+  }
+
+  // 2. 本站同源请求放行
+  if (sameOrigin(request)) {
+    return { authorized: true };
+  }
+
+  // 3. 若未配置 SEARCH_API_KEY，开放跨源调用
+  if (!configuredKey) {
+    return { authorized: true };
+  }
+
+  return { authorized: false };
 }
 
 interface ParseResult {
   ok: true;
   input: SearchInput;
+  view: ResultView;
+  fields?: string[];
 }
 
 interface ParseFailure {
@@ -63,13 +107,33 @@ function parseRequest(body: unknown): ParseResult | ParseFailure {
     mode = raw.mode;
   }
 
-  let limit: number | undefined;
+  // 默认返回 5 条数据，除非显式传入数量参数
+  let limit: number = LIMIT_DEFAULT;
   if (raw.limit !== undefined) {
     const value = Number(raw.limit);
     if (!Number.isInteger(value) || value < 1 || value > LIMIT_MAX) {
       return { ok: false, message: `limit 必须是 1–${LIMIT_MAX} 的整数` };
     }
     limit = value;
+  }
+
+  let view: ResultView = 'compact';
+  if (raw.view !== undefined) {
+    if (raw.view !== 'compact' && raw.view !== 'summary' && raw.view !== 'full') {
+      return { ok: false, message: 'view 只能是 compact、summary 或 full' };
+    }
+    view = raw.view;
+  }
+
+  let fields: string[] | undefined;
+  if (raw.fields !== undefined) {
+    if (Array.isArray(raw.fields)) {
+      fields = raw.fields.filter(f => typeof f === 'string' && f.trim().length > 0).map(f => f.trim());
+    } else if (typeof raw.fields === 'string') {
+      fields = raw.fields.split(',').map(f => f.trim()).filter(Boolean);
+    } else {
+      return { ok: false, message: 'fields 必须是字符串数组或逗号分隔的字符串' };
+    }
   }
 
   let filters: SearchFilters | undefined;
@@ -93,14 +157,12 @@ function parseRequest(body: unknown): ParseResult | ParseFailure {
       }
       filters.pubYearFrom = value;
     }
-    // SearchFilters 声明了 excludeFiction（types.ts），解析层不能默默丢掉它
     if (source.excludeFiction !== undefined) {
       if (typeof source.excludeFiction !== 'boolean') {
         return { ok: false, message: 'filters.excludeFiction 必须是布尔值' };
       }
       if (source.excludeFiction) filters.excludeFiction = true;
     }
-    // 中图法类号过滤：一级（K）/ 二级（K81）/ T 类三级（TP3）都可传，去重后取大写
     if (source.callClasses !== undefined) {
       if (!Array.isArray(source.callClasses)) {
         return { ok: false, message: 'filters.callClasses 必须是类号数组' };
@@ -111,8 +173,6 @@ function parseRequest(body: unknown): ParseResult | ParseFailure {
           return { ok: false, message: 'filters.callClasses 的每一项都必须是非空字符串类号' };
         }
         const code = entry.trim().toUpperCase();
-        // 未知类号必须报错而不是放行：它永远匹配不上，只会静默滤空，
-        // 用户看到的是「馆藏里没有」这种没法排查的结论（clc.ts 的表是唯一权威）
         if (!isKnownClcCode(code)) {
           return { ok: false, message: `filters.callClasses 含未知中图法类号：${code}` };
         }
@@ -124,37 +184,60 @@ function parseRequest(body: unknown): ParseResult | ParseFailure {
 
   return {
     ok: true,
+    view,
+    ...(fields ? { fields } : {}),
     input: {
       query: raw.query.trim(),
+      limit,
       ...(mode ? { mode } : {}),
-      ...(limit ? { limit } : {}),
       ...(filters ? { filters } : {})
     }
   };
 }
 
+function buildExportUrl(input: SearchInput): string {
+  const params = new URLSearchParams();
+  params.set('query', input.query);
+  if (input.mode) params.set('mode', input.mode);
+  if (input.limit) params.set('limit', String(input.limit));
+  if (input.filters?.minRating !== undefined) params.set('minRating', String(input.filters.minRating));
+  if (input.filters?.pubYearFrom !== undefined) params.set('pubYearFrom', String(input.filters.pubYearFrom));
+  if (input.filters?.excludeFiction) params.set('excludeFiction', 'true');
+  if (input.filters?.callClasses && input.filters.callClasses.length > 0) {
+    params.set('callClasses', input.filters.callClasses.join(','));
+  }
+  return `/api/semantic-search/export?${params.toString()}`;
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: CORS_HEADERS
+  });
+}
+
 export async function POST(request: Request) {
   if (!isSemanticSearchEnabled()) {
-    return NextResponse.json({ message: 'Not Found' }, { status: 404 });
+    return NextResponse.json({ message: 'Not Found' }, { status: 404, headers: CORS_HEADERS });
   }
 
-  if (!sameOrigin(request)) {
-    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  const auth = checkAuth(request);
+  if (!auth.authorized) {
+    return NextResponse.json({ error: 'forbidden' }, { status: 403, headers: CORS_HEADERS });
   }
 
   if (rateLimited(clientKey(request))) {
     return NextResponse.json(
       { error: '检索过于频繁，请稍后再试' },
-      { status: 429 }
+      { status: 429, headers: CORS_HEADERS }
     );
   }
 
-  // key 缺失时明确报错，不静默降级为纯词法（避免「看起来能用但其实是关键词检索」）
   if (!readJevConfig()) {
     logger.error('语义检索已开启但缺少 TYPESAFE_API_KEY');
     return NextResponse.json(
       { error: '语义检索服务未配置：缺少 TYPESAFE_API_KEY' },
-      { status: 503 }
+      { status: 503, headers: CORS_HEADERS }
     );
   }
 
@@ -162,12 +245,13 @@ export async function POST(request: Request) {
   try {
     parsed = parseRequest(await request.json());
   } catch {
-    return NextResponse.json({ error: '请求体不是合法 JSON' }, { status: 400 });
+    return NextResponse.json({ error: '请求体不是合法 JSON' }, { status: 400, headers: CORS_HEADERS });
   }
   if (!parsed.ok) {
-    return NextResponse.json({ error: parsed.message }, { status: 400 });
+    return NextResponse.json({ error: parsed.message }, { status: 400, headers: CORS_HEADERS });
   }
 
+  const exportUrl = buildExportUrl(parsed.input);
   const wantsStream = request.headers.get('accept')?.includes('application/x-ndjson');
 
   if (wantsStream) {
@@ -179,10 +263,14 @@ export async function POST(request: Request) {
       writer.write(encoder.encode(JSON.stringify(event) + '\n'));
     };
 
-    // 不 await：让流立刻返回给客户端
     runSemanticSearch(parsed.input, {}, request.signal, emit)
       .then(result => {
-        emit({ event: 'done', data: result });
+        const projected = projectSearchResponse(
+          result,
+          { view: parsed.view, fields: parsed.fields },
+          exportUrl
+        );
+        emit({ event: 'done', data: projected as any });
         writer.close();
       })
       .catch(error => {
@@ -194,6 +282,7 @@ export async function POST(request: Request) {
 
     return new Response(readable, {
       headers: {
+        ...CORS_HEADERS,
         'Content-Type': 'application/x-ndjson',
         'Cache-Control': 'no-cache',
         'X-Content-Type-Options': 'nosniff'
@@ -203,16 +292,24 @@ export async function POST(request: Request) {
 
   try {
     const result = await runSemanticSearch(parsed.input, {}, request.signal);
-    return NextResponse.json(result, {
-      headers: { 'Cache-Control': 'no-store' }
+    const projected = projectSearchResponse(
+      result,
+      { view: parsed.view, fields: parsed.fields },
+      exportUrl
+    );
+    return NextResponse.json(projected, {
+      headers: {
+        ...CORS_HEADERS,
+        'Cache-Control': 'no-store'
+      }
     });
   } catch (error) {
     if (error instanceof JevDisabledError) {
-      return NextResponse.json({ error: error.message }, { status: 503 });
+      return NextResponse.json({ error: error.message }, { status: 503, headers: CORS_HEADERS });
     }
     logger.error('语义检索失败', {
       message: error instanceof Error ? error.message : String(error)
     });
-    return NextResponse.json({ error: jevFailureMessage(error) }, { status: 502 });
+    return NextResponse.json({ error: jevFailureMessage(error) }, { status: 502, headers: CORS_HEADERS });
   }
 }

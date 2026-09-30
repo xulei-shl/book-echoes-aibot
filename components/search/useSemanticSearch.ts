@@ -72,7 +72,7 @@ export function useSemanticSearch() {
           'Content-Type': 'application/json',
           'Accept': 'application/x-ndjson',
         },
-        body: JSON.stringify({ query: trimmed, mode, limit: LIMIT }),
+        body: JSON.stringify({ query: trimmed, mode, limit: LIMIT, view: 'full' }),
         signal: controller.signal,
       });
       
