@@ -1,6 +1,6 @@
 import { promises as fs } from 'fs';
 import path from 'path';
-import { legacyCardThumbnailPath, resolveImageUrl } from '@/lib/assets';
+import { legacyCardThumbnailPath, legacyCoverThumbnailPath, resolveImageUrl } from '@/lib/assets';
 
 export interface Book {
   '书目条码': string | number;
@@ -23,6 +23,7 @@ export interface ArchiveItem {
   label: string;       // Display name, e.g., "二零二五年 八月" or "科幻"
   type: 'month' | 'subject' | 'sleeping_beauty' | 'literature';
   previewCards: string[];
+  previewCovers?: string[];
   bookCount: number;
   books: Book[];
   vol?: string;        // Specific to months, e.g., "Vol. 12"
@@ -108,6 +109,12 @@ async function processArchiveItem(
       return resolveImageUrl(candidate, legacyCardThumbnailPath(id, bookId));
     });
 
+    const previewCovers = booksToShow.map((book: Book) => {
+      const bookId = String(book['书目条码']);
+      const candidate = book.coverThumbnailUrl || book.coverImageUrl || (book['豆瓣封面图片链接'] as string);
+      return resolveImageUrl(candidate, legacyCoverThumbnailPath(id, bookId));
+    });
+
     let label = id;
     const vol = undefined;
 
@@ -147,6 +154,7 @@ async function processArchiveItem(
       label,
       type,
       previewCards,
+      previewCovers,
       bookCount: books.length,
       books,
       vol

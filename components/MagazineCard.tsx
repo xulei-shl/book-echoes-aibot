@@ -1,9 +1,10 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { MonthData } from '@/lib/content';
+
+import PerspectiveStack from './PerspectiveStack';
 
 interface MagazineCardProps {
     month: MonthData;
@@ -11,41 +12,38 @@ interface MagazineCardProps {
     className?: string;
 }
 
+const cardContainerVariants = {
+    initial: { scale: 1 },
+    hover: {
+        scale: 1.02,
+        transition: { duration: 0.35, ease: [0.2, 0, 0, 1] as const }
+    }
+};
+
 export default function MagazineCard({ month, isLatest = false, className = '' }: MagazineCardProps) {
     const router = useRouter();
-    const previewCards = month.previewCards;
+    // 优先使用竖版原版图书封面，若无则使用设计卡片预览
+    const previewImages = (month.previewCovers && month.previewCovers.length > 0)
+        ? month.previewCovers
+        : month.previewCards;
 
     return (
         <motion.div
             className={`relative w-full cursor-pointer ${className}`}
             onClick={() => router.push(`/${month.id}`)}
-            whileHover={{ scale: 1.02 }}
-            transition={{ duration: 0.3 }}
+            variants={cardContainerVariants}
+            initial="initial"
+            whileHover="hover"
         >
             <div className="relative w-full h-full overflow-hidden">
-                {/* Book Cover Collage */}
-                {previewCards.length > 0 ? (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        <motion.div
-                            className="relative w-[90%] h-[85%] rounded-sm shadow-2xl"
-                        >
-                            <Image
-                                src={previewCards[0]}
-                                alt={month.label}
-                                fill
-                                className="object-contain rounded-sm drop-shadow-[0_15px_35px_rgba(0,0,0,0.5)]"
-                                priority
-                                sizes="(max-width: 768px) 60vw, 300px"
-                            />
-                        </motion.div>
-                    </div>
-                ) : (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="text-center text-[#C9A063]/40">
-                            <p className="font-display text-sm">等待书籍归档</p>
-                        </div>
-                    </div>
-                )}
+                {/* 3D 竖版透视堆叠画廊 */}
+                <div className="absolute inset-0 pb-10 flex items-center justify-center">
+                    <PerspectiveStack
+                        images={previewImages}
+                        title={month.label}
+                        maxCards={5}
+                    />
+                </div>
 
                 {/* Text Info - Bottom Aligned */}
                 <div className="absolute inset-0 flex flex-col justify-end pb-8 pt-2 px-2 pointer-events-none z-30">
