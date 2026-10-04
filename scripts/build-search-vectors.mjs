@@ -8,6 +8,10 @@
  *
  *   npm run build:vectors        （key 放在 .env / .env.local，由 npm script 加载）
  *
+ * 环境变量（用于让外部调用方指定语料/产物位置，默认仍是本仓库的 public/content）：
+ *   BUILD_CONTENT_CONTENT_DIR     语料根目录
+ *   BUILD_CONTENT_VECTORS_PATH    产物路径，缺省为 <CONTENT_DIR>/search_vectors.bin
+ *
  * 也可被 import：build-content.mjs 在内容与随机索引写好后会自动调用 buildSearchVectors()，
  * 增量逻辑（按 hash 复用旧向量）保证它只编码新增/变更的书目。
  * EMBEDDING_MODEL / EMBEDDING_DIM 从环境读取，与运行期 lib/search/config.ts 保持同一份配置，
@@ -28,12 +32,34 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const PROJECT_ROOT = path.resolve(__dirname, '..');
-const CONTENT_DIR = path.join(PROJECT_ROOT, 'public', 'content');
-const OUTPUT_PATH = path.join(CONTENT_DIR, 'search_vectors.bin');
+// 默认读本仓库的 public/content；book-echoes-UI 的 /web-update 会用
+// BUILD_CONTENT_CONTENT_DIR 指向同一个目录，让向量刷新跟着内容构建走。
+const CONTENT_DIR = process.env.BUILD_CONTENT_CONTENT_DIR
+    ? path.resolve(process.env.BUILD_CONTENT_CONTENT_DIR)
+    : path.join(PROJECT_ROOT, 'public', 'content');
+const OUTPUT_PATH = process.env.BUILD_CONTENT_VECTORS_PATH
+    ? path.resolve(process.env.BUILD_CONTENT_VECTORS_PATH)
+    : path.join(CONTENT_DIR, 'search_vectors.bin');
 const MAGIC = 'BKVS';
 const MAX_TEXT_CHARS = 3000;
 const CONCURRENCY = 2;
 const MAX_RETRIES = 5;
+
+// 来源优先级：数字越小越优先被保留。与 lib/search/corpus.ts 的 SOURCE_PRIORITY 一致，
+// 改这里必须同步改那边，否则向量文件会保留运行期并不服务的那个来源。
+const SOURCE_PRIORITY = {
+  subject: 0,
+  literature: 1,
+  sleeping: 2,
+  month: 3
+};
+
+function sourceKind(sourceId) {
+  if (/-subject-/.test(sourceId)) return 'subject';
+  if (/-literature-/.test(sourceId)) return 'literature';
+  if (/-sleeping-/.test(sourceId)) return 'sleeping';
+  return 'month';
+}
 
 const FIELD = {
   barcode: '书目条码',
@@ -136,6 +162,33 @@ async function walkDirectory(dirPath, visit) {
   }
 }
 
+/**
+ * 以条码为唯一键去重，保留来源优先级更高的一侧，其余来源记入 alsoIn。
+ *
+ * 逐字镜像 lib/search/corpus.ts 的 dedupeByBarcode（含「同优先级保留先到的那条」）。
+ * 必须去重的原因：同一本书可以被同时策展进月份牌和主题牌，两份 metadata 各有一行、
+ * 初评理由不同 → hash 不同。若不去重，build-search-vectors 以条码为键的 Map 会让两行
+ * 争抢同一个向量槽位，导致每次运行都重算一条，且向量文件的行数比运行期语料多，
+ * 两边不再是同一批书（tests/core/search/build-vectors.test.ts 有守卫）。
+ */
+function dedupeByBarcode(entries) {
+  const byId = new Map();
+  for (const entry of entries) {
+    const existing = byId.get(entry.id);
+    if (!existing) {
+      byId.set(entry.id, entry);
+      continue;
+    }
+    const existingRank = SOURCE_PRIORITY[sourceKind(existing.sourceId)];
+    const incomingRank = SOURCE_PRIORITY[sourceKind(entry.sourceId)];
+    const winner = incomingRank < existingRank ? entry : existing;
+    const loser = winner === entry ? existing : entry;
+    const alsoIn = new Set([...(winner.alsoIn ?? []), loser.sourceId]);
+    byId.set(entry.id, { ...winner, alsoIn: [...alsoIn] });
+  }
+  return [...byId.values()];
+}
+
 /** 遍历目录，产出 [{ id, sourceId, hash, text }]（sourceId 与 getArchiveData 一致）。 */
 async function collectEntries(options) {
   const entries = [];
@@ -174,7 +227,9 @@ async function collectEntries(options) {
       );
     }
   }
-  return entries;
+  // 目录遍历顺序与 getSearchCorpus() 一致，因此这里去重后的条目集合
+  // 与运行期语料（lib/search/corpus.ts 的 dedupeByBarcode）逐条对应。
+  return dedupeByBarcode(entries);
 }
 
 /** 读现有产物，返回 id → { hash, vector } 映射（用于增量跳过未变条目）。 */
@@ -277,7 +332,13 @@ async function buildSearchVectors(overrides = {}) {
   };
 
   const entries = await collectEntries(options);
-  console.log(`📚 采集到 ${entries.length} 条书目`);
+  console.log(`📂 语料目录：${CONTENT_DIR}`);
+  console.log(`📚 采集到 ${entries.length} 条书目（已按条码去重，与运行期语料一致）`);
+  for (const entry of entries) {
+    if (entry.alsoIn?.length) {
+      console.log(`🔗 ${entry.id} 重复策展，保留 ${entry.sourceId}，合并 ${entry.alsoIn.join('、')}`);
+    }
+  }
 
   const existing = options.force ? null : await readExisting(options);
   const vectors = new Map();
@@ -359,4 +420,4 @@ if (invokedPath === __filename) {
   });
 }
 
-export { buildEncodedText, contentHash, collectEntries, buildSearchVectors };
+export { buildEncodedText, contentHash, collectEntries, dedupeByBarcode, buildSearchVectors };

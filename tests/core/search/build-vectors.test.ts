@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { contentHash } from '@/lib/search/corpus';
+import { contentHash, dedupeByBarcode as corpusDedupe, type SearchDoc } from '@/lib/search/corpus';
 import { FIELD_WEIGHTS } from '@/lib/search/tuning';
 import {
   buildEncodedText,
-  contentHash as buildScriptHash
+  contentHash as buildScriptHash,
+  dedupeByBarcode as scriptDedupe
 } from '../../../scripts/build-search-vectors.mjs';
 
 /**
@@ -98,5 +99,57 @@ describe('build-search-vectors / 与运行期的一致性', () => {
   it('作者简介是可选开关：默认编入，--no-author-bio 时不编入', () => {
     expect(encoded(true)).toContain(RAW_ITEM.豆瓣作者简介);
     expect(encoded(false)).not.toContain(RAW_ITEM.豆瓣作者简介);
+  });
+});
+
+describe('build-search-vectors / 重复条码的去重与语料侧一致', () => {
+  /** 真实存在的碰撞：同一本书被策展进月份牌和主题牌，两份 metadata 各有一行且初评理由不同。 */
+  const monthRow = { id: '54121109513336', sourceId: '2025-11', hash: 'f109dfd3', text: '月份牌理由' };
+  const subjectRow = { id: '54121109513336', sourceId: '2025-subject-digital-heritage-dance', hash: '9f577e10', text: '主题牌理由' };
+  const otherRow = { id: '54121111126000', sourceId: '2025-12', hash: 'aaaaaaaa', text: '别的书' };
+
+  it('同一条码只留一行，且保留来源优先级更高的一侧（subject 胜过 month）', () => {
+    // 遍历顺序是 month 在前、subject 在后，与 collectEntries 的目录顺序一致
+    const deduped = scriptDedupe([monthRow, subjectRow, otherRow]);
+    expect(deduped).toHaveLength(2);
+    const merged = deduped.find(entry => entry.id === '54121109513336');
+    expect(merged?.sourceId).toBe('2025-subject-digital-heritage-dance');
+    expect(merged?.alsoIn).toEqual(['2025-11']);
+  });
+
+  it('留下的那行用的是胜者自己的 hash 与文本（否则向量编码的是被丢弃的那份初评理由）', () => {
+    const merged = scriptDedupe([monthRow, subjectRow]).find(
+      entry => entry.id === '54121109513336'
+    );
+    expect(merged?.hash).toBe('9f577e10');
+    expect(merged?.text).toBe('主题牌理由');
+  });
+
+  it('去重结果与 lib/search/corpus.ts 的 dedupeByBarcode 逐条一致', () => {
+    // 两侧只能靠注释同步：不一致时向量文件会比运行期语料多出行，
+    // 而按 docId 融合（lib/search/fusion.ts）会把重复行静默合并掉 —— 不会有任何报错。
+    const rows = [
+      monthRow,
+      { id: '54121111298497', sourceId: '2025-literature-Wrong-Turn', hash: 'bbbbbbbb', text: '文学' },
+      { id: '54121112060567', sourceId: '2026-sleeping-2026-01', hash: 'cccccccc', text: '睡美人' },
+      subjectRow,
+      otherRow,
+      { id: '54121111298497', sourceId: '2025-10', hash: 'dddddddd', text: '同书在月份牌' }
+    ];
+    const fromScript = scriptDedupe(rows);
+    // dedupeByBarcode 只读 id / sourceId 并写 alsoIn，不碰 SearchDoc 的其余字段，
+    // 因此这里可以只借用去重相关的形状来比较。
+    const fromCorpus = corpusDedupe(rows as unknown as SearchDoc[]);
+    expect(fromScript.map(({ id, sourceId, alsoIn }) => ({ id, sourceId, alsoIn }))).toEqual(
+      fromCorpus.map(({ id, sourceId, alsoIn }) => ({ id, sourceId, alsoIn }))
+    );
+  });
+
+  it('同优先级的两份保留先到的那条（与 corpus.ts 的 incomingRank < existingRank 一致）', () => {
+    const first = { id: '54121111111111', sourceId: '2025-03', hash: '11111111', text: '先' };
+    const second = { id: '54121111111111', sourceId: '2025-04', hash: '22222222', text: '后' };
+    const [merged] = scriptDedupe([first, second]);
+    expect(merged.text).toBe('先');
+    expect(merged.alsoIn).toEqual(['2025-04']);
   });
 });
