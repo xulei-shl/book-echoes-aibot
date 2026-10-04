@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { contentHash, dedupeByBarcode as corpusDedupe, type SearchDoc } from '@/lib/search/corpus';
+import { contentHash, dedupeByBarcode as corpusDedupe } from '@/lib/search/corpus';
+import type { SearchDoc } from '@/lib/search/types';
 import { FIELD_WEIGHTS } from '@/lib/search/tuning';
 import {
   buildEncodedText,

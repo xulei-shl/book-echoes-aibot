@@ -18,6 +18,10 @@
  *
  * 可选参数：
  *   --skip-vectors    跳过最后的向量化步骤
+ *
+ * 环境变量（供 book-echoes-UI 的 /web-update 复用本脚本，缺省即上面的本仓库路径）：
+ *   BUILD_CONTENT_SOURCES_DIR   源数据根目录（Excel / md / 图片）
+ *   BUILD_CONTENT_CONTENT_DIR   内容输出根目录
  */
 
 import fs from 'fs/promises';
@@ -31,12 +35,20 @@ import { buildSearchVectors } from './build-search-vectors.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+// 本仓库根：只用来定位 .env / .env.local（密钥都在这里），不随外部调用方改变。
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 const ENV_FILES = ['.env.local', '.env'];
 
 // Configuration
-const SOURCES_DIR = path.join(PROJECT_ROOT, 'sources_data');
-const CONTENT_DIR = path.join(PROJECT_ROOT, 'public', 'content');
+// 数据目录允许外部调用方覆盖：book-echoes-UI 的 /web-update 把 SOURCES_DIR 指向
+// 任务临时工作区、CONTENT_DIR 指向线上内容目录。缺省不变（CLI / npm 用法照旧），
+// 这样 /web-update 不必再在本仓库外复制一份会漂移的脚本副本。
+const SOURCES_DIR = process.env.BUILD_CONTENT_SOURCES_DIR
+    ? path.resolve(process.env.BUILD_CONTENT_SOURCES_DIR)
+    : path.join(PROJECT_ROOT, 'sources_data');
+const CONTENT_DIR = process.env.BUILD_CONTENT_CONTENT_DIR
+    ? path.resolve(process.env.BUILD_CONTENT_CONTENT_DIR)
+    : path.join(PROJECT_ROOT, 'public', 'content');
 const PASS_COLUMN = '人工评选';
 const PASS_VALUE = '通过';
 const BARCODE_COLUMN = '书目条码';

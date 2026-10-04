@@ -36,7 +36,11 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const PROJECT_ROOT = path.resolve(__dirname, '..');
-const CONTENT_DIR = path.join(PROJECT_ROOT, 'public', 'content');
+// 缺省为本仓库的 public/content；book-echoes-UI 的 /web-update 用
+// BUILD_CONTENT_CONTENT_DIR 指向同一个目录，避免再复制一份会漂移的脚本。
+const CONTENT_DIR = process.env.BUILD_CONTENT_CONTENT_DIR
+  ? path.resolve(process.env.BUILD_CONTENT_CONTENT_DIR)
+  : path.join(PROJECT_ROOT, 'public', 'content');
 const OUTPUT_PATH = path.join(CONTENT_DIR, 'random_index.json');
 
 const FIELD_BARCODE = '书目条码';
