@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>书海回响：站点 AI 问答助手智能检索与人机协同架构图</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    :root {
+      --color-paper: #f5f5f5;
+      --color-paper-2: #ececec;
+      --color-paper-card: #ffffff;
+      --color-ink: #2d3142;
+      --color-ink-strong: #111827;
+      --color-muted: #4f5d75;
+      --color-soft: #6b7280;
+      --color-rule: rgba(45, 49, 66, 0.12);
+      --color-rule-solid: #bfc0c0;
+      --color-accent: #bf4520;
+      --color-accent-tint: rgba(191, 69, 32, 0.08);
+      --color-link: #2e5aa8;
+      --color-link-tint: rgba(46, 90, 168, 0.08);
+      --color-badge-bg: rgba(45, 49, 66, 0.06);
+
+      --font-sans: 'Geist', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+      --font-serif: 'Instrument Serif', 'Noto Serif SC', "Songti SC", "SimSun", serif;
+      --font-mono: 'Geist Mono', Consolas, "Liberation Mono", Menlo, monospace;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2.5rem 1.5rem;
+    }
+
+    .frame {
+      max-width: 1220px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .header {
+      margin-bottom: 1.5rem;
+    }
+
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.4rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .eyebrow-tag {
+      background: var(--color-ink);
+      color: #fff;
+      padding: 1px 6px;
+      border-radius: 2px;
+      font-size: 0.65rem;
+    }
+
+    h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(1.6rem, 2.2vw + 0.8rem, 2.3rem);
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      line-height: 1.2;
+      color: var(--color-ink-strong);
+      margin-bottom: 0.5rem;
+    }
+
+    .subtitle {
+      font-size: 0.88rem;
+      color: var(--color-soft);
+      line-height: 1.5;
+      max-width: 980px;
+    }
+
+    .diagram-container {
+      width: 100%;
+      overflow-x: auto;
+      background: var(--color-paper);
+      border: 1px solid var(--color-rule-solid);
+      border-radius: 8px;
+      padding: 1rem 0.5rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    }
+
+    svg {
+      width: 100%;
+      min-width: 1140px;
+      height: auto;
+      display: block;
+    }
+
+    @media print {
+      body { padding: 0; background: #fff; }
+      .diagram-container { overflow-x: visible; border: none; box-shadow: none; }
+      svg { min-width: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <header class="header">
+      <div class="eyebrow">
+        <span class="eyebrow-tag">Architecture</span>
+        <span>Book Echoes · AIBot Intelligent Retrieval &amp; Human-in-the-Loop Architecture v2.0</span>
+      </div>
+      <h1>书海回响：基于大模型的智能问答助手检索架构与人机协同机制</h1>
+      <p class="subtitle">
+        系统面向读者自然语言检索与深层知识探索需求，构建分层协同智能架构：在<strong>用户交互层</strong>实现自然语言输入、多模态控件与 <strong>Human-in-the-Loop 知识草稿审阅把关（Focal Gateway）</strong>；经<strong>意图认知与模式路由层</strong>精确分流简单快检、深度交叉研读与本地文档剖析；在<strong>核心业务处理层</strong>依托并发多子查询与 <strong>LLM 深度导读生成引擎（Focal Gateway 2）</strong> 输出结构化导读与多维书单；底层由 <strong>ChromaDB 稠密向量、BM25 混合检索与 Cross-Encoder 语义重排</strong> 提供高精度召回与书-书关联网络支撑。
+      </p>
+    </header>
+
+    <div class="diagram-container">
+      <svg viewBox="0 0 1180 890" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="aibot-arch-title aibot-arch-desc">
+        <title id="aibot-arch-title">书海回响基于大模型的智能问答助手检索架构与人机协同机制</title>
+        <desc id="aibot-arch-desc">展示用户自然语言与文档输入、人机协同草稿审阅把关、意图分类与模式路由、简单检索与深度工作流、多子查询API、深度导读生成、ChromaDB向量检索、BM25混合检索与重排序模型的四层完整架构。</desc>
+
+        <defs>
+          <!-- 箭头样式定义 -->
+          <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/>
+          </marker>
+          <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#bf4520"/>
+          </marker>
+          <marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/>
+          </marker>
+        </defs>
+
+        <!-- 画布底色 -->
+        <rect width="100%" height="100%" fill="#f5f5f5"/>
+
+        <!-- ========================================== -->
+        <!-- 0. 背景区域轮廓 (Z-index 最底层)           -->
+        <!-- ========================================== -->
+
+        <!-- L4: 用户交互与协同决策层外框 -->
+        <rect x="40" y="48" width="1100" height="120" rx="8" fill="#fdfdfd" stroke="rgba(45,49,66,0.18)" stroke-width="1.2"/>
+        <text x="56" y="70" font-family="'Geist Mono', Consolas, monospace" font-size="10" font-weight="600" fill="#4f5d75" letter-spacing="0.12em">LAYER 4: 用户交互与协同决策层 (USER INTERACTION &amp; HUMAN-IN-THE-LOOP)</text>
+
+        <!-- L3: 意图认知与模式路由层外框 -->
+        <rect x="40" y="202" width="1100" height="78" rx="8" fill="#fdfdfd" stroke="rgba(45,49,66,0.18)" stroke-width="1.2"/>
+        <text x="56" y="222" font-family="'Geist Mono', Consolas, monospace" font-size="10" font-weight="600" fill="#4f5d75" letter-spacing="0.12em">LAYER 3: 意图认知与自适应路由层 (INTENT RECOGNITION &amp; ADAPTIVE ROUTING)</text>
+
+        <!-- L2: 核心业务处理与生成工作流外框 -->
+        <rect x="40" y="312" width="1100" height="308" rx="8" fill="#fcfcfc" stroke="rgba(45,49,66,0.18)" stroke-width="1.2"/>
+        <text x="56" y="332" font-family="'Geist Mono', Consolas, monospace" font-size="10" font-weight="600" fill="#bf4520" letter-spacing="0.12em">LAYER 2: 核心业务处理与生成工作流 (BUSINESS WORKFLOWS &amp; INTERPRETATION ENGINE)</text>
+
+        <!-- L1: 数据基石、多路召回与重排层外框 -->
+        <rect x="40" y="652" width="1100" height="136" rx="8" fill="#fdfdfd" stroke="rgba(45,49,66,0.18)" stroke-width="1.2"/>
+        <text x="56" y="672" font-family="'Geist Mono', Consolas, monospace" font-size="10" font-weight="600" fill="#4f5d75" letter-spacing="0.12em">LAYER 1: 数据基石、多路召回与重排层 (RETRIEVAL FOUNDATION &amp; HYBRID RERANK)</text>
+
+
+        <!-- ========================================== -->
+        <!-- 1. 数据流与连接线 (Z-index 中间层，位于框下) -->
+        <!-- ========================================== -->
+
+        <!-- [线1] 用户输入 -> 意图识别 (垂直向下) -->
+        <line x1="149" y1="152" x2="149" y2="228" stroke="#4f5d75" stroke-width="1.4" marker-end="url(#arrow)"/>
+
+        <!-- [线2] 触发控件 -> 模式路由 (正交折线向下) -->
+        <path d="M 355,152 V 180 Q 355,188 363,188 H 532 Q 540,188 540,196 V 228" fill="none" stroke="#4f5d75" stroke-width="1.4" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+        <rect x="412" y="181" width="70" height="14" rx="2" fill="#f5f5f5"/>
+        <text x="447" y="191" font-family="'Noto Sans SC', sans-serif" font-size="8" fill="#4f5d75" text-anchor="middle">深度/文档触发</text>
+
+        <!-- [线3] 意图识别 -> 模式路由 (水平连接) -->
+        <line x1="450" y1="249" x2="466" y2="249" stroke="#4f5d75" stroke-width="1.4" marker-end="url(#arrow)"/>
+
+        <!-- [线4] 模式路由 -> 简单检索工作流 (正交折线向下) -->
+        <path d="M 480,270 V 288 Q 480,296 472,296 H 172 Q 164,296 164,304 V 348" fill="none" stroke="#4f5d75" stroke-width="1.4" marker-end="url(#arrow)"/>
+        <rect x="256" y="289" width="68" height="14" rx="2" fill="#f5f5f5"/>
+        <text x="290" y="299" font-family="'Noto Sans SC', sans-serif" font-size="8" fill="#4f5d75" text-anchor="middle">普通快检通道</text>
+
+        <!-- [线5] 简单检索工作流 -> ChromaDB 向量数据库 (垂直直达，Link色) -->
+        <line x1="164" y1="418" x2="164" y2="684" stroke="#2e5aa8" stroke-width="1.4" marker-end="url(#arrow-link)"/>
+        <rect x="122" y="528" width="84" height="15" rx="2" fill="#f5f5f5"/>
+        <text x="164" y="539" font-family="'Noto Sans SC', sans-serif" font-size="8" fill="#2e5aa8" text-anchor="middle">稠密向量相似度</text>
+
+        <!-- [线6] 模式路由 -> 深度认知检索工作流 (正交折线向下) -->
+        <path d="M 560,270 V 288 Q 560,296 552,296 H 427 Q 419,296 419,304 V 348" fill="none" stroke="#4f5d75" stroke-width="1.4" marker-end="url(#arrow)"/>
+        <rect x="460" y="289" width="68" height="14" rx="2" fill="#f5f5f5"/>
+        <text x="494" y="299" font-family="'Noto Sans SC', sans-serif" font-size="8" fill="#4f5d75" text-anchor="middle">深度分析模式</text>
+
+        <!-- [线7] 模式路由 -> 文档剖析工作流 (正交折线绕行向下) -->
+        <path d="M 620,270 V 300 Q 620,308 612,308 H 288 Q 280,308 280,316 V 467 Q 280,475 288,475 H 294" fill="none" stroke="#4f5d75" stroke-width="1.4" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+        <rect x="254" y="380" width="52" height="14" rx="2" fill="#f5f5f5"/>
+        <text x="280" y="390" font-family="'Noto Sans SC', sans-serif" font-size="8" fill="#4f5d75" text-anchor="middle">文档研读</text>
+
+        <!-- [线8] 深度检索工作流 -> 草稿审阅工作台 (人机协同回路，Accent高亮向上) -->
+        <path d="M 544,383 H 552 Q 560,383 560,375 V 154" fill="none" stroke="#bf4520" stroke-width="1.8" marker-end="url(#arrow-accent)"/>
+        <rect x="526" y="282" width="68" height="14" rx="2" fill="#f5f5f5" stroke="#bf4520" stroke-width="0.8"/>
+        <text x="560" y="292" font-family="'Noto Sans SC', sans-serif" font-size="8" font-weight="600" fill="#bf4520" text-anchor="middle">生成意图草稿</text>
+
+        <!-- [线9] 文档剖析工作流 -> 草稿审阅工作台 (人机协同回路，Accent向上) -->
+        <path d="M 544,475 H 568 Q 576,475 576,467 V 154" fill="none" stroke="#bf4520" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrow-accent)"/>
+        <rect x="546" y="420" width="60" height="14" rx="2" fill="#f5f5f5"/>
+        <text x="576" y="430" font-family="'Noto Sans SC', sans-serif" font-size="8" fill="#bf4520" text-anchor="middle">核心论点草稿</text>
+
+        <!-- [线10] 草稿审阅工作台 -> 统一多子查询 API (Accent高亮直达下发) -->
+        <path d="M 640,154 V 328 Q 640,336 648,336 H 686 Q 694,336 694,344 V 364" fill="none" stroke="#bf4520" stroke-width="2" marker-end="url(#arrow-accent)"/>
+        <rect x="626" y="328" width="76" height="16" rx="2" fill="#f5f5f5" stroke="#bf4520" stroke-width="0.8"/>
+        <text x="664" y="339" font-family="'Noto Sans SC', sans-serif" font-size="8.5" font-weight="600" fill="#bf4520" text-anchor="middle">人工确认后放行</text>
+
+        <!-- [线11] 统一多子查询 API -> 多路混合检索流水线 (垂直向下转接，Link色) -->
+        <path d="M 694,474 V 628 Q 694,636 686,636 H 487 Q 479,636 479,644 V 684" fill="none" stroke="#2e5aa8" stroke-width="1.5" marker-end="url(#arrow-link)"/>
+        <rect x="518" y="628" width="136" height="16" rx="2" fill="#f5f5f5"/>
+        <text x="586" y="639" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#2e5aa8" text-anchor="middle">并发结构化子查询 (0.6:0.2:0.2)</text>
+
+        <!-- [线12] ChromaDB <-> 混合检索策略 (双向交互，水平连接) -->
+        <line x1="274" y1="728" x2="294" y2="728" stroke="#2e5aa8" stroke-width="1.4" marker-end="url(#arrow-link)"/>
+
+        <!-- [线13] 混合检索策略 -> 语义重排序模型 (水平连接) -->
+        <line x1="664" y1="728" x2="684" y2="728" stroke="#4f5d75" stroke-width="1.5" marker-end="url(#arrow)"/>
+        <rect x="666" y="711" width="16" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="674" y="720" font-family="'Geist Mono', monospace" font-size="7.5" fill="#4f5d75" text-anchor="middle">TOP</text>
+
+        <!-- [线14] 语义重排序模型 -> 瀑布流展示 (SSE 流式推送，向上直达，Link色虚线) -->
+        <path d="M 792,684 V 176 Q 792,168 800,168 H 810 Q 818,168 818,160 V 152" fill="none" stroke="#2e5aa8" stroke-width="1.6" stroke-dasharray="5,3" marker-end="url(#arrow-link)"/>
+        <rect x="748" y="530" width="88" height="16" rx="2" fill="#f5f5f5"/>
+        <text x="792" y="541" font-family="'Noto Sans SC', sans-serif" font-size="8.5" font-weight="500" fill="#2e5aa8" text-anchor="middle">SSE 流式卡片推送</text>
+
+        <!-- [线15] 瀑布流展示 -> 读者行为与关联聚焦 (水平连接) -->
+        <line x1="930" y1="115" x2="946" y2="115" stroke="#4f5d75" stroke-width="1.4" marker-end="url(#arrow)"/>
+
+        <!-- [线16] 读者行为 -> 深度导读生成引擎 (垂直向下，Accent色) -->
+        <line x1="985" y1="152" x2="985" y2="364" stroke="#bf4520" stroke-width="1.6" marker-end="url(#arrow-accent)"/>
+        <rect x="944" y="248" width="82" height="16" rx="2" fill="#f5f5f5" stroke="#bf4520" stroke-width="0.8"/>
+        <text x="985" y="259" font-family="'Noto Sans SC', sans-serif" font-size="8.5" font-weight="600" fill="#bf4520" text-anchor="middle">触发深度导读请求</text>
+
+        <!-- [线17] 深度导读生成引擎 -> 瀑布流展示 (SSE 报告流式推送，向上折线) -->
+        <path d="M 890,364 V 180 Q 890,172 882,172 H 834 Q 826,172 826,164 V 152" fill="none" stroke="#bf4520" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrow-accent)"/>
+        <rect x="836" y="172" width="76" height="14" rx="2" fill="#f5f5f5"/>
+        <text x="874" y="182" font-family="'Noto Sans SC', sans-serif" font-size="8" fill="#bf4520" text-anchor="middle">流式专题导读</text>
+
+        <!-- [线18] 读者行为 -> 二次关联检索与书-书网络 (右侧绕行向下) -->
+        <path d="M 1126,115 H 1134 Q 1142,115 1142,123 V 642 Q 1142,650 1134,650 H 1031 Q 1023,650 1023,658 V 684" fill="none" stroke="#6b7280" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+        <rect x="1102" y="520" width="40" height="26" rx="2" fill="#f5f5f5"/>
+        <text x="1122" y="531" font-family="'Noto Sans SC', sans-serif" font-size="8" fill="#6b7280" text-anchor="middle">图书聚焦</text>
+        <text x="1122" y="542" font-family="'Noto Sans SC', sans-serif" font-size="8" fill="#6b7280" text-anchor="middle">行为反馈</text>
+
+        <!-- [线19] 二次关联网络 -> 混合检索策略 (底部回流注入，虚线) -->
+        <path d="M 1023,772 V 778 Q 1023,784 1015,784 H 487 Q 479,784 479,778 V 772" fill="none" stroke="#6b7280" stroke-width="1.1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+        <rect x="700" y="776" width="102" height="14" rx="2" fill="#f5f5f5"/>
+        <text x="751" y="786" font-family="'Noto Sans SC', sans-serif" font-size="8" fill="#6b7280" text-anchor="middle">二次关联图书注入召回池</text>
+
+
+        <!-- ========================================== -->
+        <!-- 2. 组件实体绘制 (Z-index 顶层)             -->
+        <!-- ========================================== -->
+
+        <!-- ------------------------------------------ -->
+        <!-- LAYER 4 实体: 5 大交互与决策节点           -->
+        <!-- ------------------------------------------ -->
+        <!-- 卡片 1: 自然语言多模态输入 -->
+        <g id="ui-input">
+          <rect x="54" y="78" width="190" height="74" rx="6" fill="#fff" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+          <rect x="62" y="86" width="44" height="15" rx="2" fill="rgba(45,49,66,0.06)"/>
+          <text x="84" y="97" font-family="'Geist Mono', monospace" font-size="7.5" font-weight="600" fill="#4f5d75" text-anchor="middle">INPUT</text>
+          <text x="62" y="117" font-family="'Noto Sans SC', sans-serif" font-size="11.5" font-weight="700" fill="#111827">💬 自然语言多模态输入</text>
+          <text x="62" y="133" font-family="'Noto Sans SC', sans-serif" font-size="9" fill="#4f5d75">自由问答 · 意图检索</text>
+          <text x="62" y="144" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#6b7280">支持书名/模糊场景/学术长句输入</text>
+        </g>
+
+        <!-- 卡片 2: 交互触发与模式控件 -->
+        <g id="ui-trigger">
+          <rect x="260" y="78" width="190" height="74" rx="6" fill="#fff" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+          <rect x="268" y="86" width="56" height="15" rx="2" fill="rgba(45,49,66,0.06)"/>
+          <text x="296" y="97" font-family="'Geist Mono', monospace" font-size="7.5" font-weight="600" fill="#4f5d75" text-anchor="middle">TRIGGER</text>
+          <text x="268" y="117" font-family="'Noto Sans SC', sans-serif" font-size="11.5" font-weight="700" fill="#111827">⚡ 触发与模式控件</text>
+          <text x="268" y="133" font-family="'Noto Sans SC', sans-serif" font-size="9" fill="#4f5d75">深度按钮 · 本地文档上传</text>
+          <text x="268" y="144" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#6b7280">激活大模型交叉研读与多模态解析</text>
+        </g>
+
+        <!-- 卡片 3: 人机协同草稿审阅工作台 (Focal Gateway 1) -->
+        <g id="ui-draft-gateway">
+          <rect x="466" y="76" width="224" height="78" rx="6" fill="#fff" stroke="#bf4520" stroke-width="1.8"/>
+          <rect x="474" y="84" width="60" height="16" rx="2" fill="rgba(191,69,32,0.1)"/>
+          <text x="504" y="95" font-family="'Geist Mono', monospace" font-size="8" font-weight="600" fill="#bf4520" text-anchor="middle">GATEWAY</text>
+          <text x="474" y="116" font-family="'Noto Sans SC', sans-serif" font-size="12" font-weight="700" fill="#111827">👑 人机协同草稿审阅工作台</text>
+          <text x="474" y="132" font-family="'Noto Sans SC', sans-serif" font-size="9" fill="#bf4520">Human-in-the-Loop 知识单元确认</text>
+          <text x="474" y="145" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#6b7280">扩展意图修正 · 概念勾选 · 确认后放行</text>
+        </g>
+
+        <!-- 卡片 4: 瀑布流展示与流式渲染 -->
+        <g id="ui-results">
+          <rect x="706" y="78" width="224" height="74" rx="6" fill="#fff" stroke="#2e5aa8" stroke-width="1.3"/>
+          <rect x="714" y="86" width="56" height="15" rx="2" fill="rgba(46,90,168,0.08)"/>
+          <text x="742" y="97" font-family="'Geist Mono', monospace" font-size="7.5" font-weight="600" fill="#2e5aa8" text-anchor="middle">DISPLAY</text>
+          <text x="714" y="117" font-family="'Noto Sans SC', sans-serif" font-size="11.5" font-weight="700" fill="#111827">📊 瀑布流展示与流式渲染</text>
+          <text x="714" y="133" font-family="'Noto Sans SC', sans-serif" font-size="9" fill="#2e5aa8">SSE 流式文本推送 · 推荐书单</text>
+          <text x="714" y="144" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#6b7280">逐条动态上屏 · 高清封面与馆藏信息挂载</text>
+        </g>
+
+        <!-- 卡片 5: 读者行为与关联聚焦 -->
+        <g id="ui-actions">
+          <rect x="946" y="78" width="180" height="74" rx="6" fill="#fff" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+          <rect x="954" y="86" width="80" height="15" rx="2" fill="rgba(45,49,66,0.06)"/>
+          <text x="994" y="97" font-family="'Geist Mono', monospace" font-size="7.5" font-weight="600" fill="#4f5d75" text-anchor="middle">INTERACTION</text>
+          <text x="954" y="117" font-family="'Noto Sans SC', sans-serif" font-size="11.5" font-weight="700" fill="#111827">🎯 读者行为与聚焦</text>
+          <text x="954" y="133" font-family="'Noto Sans SC', sans-serif" font-size="9" fill="#4f5d75">书目勾选 · 聚焦探索</text>
+          <text x="954" y="144" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#6b7280">触发书-书关联与深度导读生成</text>
+        </g>
+
+
+        <!-- ------------------------------------------ -->
+        <!-- LAYER 3 实体: 意图认知与模式路由           -->
+        <!-- ------------------------------------------ -->
+        <!-- 节点 6: 意图识别引擎 -->
+        <g id="intent-classifier">
+          <rect x="54" y="228" width="396" height="42" rx="5" fill="#fff" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+          <text x="70" y="244" font-family="'Noto Sans SC', sans-serif" font-size="11" font-weight="700" fill="#111827">🧠 意图识别与语义解析引擎 (Intent Classifier)</text>
+          <text x="70" y="259" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#4f5d75">自动识别：普通图书检索 / 深度跨学科分析 / 本地文档研读 / 馆藏闲聊答疑</text>
+        </g>
+
+        <!-- 节点 7: 自适应模式分发路由 -->
+        <g id="mode-router">
+          <rect x="466" y="228" width="660" height="42" rx="5" fill="#fff" stroke="#2e5aa8" stroke-width="1.3"/>
+          <text x="482" y="244" font-family="'Noto Sans SC', sans-serif" font-size="11" font-weight="700" fill="#111827">🔀 自适应模式分发路由枢纽 (Adaptive Mode Router)</text>
+          <text x="482" y="259" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#4f5d75">分发快速直连通道 / 深度认知推理链路 / 本地文档剖析通道 · 保持多轮对话上下文与动态流控</text>
+        </g>
+
+
+        <!-- ------------------------------------------ -->
+        <!-- LAYER 2 实体: 核心处理工作流与生成引擎     -->
+        <!-- ------------------------------------------ -->
+        <!-- 节点 8: 简单检索 API 工作流 -->
+        <g id="workflow-simple">
+          <rect x="54" y="348" width="220" height="70" rx="5" fill="#fff" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+          <rect x="62" y="356" width="68" height="15" rx="2" fill="rgba(45,49,66,0.06)"/>
+          <text x="96" y="367" font-family="'Geist Mono', monospace" font-size="7.5" font-weight="600" fill="#4f5d75" text-anchor="middle">FAST PATH</text>
+          <text x="62" y="387" font-family="'Noto Sans SC', sans-serif" font-size="11" font-weight="700" fill="#111827">⚡ 简单检索工作流</text>
+          <text x="62" y="402" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#4f5d75">单路稠密向量余弦相似度直查</text>
+          <text x="62" y="412" font-family="'Noto Sans SC', sans-serif" font-size="8" fill="#6b7280">超低延迟快速响应精确书名与作者查询</text>
+        </g>
+
+        <!-- 节点 9: 深度认知检索工作流 -->
+        <g id="workflow-deep">
+          <rect x="294" y="348" width="250" height="70" rx="5" fill="#fff" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+          <rect x="302" y="356" width="94" height="15" rx="2" fill="rgba(45,49,66,0.06)"/>
+          <text x="349" y="367" font-family="'Geist Mono', monospace" font-size="7.5" font-weight="600" fill="#4f5d75" text-anchor="middle">DEEP WORKFLOW</text>
+          <text x="302" y="387" font-family="'Noto Sans SC', sans-serif" font-size="11" font-weight="700" fill="#111827">🔬 深度认知检索工作流</text>
+          <text x="302" y="402" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#4f5d75">LLM 关键词拓扑扩展 · 跨学科交叉分析</text>
+          <text x="302" y="412" font-family="'Noto Sans SC', sans-serif" font-size="8" fill="#6b7280">生成主题概念拓扑与候选知识单元草稿</text>
+        </g>
+
+        <!-- 节点 10: 结构化文档剖析工作流 -->
+        <g id="workflow-doc">
+          <rect x="294" y="440" width="250" height="70" rx="5" fill="#fff" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+          <rect x="302" y="448" width="86" height="15" rx="2" fill="rgba(45,49,66,0.06)"/>
+          <text x="345" y="459" font-family="'Geist Mono', monospace" font-size="7.5" font-weight="600" fill="#4f5d75" text-anchor="middle">DOC ANALYSIS</text>
+          <text x="302" y="478" font-family="'Noto Sans SC', sans-serif" font-size="11" font-weight="700" fill="#111827">📄 结构化文档剖析工作流</text>
+          <text x="302" y="493" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#4f5d75">文本智能分块 (Chunking) · 关键论点抽取</text>
+          <text x="302" y="504" font-family="'Noto Sans SC', sans-serif" font-size="8" fill="#6b7280">本地临时向量化 · 提取核心议题草稿</text>
+        </g>
+
+        <!-- 节点 11: 统一多子查询 API 聚合中心 -->
+        <g id="api-multi-subquery">
+          <rect x="564" y="356" width="260" height="118" rx="5" fill="#fff" stroke="#2e5aa8" stroke-width="1.4"/>
+          <rect x="572" y="364" width="80" height="15" rx="2" fill="rgba(46,90,168,0.08)"/>
+          <text x="612" y="375" font-family="'Geist Mono', monospace" font-size="7.5" font-weight="600" fill="#2e5aa8" text-anchor="middle">AGGREGATOR</text>
+          <text x="572" y="396" font-family="'Noto Sans SC', sans-serif" font-size="11" font-weight="700" fill="#111827">🌐 统一多子查询 API 聚合中心</text>
+          <text x="572" y="414" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#4f5d75">· 结构化并发子查询：主/标签/洞察/书目多路加权</text>
+          <text x="572" y="430" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#4f5d75">· 权重动态配比 (0.6 : 0.2 : 0.2) · 精准匹配优先</text>
+          <text x="572" y="446" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#4f5d75">· 支持中图分类号 (CLC) 结构化硬过滤与裁剪</text>
+          <text x="572" y="462" font-family="'Noto Sans SC', sans-serif" font-size="8" fill="#6b7280">· 聚合底层召回结果集，消除重复与虚假相关候选</text>
+        </g>
+
+        <!-- 节点 12: 深度导读与专题报告生成引擎 (Focal Gateway 2) -->
+        <g id="engine-deep-interpretation">
+          <rect x="844" y="356" width="282" height="118" rx="5" fill="#fff" stroke="#bf4520" stroke-width="1.8"/>
+          <rect x="852" y="364" width="88" height="16" rx="2" fill="rgba(191,69,32,0.1)"/>
+          <text x="896" y="375" font-family="'Geist Mono', monospace" font-size="8" font-weight="600" fill="#bf4520" text-anchor="middle">FOCAL ENGINE</text>
+          <text x="852" y="396" font-family="'Noto Sans SC', sans-serif" font-size="11.5" font-weight="700" fill="#111827">📖 深度导读与报告生成引擎</text>
+          <text x="852" y="414" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#bf4520">· 基于聚焦图书元数据与深层上下文提示词工程</text>
+          <text x="852" y="430" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#4f5d75">· 智能生成学术评述、思想脉络与延伸阅读方案</text>
+          <text x="852" y="446" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#4f5d75">· 章节式结构化专题长报告 · 多端自适应排版</text>
+          <text x="852" y="462" font-family="'Noto Sans SC', sans-serif" font-size="8" fill="#6b7280">· 经由 SSE 协议实现实时逐字流式下发渲染</text>
+        </g>
+
+
+        <!-- ------------------------------------------ -->
+        <!-- LAYER 1 实体: 4 大数据与检索基石           -->
+        <!-- ------------------------------------------ -->
+        <!-- 节点 13: ChromaDB 密集向量数据库 -->
+        <g id="data-chroma-store">
+          <rect x="54" y="684" width="220" height="88" rx="5" fill="#fff" stroke="#2e5aa8" stroke-width="1.3"/>
+          <text x="68" y="704" font-family="'Noto Sans SC', sans-serif" font-size="11" font-weight="700" fill="#111827">🧠 ChromaDB 向量数据库</text>
+          <text x="68" y="722" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#4f5d75">· books_collection 通用权威库</text>
+          <text x="68" y="738" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#4f5d75">· 1.48万+ 本馆藏 1024 维密集向量</text>
+          <text x="68" y="754" font-family="'Noto Sans SC', sans-serif" font-size="8" fill="#6b7280">· BGE-M3 语义表征 · 余弦距离索引</text>
+        </g>
+
+        <!-- 节点 14: 多路混合检索策略流水线 -->
+        <g id="data-hybrid-search">
+          <rect x="294" y="684" width="370" height="88" rx="5" fill="#fff" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+          <text x="308" y="704" font-family="'Noto Sans SC', sans-serif" font-size="11" font-weight="700" fill="#111827">🔍 多路混合检索策略流水线 (Hybrid Search)</text>
+          <text x="308" y="722" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#4f5d75">· BM25 词频统计匹配 + 密集语义向量检索双路召回</text>
+          <text x="308" y="738" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#4f5d75">· RRF (Reciprocal Rank Fusion) 倒排秩融合精确打分</text>
+          <text x="308" y="754" font-family="'Noto Sans SC', sans-serif" font-size="8" fill="#6b7280">· 动态约束剪枝 (中图法索书号 / 在馆状态硬约束过滤)</text>
+        </g>
+
+        <!-- 节点 15: 语义重排序模型 -->
+        <g id="data-rerank-model">
+          <rect x="684" y="684" width="216" height="88" rx="5" fill="#fff" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+          <text x="698" y="704" font-family="'Noto Sans SC', sans-serif" font-size="11" font-weight="700" fill="#111827">⚖️ 语义重排序模型 (Rerank)</text>
+          <text x="698" y="722" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#4f5d75">· Cross-Encoder 深度交叉打分</text>
+          <text x="698" y="738" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#4f5d75">· 读者输入上下文与书目全文交互</text>
+          <text x="698" y="754" font-family="'Noto Sans SC', sans-serif" font-size="8" fill="#6b7280">· Top-K 精准截断，过滤低相关书目</text>
+        </g>
+
+        <!-- 节点 16: 二次关联检索与书-书网络 -->
+        <g id="data-secondary-graph">
+          <rect x="920" y="684" width="206" height="88" rx="5" fill="#fff" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+          <text x="934" y="704" font-family="'Noto Sans SC', sans-serif" font-size="11" font-weight="700" fill="#111827">🕸️ 二次关联知识网络</text>
+          <text x="934" y="722" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#4f5d75">· 书-书相似度拓扑互联网络</text>
+          <text x="934" y="738" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#4f5d75">· 读者借阅历史协同过滤共现</text>
+          <text x="934" y="754" font-family="'Noto Sans SC', sans-serif" font-size="8" fill="#6b7280">· 向量空间高维近邻拓扑二次展开</text>
+        </g>
+
+
+        <!-- ========================================== -->
+        <!-- 3. 图例栏 (Legend Strip)                   -->
+        <!-- ========================================== -->
+        <g id="diagram-legend" transform="translate(40, 816)">
+          <rect x="0" y="0" width="1100" height="48" rx="6" fill="#ececec" stroke="rgba(45,49,66,0.12)" stroke-width="1"/>
+
+          <!-- 图例 1: 人机协同审阅回路 -->
+          <line x1="24" y1="24" x2="52" y2="24" stroke="#bf4520" stroke-width="2" marker-end="url(#arrow-accent)"/>
+          <text x="60" y="27" font-family="'Noto Sans SC', sans-serif" font-size="9" font-weight="600" fill="#2d3142">人机协同审阅回路 (Human-in-the-Loop)</text>
+
+          <!-- 图例 2: 主数据流与业务调度 -->
+          <line x1="284" y1="24" x2="312" y2="24" stroke="#4f5d75" stroke-width="1.4" marker-end="url(#arrow)"/>
+          <text x="320" y="27" font-family="'Noto Sans SC', sans-serif" font-size="9" font-weight="600" fill="#2d3142">核心数据流与调度链路</text>
+
+          <!-- 图例 3: 检索 API 与向量并发交互 -->
+          <line x1="490" y1="24" x2="518" y2="24" stroke="#2e5aa8" stroke-width="1.6" marker-end="url(#arrow-link)"/>
+          <text x="526" y="27" font-family="'Noto Sans SC', sans-serif" font-size="9" font-weight="600" fill="#2d3142">检索 API 与向量并发交互</text>
+
+          <!-- 图例 4: SSE 流式响应推送 -->
+          <line x1="710" y1="24" x2="738" y2="24" stroke="#2e5aa8" stroke-width="1.6" stroke-dasharray="4,3" marker-end="url(#arrow-link)"/>
+          <text x="746" y="27" font-family="'Noto Sans SC', sans-serif" font-size="9" font-weight="600" fill="#2d3142">SSE 流式响应推送</text>
+
+          <!-- 图例 5: 协同决策关键控制闸门 -->
+          <rect x="906" y="16" width="20" height="16" rx="2" fill="rgba(191,69,32,0.1)" stroke="#bf4520" stroke-width="1.5"/>
+          <text x="934" y="27" font-family="'Noto Sans SC', sans-serif" font-size="9" font-weight="600" fill="#bf4520">人机协同决策闸门 (Gateway)</text>
+
+          <!-- 版本标记 -->
+          <text x="1080" y="27" font-family="'Geist Mono', Consolas, monospace" font-size="8.5" fill="#6b7280" text-anchor="end">AIBot Architecture 2026.10</text>
+        </g>
+
+      </svg>
+    </div>
+  </div>
+</body>
+</html>

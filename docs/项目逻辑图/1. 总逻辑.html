@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>书海回响系统总体逻辑与双轨架构图</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    :root {
+      --color-paper: #f5f5f5;
+      --color-paper-2: #ececec;
+      --color-paper-card: #ffffff;
+      --color-ink: #2d3142;
+      --color-ink-strong: #111827;
+      --color-muted: #4f5d75;
+      --color-soft: #6b7280;
+      --color-rule: rgba(45, 49, 66, 0.12);
+      --color-rule-solid: #bfc0c0;
+      --color-accent: #bf4520;
+      --color-accent-tint: rgba(191, 69, 32, 0.08);
+      --color-link: #2e5aa8;
+      --color-link-tint: rgba(46, 90, 168, 0.08);
+      --color-badge-bg: rgba(45, 49, 66, 0.06);
+
+      --font-sans: 'Geist', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+      --font-serif: 'Instrument Serif', 'Noto Serif SC', "Songti SC", "SimSun", serif;
+      --font-mono: 'Geist Mono', Consolas, "Liberation Mono", Menlo, monospace;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2.5rem 1.5rem;
+    }
+
+    .frame {
+      max-width: 1220px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .header {
+      margin-bottom: 1.5rem;
+    }
+
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.4rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .eyebrow-tag {
+      background: var(--color-ink);
+      color: #fff;
+      padding: 1px 6px;
+      border-radius: 2px;
+      font-size: 0.65rem;
+    }
+
+    h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(1.6rem, 2.2vw + 0.8rem, 2.3rem);
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      line-height: 1.2;
+      color: var(--color-ink-strong);
+      margin-bottom: 0.5rem;
+    }
+
+    .subtitle {
+      font-size: 0.88rem;
+      color: var(--color-soft);
+      line-height: 1.5;
+      max-width: 900px;
+    }
+
+    .diagram-container {
+      width: 100%;
+      overflow-x: auto;
+      background: var(--color-paper);
+      border: 1px solid var(--color-rule-solid);
+      border-radius: 8px;
+      padding: 1rem 0.5rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    }
+
+    svg {
+      width: 100%;
+      min-width: 1140px;
+      height: auto;
+      display: block;
+    }
+
+    @media print {
+      body { padding: 0; background: #fff; }
+      .diagram-container { overflow-x: visible; border: none; box-shadow: none; }
+      svg { min-width: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <header class="header">
+      <div class="eyebrow">
+        <span class="eyebrow-tag">Architecture</span>
+        <span>Book Echoes · System Blueprint v2.0</span>
+      </div>
+      <h1>书海回响：双轨驱动馆藏推荐与知识服务系统总逻辑</h1>
+      <p class="subtitle">
+        系统构建于权威书目库基础之上，实现双轨协同驱动：<strong>左轨（推荐主链路）</strong>贯穿借阅数据准入清洗、豆瓣质量校准、LLM三阶段评选与人工终审定稿，输出逐书导读与条码级卡片物料；<strong>右轨（语义知识引擎）</strong>沉淀密集向量与文学细粒度打标，通过统一检索 API 赋能主题策展、纯文学场景推荐、AI 问答助手及伴读插件。
+      </p>
+    </header>
+
+    <div class="diagram-container">
+      <svg viewBox="0 0 1180 880" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="overall-architecture-title overall-architecture-desc">
+        <title id="overall-architecture-title">书海回响系统总体逻辑与双轨架构图</title>
+        <desc id="overall-architecture-desc">展示从借阅流水与验收数据准入过滤、豆瓣增强、大模型评选、馆员终审至物料输出的主推荐链路，以及书目密集向量化、文学细粒度打标、检索API、主题策展、文学情境推荐、AI问答与浏览器插件的知识服务架构。</desc>
+
+        <defs>
+          <!-- 箭头样式定义 -->
+          <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/>
+          </marker>
+          <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#bf4520"/>
+          </marker>
+          <marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/>
+          </marker>
+        </defs>
+
+        <!-- 画布底色 -->
+        <rect width="100%" height="100%" fill="#f5f5f5"/>
+
+        <!-- ========================================== -->
+        <!-- 0. 背景区域轮廓 (Z-index 最底层)           -->
+        <!-- ========================================== -->
+
+        <!-- L4: 应用场景与触达层外框 -->
+        <rect x="40" y="48" width="1100" height="114" rx="8" fill="#fdfdfd" stroke="rgba(45,49,66,0.18)" stroke-width="1.2"/>
+        <text x="56" y="70" font-family="'Geist Mono', Consolas, monospace" font-size="10" font-weight="600" fill="#4f5d75" letter-spacing="0.12em">LAYER 4: 应用场景与多形态知识服务 (APPLICATIONS &amp; SERVICES)</text>
+
+        <!-- L3: 通用检索 API 与混合检索外框 -->
+        <rect x="274" y="196" width="866" height="76" rx="8" fill="#fdfdfd" stroke="rgba(45,49,66,0.18)" stroke-width="1.2"/>
+        <text x="290" y="214" font-family="'Geist Mono', Consolas, monospace" font-size="10" font-weight="600" fill="#4f5d75" letter-spacing="0.12em">LAYER 3: 检索 API 与多路召回服务 (RETRIEVAL &amp; HYBRID SEARCH HUB)</text>
+
+        <!-- L2: 核心引擎外框 (左轨 + 右轨) -->
+        <rect x="40" y="302" width="536" height="294" rx="8" fill="#fcfcfc" stroke="rgba(45,49,66,0.18)" stroke-width="1.2"/>
+        <text x="56" y="322" font-family="'Geist Mono', Consolas, monospace" font-size="10" font-weight="600" fill="#bf4520" letter-spacing="0.12em">TRACK A: 推荐主链路 · 馆员决策 (ENDOGENOUS CURATION)</text>
+
+        <rect x="604" y="302" width="536" height="294" rx="8" fill="#fcfcfc" stroke="rgba(45,49,66,0.18)" stroke-width="1.2"/>
+        <text x="620" y="322" font-family="'Geist Mono', Consolas, monospace" font-size="10" font-weight="600" fill="#2e5aa8" letter-spacing="0.12em">TRACK B: 向量化体系与语义理解 (VECTORIZATION &amp; SEMANTICS)</text>
+
+        <!-- L1: 数据基础设施层外框 -->
+        <rect x="40" y="626" width="1100" height="142" rx="8" fill="#fdfdfd" stroke="rgba(45,49,66,0.18)" stroke-width="1.2"/>
+        <text x="56" y="646" font-family="'Geist Mono', Consolas, monospace" font-size="10" font-weight="600" fill="#4f5d75" letter-spacing="0.12em">LAYER 1: 数据基础设施与可配置体系 (FOUNDATION &amp; DATA ASSETS)</text>
+
+
+        <!-- ========================================== -->
+        <!-- 1. 数据流与连接线 (Z-index 中间层，位于框下) -->
+        <!-- ========================================== -->
+
+        <!-- [线1] 基础借阅数据 -> 规则A1 (直线向上) -->
+        <line x1="184" y1="662" x2="184" y2="590" stroke="#4f5d75" stroke-width="1.4" marker-end="url(#arrow)"/>
+
+        <!-- [线2] 规则A1 -> 豆瓣质量A2 (垂直向上) -->
+        <line x1="308" y1="544" x2="308" y2="528" stroke="#4f5d75" stroke-width="1.4" marker-end="url(#arrow)"/>
+
+        <!-- [线3] 豆瓣质量A2 -> LLM评审A3 (垂直向上) -->
+        <line x1="308" y1="478" x2="308" y2="462" stroke="#4f5d75" stroke-width="1.4" marker-end="url(#arrow)"/>
+
+        <!-- [线4] LLM评审A3 -> 馆员终审A4 (垂直向上，Accent高亮) -->
+        <line x1="308" y1="406" x2="308" y2="388" stroke="#bf4520" stroke-width="1.6" marker-end="url(#arrow-accent)"/>
+
+        <!-- [线5] 豆瓣增强A2数据回写 SQLite D2 (正交折线向下，虚线) -->
+        <path d="M 450,528 V 646 Q 450,654 456,654 H 460 Q 466,654 466,662 V 662" fill="none" stroke="#6b7280" stroke-width="1.1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+        <rect x="424" y="608" width="56" height="14" rx="2" fill="#f5f5f5"/>
+        <text x="452" y="618" font-family="'Geist Mono', Consolas, monospace" font-size="8" fill="#6b7280" text-anchor="middle">增强回写</text>
+
+        <!-- [线6] A4 馆员终审 -> 📖 馆藏遗珠推荐卡片1 (在L3左侧垂直向上直达) -->
+        <line x1="157" y1="334" x2="157" y2="152" stroke="#bf4520" stroke-width="1.8" marker-end="url(#arrow-accent)"/>
+        <rect x="115" y="232" width="84" height="18" rx="3" fill="#f5f5f5" stroke="#bf4520" stroke-width="0.8"/>
+        <text x="157" y="244" font-family="'Noto Sans SC', sans-serif" font-size="9" font-weight="600" fill="#bf4520" text-anchor="middle">导读与卡片物料</text>
+
+        <!-- [线7] SQLite D2 -> 通用向量化 B1 & 文学打标 B2 (正交向上) -->
+        <path d="M 520,662 V 618 Q 520,610 528,610 H 680 Q 688,610 688,602 V 582" fill="none" stroke="#2e5aa8" stroke-width="1.3" marker-end="url(#arrow-link)"/>
+        <path d="M 520,610 H 772 Q 780,610 780,602 V 448" fill="none" stroke="#2e5aa8" stroke-width="1.3" marker-end="url(#arrow-link)"/>
+        <rect x="548" y="602" width="76" height="16" rx="2" fill="#f5f5f5"/>
+        <text x="586" y="613" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#2e5aa8" text-anchor="middle">权威书目元数据</text>
+
+        <!-- [线8] 通用向量化 B1 -> 通用书目检索 API (垂直向上) -->
+        <line x1="497" y1="334" x2="497" y2="264" stroke="#2e5aa8" stroke-width="1.5" marker-end="url(#arrow-link)"/>
+        <rect x="445" y="286" width="104" height="16" rx="2" fill="#f5f5f5"/>
+        <text x="497" y="297" font-family="'Noto Sans SC', sans-serif" font-size="8.5" font-weight="500" fill="#2e5aa8" text-anchor="middle">构建通用书目索引</text>
+
+        <!-- [线9] 纯文学打标 B2 -> 纯文学检索引擎 (垂直向上) -->
+        <line x1="922" y1="466" x2="922" y2="264" stroke="#4f5d75" stroke-width="1.5" marker-end="url(#arrow)"/>
+        <rect x="864" y="348" width="116" height="16" rx="2" fill="#f5f5f5"/>
+        <text x="922" y="359" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#4f5d75" text-anchor="middle">倒排标签 + 4维向量</text>
+
+        <!-- [线10] 通用检索 API -> 主题策展卡片2 (正交折线向上，水平轨道 y=180) -->
+        <path d="M 420,222 V 188 Q 420,180 412,180 H 385 Q 377,180 377,172 V 152" fill="none" stroke="#4f5d75" stroke-width="1.4" marker-end="url(#arrow)"/>
+        <rect x="350" y="173" width="56" height="14" rx="2" fill="#f5f5f5"/>
+        <text x="378" y="183" font-family="'Geist Mono', Consolas, monospace" font-size="8" fill="#4f5d75" text-anchor="middle">子查询召回</text>
+
+        <!-- [线11] 通用检索 API -> AI问答卡片4 (正交折线向上，水平轨道 y=168) -->
+        <path d="M 570,222 V 176 Q 570,168 578,168 H 809 Q 817,168 817,160 V 152" fill="none" stroke="#2e5aa8" stroke-width="1.4" marker-end="url(#arrow-link)"/>
+        <rect x="668" y="161" width="76" height="14" rx="2" fill="#f5f5f5"/>
+        <text x="706" y="171" font-family="'Noto Sans SC', sans-serif" font-size="8" fill="#2e5aa8" text-anchor="middle">深度问答多路召回</text>
+
+        <!-- [线12] 通用检索 API -> 浏览器插件卡片5 (正交折线向上，水平轨道 y=186) -->
+        <path d="M 640,222 V 194 Q 640,186 648,186 H 1029 Q 1037,186 1037,178 V 152" fill="none" stroke="#2e5aa8" stroke-width="1.4" marker-end="url(#arrow-link)"/>
+        <rect x="888" y="179" width="76" height="14" rx="2" fill="#f5f5f5"/>
+        <text x="926" y="189" font-family="'Noto Sans SC', sans-serif" font-size="8" fill="#2e5aa8" text-anchor="middle">网页内容策展检索</text>
+
+        <!-- [线13] 纯文学检索引擎 -> 纯文学情境推荐卡片3 (正交折线向上，水平轨道 y=174) -->
+        <path d="M 760,222 V 182 Q 760,174 752,174 H 605 Q 597,174 597,166 V 152" fill="none" stroke="#4f5d75" stroke-width="1.4" marker-end="url(#arrow)"/>
+        <rect x="620" y="167" width="74" height="14" rx="2" fill="#f5f5f5"/>
+        <text x="657" y="177" font-family="'Noto Sans SC', sans-serif" font-size="8" fill="#4f5d75" text-anchor="middle">RRF倒排秩融合</text>
+
+
+        <!-- ========================================== -->
+        <!-- 2. 组件实体绘制 (Z-index 顶层)             -->
+        <!-- ========================================== -->
+
+        <!-- ------------------------------------------ -->
+        <!-- LAYER 4 实体: 5 大应用卡片                 -->
+        <!-- ------------------------------------------ -->
+        <!-- 卡片 1: 馆藏遗珠推荐 (Focal 节点，核心推荐主线) -->
+        <g id="app-curation-core">
+          <rect x="54" y="76" width="206" height="74" rx="6" fill="#fff" stroke="#bf4520" stroke-width="1.8"/>
+          <rect x="62" y="84" width="60" height="16" rx="2" fill="rgba(191,69,32,0.1)"/>
+          <text x="92" y="95" font-family="'Geist Mono', monospace" font-size="8" font-weight="600" fill="#bf4520" text-anchor="middle">PRIMARY</text>
+          <text x="62" y="116" font-family="'Noto Sans SC', sans-serif" font-size="12" font-weight="700" fill="#111827">📖 馆藏遗珠推荐书目</text>
+          <text x="62" y="132" font-family="'Noto Sans SC', sans-serif" font-size="9" fill="#4f5d75">逐书导读 · 条码级高清卡片包</text>
+          <text x="62" y="143" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#6b7280">人工推荐语优先 · 自动化多端发布</text>
+        </g>
+
+        <!-- 卡片 2: 主题策展专题 -->
+        <g id="app-subject-curation">
+          <rect x="274" y="76" width="206" height="74" rx="6" fill="#fff" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+          <rect x="282" y="84" width="70" height="16" rx="2" fill="rgba(45,49,66,0.06)"/>
+          <text x="317" y="95" font-family="'Geist Mono', monospace" font-size="8" font-weight="500" fill="#4f5d75" text-anchor="middle">TOPIC RSS</text>
+          <text x="282" y="116" font-family="'Noto Sans SC', sans-serif" font-size="12" font-weight="700" fill="#111827">📰 主题策展专题</text>
+          <text x="282" y="132" font-family="'Noto Sans SC', sans-serif" font-size="9" fill="#4f5d75">网络议题聚合 · 跨学科交叉分析</text>
+          <text x="282" y="143" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#6b7280">生成互文推荐语与专题卷首导读</text>
+        </g>
+
+        <!-- 卡片 3: 纯文学情境推荐 -->
+        <g id="app-literature-fm">
+          <rect x="494" y="76" width="206" height="74" rx="6" fill="#fff" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+          <rect x="502" y="84" width="80" height="16" rx="2" fill="rgba(45,49,66,0.06)"/>
+          <text x="542" y="95" font-family="'Geist Mono', monospace" font-size="8" font-weight="500" fill="#4f5d75" text-anchor="middle">LITERATURE FM</text>
+          <text x="502" y="116" font-family="'Noto Sans SC', sans-serif" font-size="12" font-weight="700" fill="#111827">📻 纯文学场景化推荐</text>
+          <text x="502" y="132" font-family="'Noto Sans SC', sans-serif" font-size="9" fill="#4f5d75">时间/天气/节日注入 · 情感基调匹配</text>
+          <text x="502" y="143" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#6b7280">审美调性筛选 · 卷首导读与书单</text>
+        </g>
+
+        <!-- 卡片 4: 站点 AI 问答 (aibot 独立工程) -->
+        <g id="app-aibot">
+          <rect x="714" y="76" width="206" height="74" rx="6" fill="#fff" stroke="#2e5aa8" stroke-width="1.3" stroke-dasharray="6,4"/>
+          <rect x="722" y="84" width="76" height="16" rx="2" fill="rgba(46,90,168,0.08)"/>
+          <text x="760" y="95" font-family="'Geist Mono', monospace" font-size="8" font-weight="600" fill="#2e5aa8" text-anchor="middle">STANDALONE</text>
+          <text x="722" y="116" font-family="'Noto Sans SC', sans-serif" font-size="12" font-weight="700" fill="#111827">💬 站点 AI 问答助手</text>
+          <text x="722" y="132" font-family="'Noto Sans SC', sans-serif" font-size="9" fill="#2e5aa8">book-echoes-aibot 独立工程</text>
+          <text x="722" y="143" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#6b7280">意图识别 · 后端共享主题推荐检索</text>
+        </g>
+
+        <!-- 卡片 5: 浏览器伴读插件 (CRX 独立工程) -->
+        <g id="app-crx">
+          <rect x="934" y="76" width="206" height="74" rx="6" fill="#fff" stroke="#2e5aa8" stroke-width="1.3" stroke-dasharray="6,4"/>
+          <rect x="942" y="84" width="76" height="16" rx="2" fill="rgba(46,90,168,0.08)"/>
+          <text x="980" y="95" font-family="'Geist Mono', monospace" font-size="8" font-weight="600" fill="#2e5aa8" text-anchor="middle">EXTENSION</text>
+          <text x="942" y="116" font-family="'Noto Sans SC', sans-serif" font-size="12" font-weight="700" fill="#111827">🧩 浏览器伴读插件</text>
+          <text x="942" y="132" font-family="'Noto Sans SC', sans-serif" font-size="9" fill="#2e5aa8">book-echoes-search-crx 插件</text>
+          <text x="942" y="143" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#6b7280">网页解析 · 后端共享主题推荐检索</text>
+        </g>
+
+
+        <!-- ------------------------------------------ -->
+        <!-- LAYER 3 实体: 通用检索 API & 混合检索引擎   -->
+        <!-- ------------------------------------------ -->
+        <!-- 通用检索 API (核心枢纽) -->
+        <g id="retrieval-general-api">
+          <rect x="294" y="222" width="406" height="42" rx="5" fill="#fff" stroke="#2e5aa8" stroke-width="1.4"/>
+          <text x="310" y="238" font-family="'Noto Sans SC', sans-serif" font-size="11.5" font-weight="700" fill="#111827">通用书目检索 API (Core Book Retrieval API)</text>
+          <text x="310" y="253" font-family="'Noto Sans SC', sans-serif" font-size="9" fill="#4f5d75">多子查询融合 (主/标签/洞察/书目 权重 0.6:0.2:0.2) · 精确匹配 · 可选重排 · 上下文拼接</text>
+        </g>
+
+        <!-- 纯文学混合检索引擎 -->
+        <g id="retrieval-literary-hub">
+          <rect x="724" y="222" width="396" height="42" rx="5" fill="#fff" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+          <text x="740" y="238" font-family="'Noto Sans SC', sans-serif" font-size="11.5" font-weight="700" fill="#111827">纯文学混合检索引擎 (Hybrid Searcher &amp; RRF)</text>
+          <text x="740" y="253" font-family="'Noto Sans SC', sans-serif" font-size="9" fill="#4f5d75">结构化条件 (MUST/SHOULD/MUST_NOT) + BM25 词检索 + 向量 4-Scope RRF 倒排秩融合</text>
+        </g>
+
+
+        <!-- ------------------------------------------ -->
+        <!-- LAYER 2 实体: 核心计算与双轨引擎           -->
+        <!-- ------------------------------------------ -->
+
+        <!-- ====== TRACK A: 推荐主链路 (4个级联节点) ====== -->
+        <!-- A4: 馆员人工终审与定稿决策 (Focal 关键控制闸门) -->
+        <g id="track-a-human">
+          <rect x="56" y="334" width="504" height="48" rx="5" fill="#fff" stroke="#bf4520" stroke-width="2"/>
+          <rect x="64" y="341" width="50" height="15" rx="2" fill="rgba(191,69,32,0.1)"/>
+          <text x="89" y="352" font-family="'Geist Mono', monospace" font-size="7.5" font-weight="600" fill="#bf4520" text-anchor="middle">GATEWAY</text>
+          <text x="122" y="353" font-family="'Noto Sans SC', sans-serif" font-size="11.5" font-weight="700" fill="#111827">👑 馆员人工终审与决策定稿 (Human Decision Gate)</text>
+          <text x="64" y="371" font-family="'Noto Sans SC', sans-serif" font-size="9" fill="#bf4520">人工评选勾选通过 · 人工推荐语优先覆盖大模型理由 · 触发卡片与物料自动化生产引擎</text>
+        </g>
+
+        <!-- A3: 大模型三级级联评审 -->
+        <g id="track-a-llm">
+          <rect x="56" y="406" width="504" height="56" rx="5" fill="#fff" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+          <text x="72" y="425" font-family="'Noto Sans SC', sans-serif" font-size="11.5" font-weight="700" fill="#111827">大模型三阶段级联评审 (LLM 3-Stage Evaluation)</text>
+          <text x="72" y="441" font-family="'Noto Sans SC', sans-serif" font-size="9" fill="#4f5d75">① 初评：按索书号首字母大类分组漏斗 (配额 6/5/4/3/2，愉悦/开阔/激发/新知四把尺子)</text>
+          <text x="72" y="454" font-family="'Noto Sans SC', sans-serif" font-size="9" fill="#4f5d75">② 决选：主题内代表性筛选 (≤8本晋级) ➔ ③ 终评：整单和谐与跨学科均衡 (上限20本)</text>
+        </g>
+
+        <!-- A2: 豆瓣元数据增强与质量过滤 -->
+        <g id="track-a-douban">
+          <rect x="56" y="478" width="504" height="50" rx="5" fill="#fff" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+          <text x="72" y="497" font-family="'Noto Sans SC', sans-serif" font-size="11.5" font-weight="700" fill="#111827">豆瓣元数据增强与质量过滤 (Douban Quality Filter)</text>
+          <text x="72" y="513" font-family="'Noto Sans SC', sans-serif" font-size="9" fill="#4f5d75">· 质量门槛：评价人数(组内40-80分位) + 动态评分双门槛 (分类最低分与组内75分位)</text>
+          <text x="72" y="524" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#6b7280">· 零借阅新书兜底：无评分允许进入候选，超阈值触发模型预筛选 (每批20本最多过5本)</text>
+        </g>
+
+        <!-- A1: 确定性准入过滤规则链 -->
+        <g id="track-a-rules">
+          <rect x="56" y="544" width="504" height="46" rx="5" fill="#fff" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+          <text x="72" y="563" font-family="'Noto Sans SC', sans-serif" font-size="11.5" font-weight="700" fill="#111827">四级确定性准入过滤规则链 (Rule-based Admission Filter)</text>
+          <text x="72" y="579" font-family="'Noto Sans SC', sans-serif" font-size="9" fill="#4f5d75">规则A (排除非零借阅前15%热门) ｜ 规则B (368条题名词 + 索书号 DROP! > KEEP > DROP) ｜ 规则C/D (去重)</text>
+        </g>
+
+        <!-- ====== TRACK B: 向量化体系与语义理解 (2个纵向区块) ====== -->
+        <!-- B1: 通用书目向量化流水线 -->
+        <g id="track-b-vectorizer">
+          <rect x="620" y="334" width="504" height="114" rx="5" fill="#fff" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+          <rect x="628" y="342" width="70" height="15" rx="2" fill="rgba(46,90,168,0.08)"/>
+          <text x="663" y="353" font-family="'Geist Mono', monospace" font-size="7.5" font-weight="600" fill="#2e5aa8" text-anchor="middle">GENERAL</text>
+          <text x="706" y="354" font-family="'Noto Sans SC', sans-serif" font-size="11.5" font-weight="700" fill="#111827">通用书目密集向量化流水线 (Book Vectorizer)</text>
+          <text x="628" y="375" font-family="'Noto Sans SC', sans-serif" font-size="9" fill="#4f5d75">· 语义表征构建：题名 + 作者 + 内容简介 (双倍权重增权) + 目录层级文本拼接</text>
+          <text x="628" y="392" font-family="'Noto Sans SC', sans-serif" font-size="9" fill="#4f5d75">· 向量计算模型：统一采用 BGE-M3 (1024 维稠密向量)，余弦距离向量索引</text>
+          <text x="628" y="409" font-family="'Noto Sans SC', sans-serif" font-size="9" fill="#4f5d75">· 状态闭环追踪：写入独立的 book_vectorization_records 状态表，哈希校验避免重复计算</text>
+          <text x="628" y="426" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#6b7280">· 持久化存储库：/runtime/vector_db/books (ChromaDB books_collection 权威库)</text>
+        </g>
+
+        <!-- B2: 纯文学细粒度 LLM 打标与向量化 -->
+        <g id="track-b-literary">
+          <rect x="620" y="466" width="504" height="116" rx="5" fill="#fff" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+          <rect x="628" y="474" width="70" height="15" rx="2" fill="rgba(45,49,66,0.06)"/>
+          <text x="663" y="485" font-family="'Geist Mono', monospace" font-size="7.5" font-weight="600" fill="#4f5d75" text-anchor="middle">LITERARY</text>
+          <text x="706" y="486" font-family="'Noto Sans SC', sans-serif" font-size="11.5" font-weight="700" fill="#111827">纯文学专项细粒度 LLM 打标与向量化 (Literary FM Engine)</text>
+          <text x="628" y="507" font-family="'Noto Sans SC', sans-serif" font-size="9" fill="#4f5d75">· 准入范围：I 类文学索书号 + 豆瓣评分≥7.0 + 完整内容简介与封面</text>
+          <text x="628" y="524" font-family="'Noto Sans SC', sans-serif" font-size="9" fill="#4f5d75">· LLM 4大方案打标：阅读体验 (情境/节奏/文本/时空/情绪) · 体裁文体 · 主题母题 · 文学实体</text>
+          <text x="628" y="541" font-family="'Noto Sans SC', sans-serif" font-size="9" fill="#4f5d75">· 倒排标签索引：写入 SQLite book_tag_results 与倒排表，支持精确标签检索</text>
+          <text x="628" y="558" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#6b7280">· 4-Scope 向量集合：4个独立 collection 分别向量化，保障文学情境细粒度召回</text>
+        </g>
+
+
+        <!-- ------------------------------------------ -->
+        <!-- LAYER 1 实体: 4 大数据基石与配置中心       -->
+        <!-- ------------------------------------------ -->
+        <!-- D1: 业务基础数据 -->
+        <g id="data-raw-input">
+          <rect x="56" y="662" width="256" height="92" rx="5" fill="#fff" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+          <text x="70" y="682" font-family="'Noto Sans SC', sans-serif" font-size="11" font-weight="700" fill="#111827">📁 馆藏借阅与验收流水 (Raw Input)</text>
+          <text x="70" y="700" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#4f5d75">· 月归还数据：决定本期候选书目入选资格</text>
+          <text x="70" y="716" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#4f5d75">· 近4月借阅：聚合总借/分月/人数，映射索书号</text>
+          <text x="70" y="732" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#6b7280">· 新书验收流水：与借阅做差集挖掘零借阅新书</text>
+        </g>
+
+        <!-- D2: SQLite 权威书目库 -->
+        <g id="data-sqlite-master">
+          <rect x="328" y="662" width="260" height="92" rx="5" fill="#fff" stroke="#2e5aa8" stroke-width="1.3"/>
+          <text x="342" y="682" font-family="'Noto Sans SC', sans-serif" font-size="11" font-weight="700" fill="#111827">💾 SQLite 唯一权威书目库</text>
+          <text x="342" y="700" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#4f5d75">· books：清洗与豆瓣增强后的权威书目主表</text>
+          <text x="342" y="716" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#4f5d75">· book_vectorization_records：通用向量状态表</text>
+          <text x="342" y="732" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#4f5d75">· book_tag_results / 倒排表：文学多维标签</text>
+        </g>
+
+        <!-- D3: ChromaDB 向量数据库 -->
+        <g id="data-chroma-db">
+          <rect x="604" y="662" width="260" height="92" rx="5" fill="#fff" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+          <text x="618" y="682" font-family="'Noto Sans SC', sans-serif" font-size="11" font-weight="700" fill="#111827">🧠 ChromaDB 向量数据库 (Chroma)</text>
+          <text x="618" y="700" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#4f5d75">· books_collection：通用书目向量 (1.48万+条)</text>
+          <text x="618" y="716" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#4f5d75">· literature_fm：文学4-Scope多集合 (8.5万+向量)</text>
+          <text x="618" y="732" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#6b7280">· 余弦距离，多维度独立持久化存储</text>
+        </g>
+
+        <!-- D4: 四层可配置体系 -->
+        <g id="data-config-hub">
+          <rect x="880" y="662" width="246" height="92" rx="5" fill="#fff" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+          <text x="894" y="682" font-family="'Noto Sans SC', sans-serif" font-size="11" font-weight="700" fill="#111827">⚙️ 四层解耦配置体系 (Config System)</text>
+          <text x="894" y="700" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#4f5d75">· 准入与质量层：setting.yaml / 规则 txt</text>
+          <text x="894" y="716" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#4f5d75">· 价值与评选层：llm.yaml / Markdown 提示词</text>
+          <text x="894" y="732" font-family="'Noto Sans SC', sans-serif" font-size="8.5" fill="#6b7280">· 检索与权重配置：book_vectorization.yaml</text>
+        </g>
+
+
+        <!-- ========================================== -->
+        <!-- 3. 图例栏 (Legend Strip)                   -->
+        <!-- ========================================== -->
+        <g id="diagram-legend" transform="translate(40, 800)">
+          <rect x="0" y="0" width="1100" height="48" rx="6" fill="#ececec" stroke="rgba(45,49,66,0.12)" stroke-width="1"/>
+
+          <!-- 图例 1: 主推荐链路 -->
+          <line x1="24" y1="24" x2="52" y2="24" stroke="#bf4520" stroke-width="2" marker-end="url(#arrow-accent)"/>
+          <text x="60" y="27" font-family="'Noto Sans SC', sans-serif" font-size="9" font-weight="600" fill="#2d3142">推荐主链路流程</text>
+
+          <!-- 图例 2: 检索与知识服务调用 -->
+          <line x1="184" y1="24" x2="212" y2="24" stroke="#2e5aa8" stroke-width="1.6" marker-end="url(#arrow-link)"/>
+          <text x="220" y="27" font-family="'Noto Sans SC', sans-serif" font-size="9" font-weight="600" fill="#2d3142">检索 API 与跨服务调用</text>
+
+          <!-- 图例 3: 辅助处理 / 内部数据流 -->
+          <line x1="376" y1="24" x2="404" y2="24" stroke="#4f5d75" stroke-width="1.4" marker-end="url(#arrow)"/>
+          <text x="412" y="27" font-family="'Noto Sans SC', sans-serif" font-size="9" font-weight="600" fill="#2d3142">底层数据汇集与向量构建</text>
+
+          <!-- 图例 4: 独立外挂服务 -->
+          <rect x="580" y="16" width="28" height="16" rx="2" fill="#fff" stroke="#2e5aa8" stroke-width="1.2" stroke-dasharray="4,3"/>
+          <text x="616" y="27" font-family="'Noto Sans SC', sans-serif" font-size="9" font-weight="600" fill="#2d3142">外部独立工程 (aibot / 插件)</text>
+
+          <!-- 图例 5: 馆员决策关键闸门 -->
+          <rect x="796" y="16" width="20" height="16" rx="2" fill="rgba(191,69,32,0.1)" stroke="#bf4520" stroke-width="1.5"/>
+          <text x="824" y="27" font-family="'Noto Sans SC', sans-serif" font-size="9" font-weight="600" fill="#bf4520">馆员终审决策闸门 (Gateway)</text>
+
+          <!-- 版本标记 -->
+          <text x="1080" y="27" font-family="'Geist Mono', Consolas, monospace" font-size="8.5" fill="#6b7280" text-anchor="end">BookEchoes UI 2026.10</text>
+        </g>
+
+      </svg>
+    </div>
+  </div>
+</body>
+</html>
