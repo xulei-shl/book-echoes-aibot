@@ -16,17 +16,17 @@ interface HomeHeroProps {
 export default function HomeHero({ images, targetLink, subtitle }: HomeHeroProps) {
     const router = useRouter();
     const [currentIndex, setCurrentIndex] = useState(0);
-    const [orbSize, setOrbSize] = useState(0.82);
+    const [orbSize, setOrbSize] = useState(0.88);
 
-    // 响应式微调 Orb 光环大小，确保圆环完整落于屏幕内且紧凑聚拢中心书法标题
+    // 响应式微调 Orb 光环大小：兼顾增粗后的实体厚度与中心书法标题的舒展呼吸间距
     useEffect(() => {
         const updateSize = () => {
             if (window.innerWidth < 768) {
-                setOrbSize(0.95);
+                setOrbSize(0.98);
             } else if (window.innerWidth < 1280) {
-                setOrbSize(0.86);
+                setOrbSize(0.92);
             } else {
-                setOrbSize(0.82);
+                setOrbSize(0.88);
             }
         };
         updateSize();
@@ -59,11 +59,11 @@ export default function HomeHero({ images, targetLink, subtitle }: HomeHeroProps
                 <Orb
                     colors={['#FFFFFF', '#C9A063', '#141210']}
                     size={orbSize}
-                    glow={0.95}
-                    bleed={0.18}
+                    glow={1.25}
+                    bleed={0.55}
                     wobble={0.3}
-                    highlight={1.3}
-                    trail={1.1}
+                    highlight={1.4}
+                    trail={1.4}
                     tiltX={-4}
                     tiltY={-6}
                     speed={0.65}
