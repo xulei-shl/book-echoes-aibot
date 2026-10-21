@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import TopNav from './TopNav';
-import EchoWaveDecoration from './EchoWaveDecoration';
+import Orb from './Orb';
 
 interface HomeHeroProps {
     images: string[];
@@ -16,6 +16,23 @@ interface HomeHeroProps {
 export default function HomeHero({ images, targetLink, subtitle }: HomeHeroProps) {
     const router = useRouter();
     const [currentIndex, setCurrentIndex] = useState(0);
+    const [orbSize, setOrbSize] = useState(1.30);
+
+    // 响应式调整 Orb 光环大小，确保在不同屏幕下均能优雅环绕中心文字与按钮
+    useEffect(() => {
+        const updateSize = () => {
+            if (window.innerWidth < 768) {
+                setOrbSize(1.45);
+            } else if (window.innerWidth < 1280) {
+                setOrbSize(1.34);
+            } else {
+                setOrbSize(1.30);
+            }
+        };
+        updateSize();
+        window.addEventListener('resize', updateSize);
+        return () => window.removeEventListener('resize', updateSize);
+    }, []);
 
     useEffect(() => {
         if (images.length <= 1) return;
@@ -37,8 +54,25 @@ export default function HomeHero({ images, targetLink, subtitle }: HomeHeroProps
             {/* Logo - Top Left（全站统一顶部导航，首页仅显示 Logo） */}
             <TopNav showButtons={false} />
 
-            {/* 动态同心水波纹装饰层 - 贴合“回响”意象 */}
-            <EchoWaveDecoration />
+            {/* 动态天象光环动效 - 皓月纯白与雅致宋金交融，呼应“书海回响”意象 */}
+            <div className="absolute inset-0 z-[5] pointer-events-auto">
+                <Orb
+                    colors={['#FFFFFF', '#C9A063', '#141210']}
+                    size={orbSize}
+                    glow={1.1}
+                    bleed={0.22}
+                    wobble={0.4}
+                    highlight={1.3}
+                    trail={1.1}
+                    tiltX={-4}
+                    tiltY={-6}
+                    speed={0.65}
+                    hoverIntensity={0.8}
+                    rotateOnHover
+                    followCursor
+                    clickPulse
+                />
+            </div>
 
             {/* Background Image Carousel */}
             <div className="absolute inset-0 z-[1] pointer-events-none">
@@ -109,7 +143,7 @@ export default function HomeHero({ images, targetLink, subtitle }: HomeHeroProps
 
                         {/* 海 - Small, slightly raised */}
                         <motion.span
-                            className="text-5xl md:text-[6rem] lg:text-[rem] leading-none mb-4 md:mb-8 opacity-90"
+                            className="text-5xl md:text-[6rem] lg:text-[8rem] leading-none mb-4 md:mb-8 opacity-90"
                             whileHover={{ scale: 1.1, y: -10 }}
                             transition={{ type: "spring", stiffness: 300 }}
                         >
