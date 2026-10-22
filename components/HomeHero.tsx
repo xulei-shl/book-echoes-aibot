@@ -69,9 +69,27 @@ export default function HomeHero({ images, targetLink, subtitle }: HomeHeroProps
     const glyphSpring = { type: 'spring', stiffness: 300, damping: 20 } as const;
     const isInteractiveHover = !shouldReduceMotion && canHover;
 
-    const hasMultipleImages = images.length > 1;
     const prevIndex = (currentIndex - 1 + images.length) % images.length;
     const nextIndex = (currentIndex + 1) % images.length;
+
+    // 计算三联流动画廊的当前槽位卡片组，保持 key 稳定以触发自然的流动位移
+    const visibleCards = (() => {
+        if (images.length === 0) return [];
+        if (images.length === 1) {
+            return [{ key: `card-${currentIndex}`, image: images[currentIndex], slot: 'current' as const, index: currentIndex }];
+        }
+        if (images.length === 2) {
+            return [
+                { key: `card-${currentIndex}`, image: images[currentIndex], slot: 'current' as const, index: currentIndex },
+                { key: `card-${nextIndex}`, image: images[nextIndex], slot: 'next' as const, index: nextIndex },
+            ];
+        }
+        return [
+            { key: `card-${prevIndex}`, image: images[prevIndex], slot: 'prev' as const, index: prevIndex },
+            { key: `card-${currentIndex}`, image: images[currentIndex], slot: 'current' as const, index: currentIndex },
+            { key: `card-${nextIndex}`, image: images[nextIndex], slot: 'next' as const, index: nextIndex },
+        ];
+    })();
 
     return (
         <div className="relative w-full h-screen overflow-hidden flex flex-col items-center justify-center bg-gradient-to-b from-[#131315] via-[#171614] to-[#0e0e10]">
@@ -125,99 +143,110 @@ export default function HomeHero({ images, targetLink, subtitle }: HomeHeroProps
                 />
             </div>
 
-            {/* Background Image Carousel（纯 GPU 透明度平滑 Crossfade，书海画廊三联折屏展厅） */}
+            {/* Background Image Carousel（纯 GPU 硬件加速，书海画廊真·接力流体切换） */}
             <div className="absolute inset-0 z-[1] pointer-events-none select-none">
+                {/* 背景微漫反射层 - 随当前图书柔和渐变底色 */}
                 <AnimatePresence initial={false}>
                     {images.length > 0 && (
                         <motion.div
                             key={currentIndex}
-                            className="absolute inset-0 will-change-[opacity]"
+                            className="absolute inset-0 z-0 overflow-hidden will-change-[opacity]"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             transition={{
-                                duration: shouldReduceMotion ? 0.3 : 1.0,
-                                ease: [0.25, 0.1, 0.25, 1],
+                                duration: shouldReduceMotion ? 0.3 : 1.2,
+                                ease: 'easeInOut',
                             }}
                         >
-                            {/* 背景微漫反射层 - 整体环境色烘托 */}
-                            <div className="absolute inset-0 z-0 overflow-hidden">
-                                <Image
-                                    src={images[currentIndex]}
-                                    alt="Background Ambient"
-                                    fill
-                                    className="object-cover blur-3xl scale-110 opacity-25"
-                                    sizes="100vw"
-                                />
-                            </div>
-
-                            {/* 书海画廊三联折屏展台（Triptych Gallery Stage） */}
-                            <div className="absolute inset-0 z-10 flex items-center justify-center overflow-hidden">
-                                <div className="relative flex items-center justify-center w-full max-w-[1800px] h-full">
-                                    {/* 左翼海报（上一本精选） */}
-                                    {hasMultipleImages && (
-                                        <div
-                                            className="hidden md:block absolute left-1/2 -translate-x-[114%] lg:-translate-x-[120%] xl:-translate-x-[124%] h-[72vh] lg:h-[78vh] aspect-[760/1440] rounded-sm overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.85)] border border-[#E8E6DC]/10 opacity-45 z-10"
-                                            style={{
-                                                maskImage: 'linear-gradient(to left, black 35%, transparent 95%)',
-                                                WebkitMaskImage: 'linear-gradient(to left, black 35%, transparent 95%)',
-                                            }}
-                                        >
-                                            <Image
-                                                src={images[prevIndex]}
-                                                alt={`Previous Book ${prevIndex + 1}`}
-                                                fill
-                                                className="object-contain"
-                                                sizes="(max-width: 1200px) 400px, 500px"
-                                            />
-                                        </div>
-                                    )}
-
-                                    {/* 主角海报（当前本期精选好书） */}
-                                    <div className="relative h-[78vh] lg:h-[84vh] aspect-[760/1440] max-w-[90vw] rounded-sm overflow-hidden shadow-[0_25px_60px_-10px_rgba(0,0,0,0.95),0_0_35px_rgba(201,160,99,0.18)] border border-[#E8E6DC]/20 z-20">
-                                        <Image
-                                            src={images[currentIndex]}
-                                            alt={`Hero Image ${currentIndex + 1}`}
-                                            fill
-                                            className="object-contain"
-                                            priority={currentIndex === 0}
-                                            onError={handleImageError}
-                                            sizes="(max-width: 1200px) 500px, 600px"
-                                        />
-                                    </div>
-
-                                    {/* 右翼海报（下一本精选） */}
-                                    {hasMultipleImages && (
-                                        <div
-                                            className="hidden md:block absolute left-1/2 translate-x-[14%] lg:translate-x-[20%] xl:translate-x-[24%] h-[72vh] lg:h-[78vh] aspect-[760/1440] rounded-sm overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.85)] border border-[#E8E6DC]/10 opacity-45 z-10"
-                                            style={{
-                                                maskImage: 'linear-gradient(to right, black 35%, transparent 95%)',
-                                                WebkitMaskImage: 'linear-gradient(to right, black 35%, transparent 95%)',
-                                            }}
-                                        >
-                                            <Image
-                                                src={images[nextIndex]}
-                                                alt={`Next Book ${nextIndex + 1}`}
-                                                fill
-                                                className="object-contain"
-                                                sizes="(max-width: 1200px) 400px, 500px"
-                                            />
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Overlay: 电影级微暗角遮罩 - 增强文字可读性，保留中央通透与温润 */}
-                            <div
-                                className="absolute inset-0 z-20 pointer-events-none"
-                                style={{
-                                    background:
-                                        'radial-gradient(ellipse 92% 85% at 50% 50%, rgba(18, 18, 20, 0.38) 0%, rgba(14, 14, 16, 0.72) 65%, rgba(10, 10, 12, 0.94) 100%)',
-                                }}
+                            <Image
+                                src={images[currentIndex]}
+                                alt="Background Ambient"
+                                fill
+                                className="object-cover blur-3xl scale-110 opacity-25"
+                                sizes="100vw"
                             />
                         </motion.div>
                     )}
                 </AnimatePresence>
+
+                {/* 书海画廊三联折屏展台（Triptych Fluid Carousel Stage） */}
+                <div className="absolute inset-0 z-10 flex items-center justify-center overflow-hidden">
+                    <div className="relative flex items-center justify-center w-full max-w-[1920px] h-full">
+                        <AnimatePresence initial={false}>
+                            {visibleCards.map((card) => {
+                                const isCurrent = card.slot === 'current';
+                                const isPrev = card.slot === 'prev';
+                                const isNext = card.slot === 'next';
+
+                                return (
+                                    <motion.div
+                                        key={card.key}
+                                        className={`absolute h-[85vh] sm:h-[88vh] lg:h-[92vh] aspect-[760/1440] max-w-[90vw] rounded-sm overflow-hidden select-none pointer-events-none will-change-[transform,opacity] ${!isCurrent ? 'hidden md:block' : 'block'}`}
+                                        initial={{
+                                            x: isNext ? '150%' : isPrev ? '-150%' : '60%',
+                                            scale: isCurrent ? 0.88 : 0.75,
+                                            opacity: 0,
+                                        }}
+                                        animate={{
+                                            x: isCurrent ? '0%' : isPrev ? '-114%' : '114%',
+                                            scale: isCurrent ? 1.0 : 0.82,
+                                            opacity: isCurrent ? 1.0 : 0.42,
+                                            zIndex: isCurrent ? 20 : 10,
+                                        }}
+                                        exit={{
+                                            x: isPrev ? '-150%' : '150%',
+                                            scale: 0.75,
+                                            opacity: 0,
+                                            zIndex: 5,
+                                        }}
+                                        transition={{
+                                            duration: shouldReduceMotion ? 0.3 : 0.85,
+                                            ease: [0.22, 1, 0.36, 1],
+                                        }}
+                                        style={{
+                                            boxShadow: isCurrent
+                                                ? '0 30px 70px -10px rgba(0,0,0,0.95), 0 0 40px rgba(201,160,99,0.22)'
+                                                : '0 20px 50px rgba(0,0,0,0.85)',
+                                            border: isCurrent
+                                                ? '1px solid rgba(232, 230, 220, 0.25)'
+                                                : '1px solid rgba(232, 230, 220, 0.1)',
+                                            maskImage: isPrev
+                                                ? 'linear-gradient(to left, black 35%, transparent 95%)'
+                                                : isNext
+                                                ? 'linear-gradient(to right, black 35%, transparent 95%)'
+                                                : 'none',
+                                            WebkitMaskImage: isPrev
+                                                ? 'linear-gradient(to left, black 35%, transparent 95%)'
+                                                : isNext
+                                                ? 'linear-gradient(to right, black 35%, transparent 95%)'
+                                                : 'none',
+                                        }}
+                                    >
+                                        <Image
+                                            src={card.image}
+                                            alt={`Book Poster ${card.index + 1}`}
+                                            fill
+                                            className="object-contain"
+                                            priority={isCurrent && currentIndex === 0}
+                                            onError={handleImageError}
+                                            sizes="(max-width: 1200px) 500px, 650px"
+                                        />
+                                    </motion.div>
+                                );
+                            })}
+                        </AnimatePresence>
+                    </div>
+                </div>
+
+                {/* Overlay: 电影级微暗角遮罩 - 增强文字可读性，保留中央通透与温润 */}
+                <div
+                    className="absolute inset-0 z-20 pointer-events-none"
+                    style={{
+                        background:
+                            'radial-gradient(ellipse 92% 85% at 50% 50%, rgba(18, 18, 20, 0.38) 0%, rgba(14, 14, 16, 0.72) 65%, rgba(10, 10, 12, 0.94) 100%)',
+                    }}
+                />
             </div>
 
             {/* Text Content - Dynamic Calligraphy Style (pointer-events-none 允许背景捕获点击水波，交互子项恢复 auto) */}
