@@ -145,30 +145,14 @@ export default function HomeHero({ images, targetLink, subtitle }: HomeHeroProps
 
             {/* Background Image Carousel（纯 GPU 硬件加速，书海画廊真·接力流体切换） */}
             <div className="absolute inset-0 z-[1] pointer-events-none select-none">
-                {/* 背景微漫反射层 - 随当前图书柔和渐变底色 */}
-                <AnimatePresence initial={false}>
-                    {images.length > 0 && (
-                        <motion.div
-                            key={currentIndex}
-                            className="absolute inset-0 z-0 overflow-hidden will-change-[opacity]"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            transition={{
-                                duration: shouldReduceMotion ? 0.3 : 1.2,
-                                ease: 'easeInOut',
-                            }}
-                        >
-                            <Image
-                                src={images[currentIndex]}
-                                alt="Background Ambient"
-                                fill
-                                className="object-cover blur-3xl scale-110 opacity-25"
-                                sizes="100vw"
-                            />
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                {/* 常驻中央暖金与墨池微光 - 纯 GPU 径向光场，零连续重绘开销 */}
+                <div
+                    className="absolute inset-0 z-0 pointer-events-none"
+                    style={{
+                        background:
+                            'radial-gradient(ellipse 70% 65% at 50% 50%, rgba(201, 160, 99, 0.08) 0%, rgba(18, 16, 15, 0.45) 55%, transparent 85%)',
+                    }}
+                />
 
                 {/* 书海画廊三联折屏展台（Triptych Fluid Carousel Stage） */}
                 <div className="absolute inset-0 z-10 flex items-center justify-center overflow-hidden">
@@ -182,47 +166,31 @@ export default function HomeHero({ images, targetLink, subtitle }: HomeHeroProps
                                 return (
                                     <motion.div
                                         key={card.key}
-                                        className={`absolute h-[85vh] sm:h-[88vh] lg:h-[92vh] aspect-[760/1440] max-w-[90vw] rounded-sm overflow-hidden select-none pointer-events-none will-change-[transform,opacity] ${!isCurrent ? 'hidden md:block' : 'block'}`}
+                                        className={`absolute h-[85vh] sm:h-[88vh] lg:h-[92vh] aspect-[760/1440] max-w-[90vw] rounded-sm overflow-hidden select-none pointer-events-none will-change-[transform,opacity] shadow-[0_25px_60px_-10px_rgba(0,0,0,0.92)] border border-[#E8E6DC]/10 ${!isCurrent ? 'hidden md:block' : 'block'}`}
                                         initial={{
-                                            x: isNext ? '150%' : isPrev ? '-150%' : '60%',
-                                            scale: isCurrent ? 0.88 : 0.75,
+                                            x: isNext ? '165%' : isPrev ? '-165%' : '60%',
+                                            scale: isCurrent ? 0.95 : 0.72,
                                             opacity: 0,
                                         }}
                                         animate={{
-                                            x: isCurrent ? '0%' : isPrev ? '-114%' : '114%',
-                                            scale: isCurrent ? 1.0 : 0.82,
-                                            opacity: isCurrent ? 1.0 : 0.42,
+                                            x: isCurrent ? '0%' : isPrev ? '-124%' : '124%',
+                                            scale: isCurrent ? 1.15 : 0.82,
+                                            opacity: isCurrent ? 1.0 : 0.38,
                                             zIndex: isCurrent ? 20 : 10,
                                         }}
                                         exit={{
-                                            x: isPrev ? '-150%' : '150%',
-                                            scale: 0.75,
+                                            x: isPrev ? '-165%' : '165%',
+                                            scale: 0.72,
                                             opacity: 0,
                                             zIndex: 5,
                                         }}
-                                        transition={{
-                                            duration: shouldReduceMotion ? 0.3 : 0.85,
-                                            ease: [0.22, 1, 0.36, 1],
-                                        }}
-                                        style={{
-                                            boxShadow: isCurrent
-                                                ? '0 30px 70px -10px rgba(0,0,0,0.95), 0 0 40px rgba(201,160,99,0.22)'
-                                                : '0 20px 50px rgba(0,0,0,0.85)',
-                                            border: isCurrent
-                                                ? '1px solid rgba(232, 230, 220, 0.25)'
-                                                : '1px solid rgba(232, 230, 220, 0.1)',
-                                            maskImage: isPrev
-                                                ? 'linear-gradient(to left, black 35%, transparent 95%)'
-                                                : isNext
-                                                ? 'linear-gradient(to right, black 35%, transparent 95%)'
-                                                : 'none',
-                                            WebkitMaskImage: isPrev
-                                                ? 'linear-gradient(to left, black 35%, transparent 95%)'
-                                                : isNext
-                                                ? 'linear-gradient(to right, black 35%, transparent 95%)'
-                                                : 'none',
-                                        }}
+                                        transition={
+                                            shouldReduceMotion
+                                                ? { duration: 0.25, ease: 'easeOut' }
+                                                : { type: 'spring', damping: 28, stiffness: 190, mass: 0.85 }
+                                        }
                                     >
+                                        {/* 海报原画主体图片 */}
                                         <Image
                                             src={card.image}
                                             alt={`Book Poster ${card.index + 1}`}
@@ -230,7 +198,43 @@ export default function HomeHero({ images, targetLink, subtitle }: HomeHeroProps
                                             className="object-contain"
                                             priority={isCurrent && currentIndex === 0}
                                             onError={handleImageError}
-                                            sizes="(max-width: 1200px) 500px, 650px"
+                                            sizes="(max-width: 1200px) 500px, 750px"
+                                        />
+
+                                        {/* 主角海报独享：宋金高光精工边线与立体暖金辉光（平滑插值淡入淡出，零跳变） */}
+                                        <motion.div
+                                            className="absolute inset-0 pointer-events-none rounded-sm border border-[#C9A063]/30 shadow-[inset_0_0_25px_rgba(201,160,99,0.18)]"
+                                            initial={false}
+                                            animate={{ opacity: isCurrent ? 1 : 0 }}
+                                            transition={
+                                                shouldReduceMotion
+                                                    ? { duration: 0.25 }
+                                                    : { type: 'spring', damping: 28, stiffness: 190, mass: 0.85 }
+                                            }
+                                        />
+
+                                        {/* 左翼侧屏独享：向左渐隐暗化羽化层（平滑插值淡入淡出，彻底消灭 mask 突跳顿感） */}
+                                        <motion.div
+                                            className="absolute inset-0 pointer-events-none bg-gradient-to-r from-[#121214] via-[#121214]/65 to-transparent"
+                                            initial={false}
+                                            animate={{ opacity: isPrev ? 1 : 0 }}
+                                            transition={
+                                                shouldReduceMotion
+                                                    ? { duration: 0.25 }
+                                                    : { type: 'spring', damping: 28, stiffness: 190, mass: 0.85 }
+                                            }
+                                        />
+
+                                        {/* 右翼侧屏独享：向右渐隐暗化羽化层（平滑插值淡入淡出） */}
+                                        <motion.div
+                                            className="absolute inset-0 pointer-events-none bg-gradient-to-l from-[#121214] via-[#121214]/65 to-transparent"
+                                            initial={false}
+                                            animate={{ opacity: isNext ? 1 : 0 }}
+                                            transition={
+                                                shouldReduceMotion
+                                                    ? { duration: 0.25 }
+                                                    : { type: 'spring', damping: 28, stiffness: 190, mass: 0.85 }
+                                            }
                                         />
                                     </motion.div>
                                 );
