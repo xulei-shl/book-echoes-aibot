@@ -70,10 +70,36 @@ export default function HomeHero({ images, targetLink, subtitle }: HomeHeroProps
     const isInteractiveHover = !shouldReduceMotion && canHover;
 
     return (
-        <div className="relative w-full h-screen overflow-hidden flex flex-col items-center justify-center bg-[#1a1a1a]">
+        <div className="relative w-full h-screen overflow-hidden flex flex-col items-center justify-center bg-gradient-to-b from-[#131315] via-[#171614] to-[#0e0e10]">
 
             {/* Logo - Top Left（全站统一顶部导航，首页仅显示 Logo） */}
             <TopNav showButtons={false} />
+
+            {/* 常驻中央暖金与墨韵环境背光 - 纯 GPU 径向光场，零连续重绘开销 */}
+            <div
+                className="absolute inset-0 z-0 pointer-events-none select-none"
+                style={{
+                    background:
+                        'radial-gradient(ellipse 60% 55% at 50% 50%, rgba(201, 160, 99, 0.12) 0%, rgba(30, 26, 22, 0.35) 50%, transparent 85%)',
+                }}
+            />
+
+            {/* 两侧宋韵版心规矩微线与标尺 - 赋予宽屏留白空间以秩序感与呼吸感 */}
+            <div className="hidden lg:flex absolute inset-y-0 left-10 z-[2] flex-col items-center justify-center pointer-events-none select-none opacity-40">
+                <div className="h-32 w-[1px] bg-gradient-to-b from-transparent via-[#C9A063]/30 to-transparent" />
+                <span className="my-4 writing-vertical-rl text-[9px] tracking-[0.45em] font-mono text-[#E8E6DC]/40 uppercase">
+                    ISSUE · 0{currentIndex + 1}
+                </span>
+                <div className="h-32 w-[1px] bg-gradient-to-b from-transparent via-[#C9A063]/30 to-transparent" />
+            </div>
+
+            <div className="hidden lg:flex absolute inset-y-0 right-10 z-[2] flex-col items-center justify-center pointer-events-none select-none opacity-40">
+                <div className="h-24 w-[1px] bg-gradient-to-b from-transparent via-[#C9A063]/25 to-transparent" />
+                <span className="my-4 writing-vertical-rl text-[9px] tracking-[0.45em] font-mono text-[#E8E6DC]/30 uppercase">
+                    ECHOES
+                </span>
+                <div className="h-24 w-[1px] bg-gradient-to-b from-transparent via-[#C9A063]/25 to-transparent" />
+            </div>
 
             {/* 动态天象光环动效 - 皓月纯白与雅致宋金交融，呼应“书海回响”意象 */}
             <div className="absolute inset-0 z-[5] pointer-events-auto">
@@ -95,40 +121,69 @@ export default function HomeHero({ images, targetLink, subtitle }: HomeHeroProps
                 />
             </div>
 
-            {/* Background Image Carousel（纯 GPU 透明度平滑 Crossfade，无黑屏断层，无昂贵全屏动态滤镜） */}
-            <div className="absolute inset-0 z-[1] pointer-events-none">
+            {/* Background Image Carousel（纯 GPU 透明度平滑 Crossfade，墨韵羽化与环境光场融合） */}
+            <div className="absolute inset-0 z-[1] pointer-events-none select-none">
                 <AnimatePresence initial={false}>
                     {images.length > 0 && (
                         <motion.div
                             key={currentIndex}
-                            className="absolute inset-0"
+                            className="absolute inset-0 will-change-[opacity]"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            transition={{ duration: 1.0, ease: 'easeInOut' }}
+                            transition={{
+                                duration: shouldReduceMotion ? 0.3 : 1.1,
+                                ease: [0.25, 0.1, 0.25, 1],
+                            }}
                         >
-                            {/* 背景模糊层 - 填充屏幕，营造氛围 */}
-                            <div className="absolute inset-0 z-0">
+                            {/* 背景微漫反射层 - 径向消隐限定范围，降低全屏过度模糊的 GPU 负荷 */}
+                            <div
+                                className="absolute inset-0 z-0 overflow-hidden"
+                                style={{
+                                    maskImage: 'radial-gradient(ellipse 75% 70% at 50% 50%, black 25%, transparent 80%)',
+                                    WebkitMaskImage: 'radial-gradient(ellipse 75% 70% at 50% 50%, black 25%, transparent 80%)',
+                                }}
+                            >
                                 <Image
                                     src={images[currentIndex]}
-                                    alt="Background Blur"
+                                    alt="Background Ambient"
                                     fill
-                                    className="object-cover blur-3xl scale-110 opacity-40"
+                                    className="object-cover blur-2xl scale-105 opacity-30"
+                                    sizes="100vw"
                                 />
                             </div>
 
-                            {/* 主体图片层 - 完整展示，不被裁切 */}
-                            <Image
-                                src={images[currentIndex]}
-                                alt={`Hero Image ${currentIndex + 1}`}
-                                fill
-                                className="object-contain z-10 relative"
-                                priority={currentIndex === 0}
-                                onError={handleImageError}
-                            />
+                            {/* 主体海报层 - 墨韵渐隐双向羽化，消除左右垂直硬切边 */}
+                            <div
+                                className="absolute inset-0 z-10 flex items-center justify-center"
+                                style={{
+                                    maskImage:
+                                        'linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%), linear-gradient(to bottom, transparent 0%, black 6%, black 94%, transparent 100%)',
+                                    WebkitMaskImage:
+                                        'linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%), linear-gradient(to bottom, transparent 0%, black 6%, black 94%, transparent 100%)',
+                                    maskComposite: 'intersect',
+                                    WebkitMaskComposite: 'source-in' as any,
+                                }}
+                            >
+                                <Image
+                                    src={images[currentIndex]}
+                                    alt={`Hero Image ${currentIndex + 1}`}
+                                    fill
+                                    className="object-contain"
+                                    priority={currentIndex === 0}
+                                    onError={handleImageError}
+                                    sizes="(max-width: 1200px) 100vw, 1200px"
+                                />
+                            </div>
 
-                            {/* Overlay: 电影级渐变遮罩 - 加深以增强对比 */}
-                            <div className="absolute inset-0 z-20 bg-gradient-to-b from-black/70 via-black/40 to-black/90 pointer-events-none" />
+                            {/* Overlay: 电影级微暗角遮罩 - 增强文字可读性，保留中央通透与温润 */}
+                            <div
+                                className="absolute inset-0 z-20 pointer-events-none"
+                                style={{
+                                    background:
+                                        'radial-gradient(ellipse 85% 75% at 50% 50%, rgba(18, 18, 20, 0.4) 0%, rgba(14, 14, 16, 0.75) 70%, rgba(10, 10, 12, 0.9) 100%)',
+                                }}
+                            />
                         </motion.div>
                     )}
                 </AnimatePresence>
