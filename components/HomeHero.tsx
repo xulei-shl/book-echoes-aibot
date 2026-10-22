@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect, useSyncExternalStore } from 'react';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import TopNav from './TopNav';
@@ -13,26 +13,43 @@ interface HomeHeroProps {
     subtitle: string;
 }
 
+// 订阅媒体查询：精准识别指针设备是否支持 hover，隔离触摸设备以防 sticky hover 粘滞
+function subscribeHover(callback: () => void) {
+    const mq = window.matchMedia('(hover: hover) and (pointer: fine)');
+    mq.addEventListener('change', callback);
+    return () => mq.removeEventListener('change', callback);
+}
+
+function getHoverSnapshot() {
+    return window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+}
+
+function getServerHoverSnapshot() {
+    return false;
+}
+
+// 响应式订阅 Orb 光环大小：舒展包容“書海回響”书法及右侧纵向拼音，确保文字完全不被光环遮挡
+function subscribeResize(callback: () => void) {
+    window.addEventListener('resize', callback, { passive: true });
+    return () => window.removeEventListener('resize', callback);
+}
+
+function getOrbSizeSnapshot() {
+    if (window.innerWidth < 768) return 1.15;
+    if (window.innerWidth < 1280) return 1.08;
+    return 1.03;
+}
+
+function getServerOrbSizeSnapshot() {
+    return 1.03;
+}
+
 export default function HomeHero({ images, targetLink, subtitle }: HomeHeroProps) {
     const router = useRouter();
     const [currentIndex, setCurrentIndex] = useState(0);
-    const [orbSize, setOrbSize] = useState(1.03);
-
-    // 响应式微调 Orb 光环大小：舒展包容“書海回響”书法及右侧纵向拼音，确保文字完全不被光环遮挡
-    useEffect(() => {
-        const updateSize = () => {
-            if (window.innerWidth < 768) {
-                setOrbSize(1.15);
-            } else if (window.innerWidth < 1280) {
-                setOrbSize(1.08);
-            } else {
-                setOrbSize(1.03);
-            }
-        };
-        updateSize();
-        window.addEventListener('resize', updateSize);
-        return () => window.removeEventListener('resize', updateSize);
-    }, []);
+    const orbSize = useSyncExternalStore(subscribeResize, getOrbSizeSnapshot, getServerOrbSizeSnapshot);
+    const canHover = useSyncExternalStore(subscribeHover, getHoverSnapshot, getServerHoverSnapshot);
+    const shouldReduceMotion = useReducedMotion();
 
     useEffect(() => {
         if (images.length <= 1) return;
@@ -47,6 +64,10 @@ export default function HomeHero({ images, targetLink, subtitle }: HomeHeroProps
     const handleImageError = () => {
         console.warn(`Failed to load image at index ${currentIndex}`);
     };
+
+    // 统一的书法单字物理弹簧配置（增加阻尼，杜绝失控晃动）
+    const glyphSpring = { type: 'spring', stiffness: 300, damping: 20 } as const;
+    const isInteractiveHover = !shouldReduceMotion && canHover;
 
     return (
         <div className="relative w-full h-screen overflow-hidden flex flex-col items-center justify-center bg-[#1a1a1a]">
@@ -74,17 +95,17 @@ export default function HomeHero({ images, targetLink, subtitle }: HomeHeroProps
                 />
             </div>
 
-            {/* Background Image Carousel */}
+            {/* Background Image Carousel（纯 GPU 透明度平滑 Crossfade，无黑屏断层，无昂贵全屏动态滤镜） */}
             <div className="absolute inset-0 z-[1] pointer-events-none">
-                <AnimatePresence mode="wait">
+                <AnimatePresence initial={false}>
                     {images.length > 0 && (
                         <motion.div
                             key={currentIndex}
                             className="absolute inset-0"
-                            initial={{ opacity: 0, scale: 1.05, filter: 'blur(10px)' }}
-                            animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-                            exit={{ opacity: 0, scale: 1.05, filter: 'blur(5px)' }}
-                            transition={{ duration: 2, ease: "easeInOut" }}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 1.0, ease: 'easeInOut' }}
                         >
                             {/* 背景模糊层 - 填充屏幕，营造氛围 */}
                             <div className="absolute inset-0 z-0">
@@ -114,18 +135,18 @@ export default function HomeHero({ images, targetLink, subtitle }: HomeHeroProps
             </div>
 
             {/* Text Content - Dynamic Calligraphy Style (pointer-events-none 允许背景捕获点击水波，交互子项恢复 auto) */}
-            <div
-                className="relative z-[10] flex flex-col items-center justify-center pointer-events-none"
-            >
+            <div className="relative z-[10] flex flex-col items-center justify-center pointer-events-none">
                 <motion.div
-                    className="relative flex items-center gap-0 md:gap-2 cursor-pointer group pointer-events-auto"
+                    className="relative flex items-center gap-0 md:gap-2 cursor-pointer group pointer-events-auto select-none"
                     onClick={() => router.push(targetLink)}
-                    initial={{ opacity: 0, scale: 0.9, y: 30 }}
+                    initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: 16 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
-                    transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+                    transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                    whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
                 >
                     {/* Main Title with Dynamic Sizing */}
-                    <div className="flex items-end -space-x-2 md:-space-x-4 select-none"
+                    <div
+                        className="flex items-end -space-x-2 md:-space-x-4 select-none"
                         style={{
                             fontFamily: 'var(--font-hero-title)',
                             color: '#E8E6DC', // Warmer Antique White for less glare
@@ -134,36 +155,36 @@ export default function HomeHero({ images, targetLink, subtitle }: HomeHeroProps
                     >
                         {/* 书 - Big */}
                         <motion.span
-                            className="text-8xl md:text-[11rem] lg:text-[12rem] leading-none"
-                            whileHover={{ scale: 1.05, rotate: -2 }}
-                            transition={{ type: "spring", stiffness: 300 }}
+                            className="inline-block text-8xl md:text-[11rem] lg:text-[12rem] leading-none"
+                            whileHover={isInteractiveHover ? { scale: 1.05, rotate: -2 } : undefined}
+                            transition={glyphSpring}
                         >
                             書
                         </motion.span>
 
                         {/* 海 - Small, slightly raised */}
                         <motion.span
-                            className="text-5xl md:text-[6rem] lg:text-[8rem] leading-none mb-4 md:mb-8 opacity-90"
-                            whileHover={{ scale: 1.1, y: -10 }}
-                            transition={{ type: "spring", stiffness: 300 }}
+                            className="inline-block text-5xl md:text-[6rem] lg:text-[8rem] leading-none mb-4 md:mb-8 opacity-90"
+                            whileHover={isInteractiveHover ? { scale: 1.08, y: -8 } : undefined}
+                            transition={glyphSpring}
                         >
                             海
                         </motion.span>
 
                         {/* 回 - Medium, standard baseline */}
                         <motion.span
-                            className="text-6xl md:text-[7rem] lg:text-[9rem] leading-none opacity-95"
-                            whileHover={{ scale: 1.1, rotate: 2 }}
-                            transition={{ type: "spring", stiffness: 300 }}
+                            className="inline-block text-6xl md:text-[7rem] lg:text-[9rem] leading-none opacity-95"
+                            whileHover={isInteractiveHover ? { scale: 1.08, rotate: 2 } : undefined}
+                            transition={glyphSpring}
                         >
                             回
                         </motion.span>
 
                         {/* 响 - Big, slightly lower */}
                         <motion.span
-                            className="text-8xl md:text-[11rem] lg:text-[14rem] leading-none -mb-2 md:-mb-4"
-                            whileHover={{ scale: 1.05, x: 5 }}
-                            transition={{ type: "spring", stiffness: 300 }}
+                            className="inline-block text-8xl md:text-[11rem] lg:text-[14rem] leading-none -mb-2 md:-mb-4"
+                            whileHover={isInteractiveHover ? { scale: 1.05, x: 4 } : undefined}
+                            transition={glyphSpring}
                         >
                             響
                         </motion.span>
@@ -188,24 +209,31 @@ export default function HomeHero({ images, targetLink, subtitle }: HomeHeroProps
                     </div>
                 </motion.div>
 
+                {/* Subtitle - 紧随标题轻柔浮现，平衡折行 */}
                 <motion.p
-                    className="mt-8 font-body text-xl md:text-2xl tracking-[0.3em] text-[#E8E6DC] drop-shadow-md opacity-90"
+                    className="mt-8 font-body text-xl md:text-2xl tracking-[0.3em] text-[#E8E6DC] drop-shadow-md opacity-90 text-center"
+                    style={{ textWrap: 'balance' }}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    transition={{ delay: 0.8, duration: 0.8 }}
+                    transition={{ delay: 0.15, duration: 0.4, ease: 'easeOut' }}
                 >
                     {subtitle}
                 </motion.p>
 
+                {/* CTA 按钮 - 语义化 button、快速出场、Scale on Press 触感反馈 */}
                 <motion.div
                     className="mt-8 pointer-events-auto"
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 1.2, duration: 0.8, ease: "easeOut" }}
+                    transition={{ delay: 0.25, duration: 0.4, ease: 'easeOut' }}
                 >
-                    <span className="inline-block border border-[#C9A063]/40 bg-transparent px-8 py-3 text-sm font-mono tracking-[0.2em] text-[#C9A063] uppercase hover:bg-[#C9A063] hover:text-[#1a1a1a] transition-colors duration-300 cursor-pointer" onClick={() => router.push(targetLink)}>
+                    <button
+                        type="button"
+                        onClick={() => router.push(targetLink)}
+                        className="inline-block border border-[#C9A063]/40 bg-transparent px-8 py-3 text-sm font-mono tracking-[0.2em] text-[#C9A063] uppercase transition-[background-color,color,transform] duration-150 ease-out hover:bg-[#C9A063] hover:text-[#1a1a1a] active:scale-[0.96] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#C9A063] cursor-pointer"
+                    >
                         Enter Issue
-                    </span>
+                    </button>
                 </motion.div>
             </div>
         </div>
