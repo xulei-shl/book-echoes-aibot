@@ -69,6 +69,10 @@ export default function HomeHero({ images, targetLink, subtitle }: HomeHeroProps
     const glyphSpring = { type: 'spring', stiffness: 300, damping: 20 } as const;
     const isInteractiveHover = !shouldReduceMotion && canHover;
 
+    const hasMultipleImages = images.length > 1;
+    const prevIndex = (currentIndex - 1 + images.length) % images.length;
+    const nextIndex = (currentIndex + 1) % images.length;
+
     return (
         <div className="relative w-full h-screen overflow-hidden flex flex-col items-center justify-center bg-gradient-to-b from-[#131315] via-[#171614] to-[#0e0e10]">
 
@@ -121,7 +125,7 @@ export default function HomeHero({ images, targetLink, subtitle }: HomeHeroProps
                 />
             </div>
 
-            {/* Background Image Carousel（纯 GPU 透明度平滑 Crossfade，墨韵羽化与环境光场融合） */}
+            {/* Background Image Carousel（纯 GPU 透明度平滑 Crossfade，书海画廊三联折屏展厅） */}
             <div className="absolute inset-0 z-[1] pointer-events-none select-none">
                 <AnimatePresence initial={false}>
                     {images.length > 0 && (
@@ -132,48 +136,75 @@ export default function HomeHero({ images, targetLink, subtitle }: HomeHeroProps
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             transition={{
-                                duration: shouldReduceMotion ? 0.3 : 1.1,
+                                duration: shouldReduceMotion ? 0.3 : 1.0,
                                 ease: [0.25, 0.1, 0.25, 1],
                             }}
                         >
-                            {/* 背景微漫反射层 - 径向消隐限定范围，降低全屏过度模糊的 GPU 负荷 */}
-                            <div
-                                className="absolute inset-0 z-0 overflow-hidden"
-                                style={{
-                                    maskImage: 'radial-gradient(ellipse 75% 70% at 50% 50%, black 25%, transparent 80%)',
-                                    WebkitMaskImage: 'radial-gradient(ellipse 75% 70% at 50% 50%, black 25%, transparent 80%)',
-                                }}
-                            >
+                            {/* 背景微漫反射层 - 整体环境色烘托 */}
+                            <div className="absolute inset-0 z-0 overflow-hidden">
                                 <Image
                                     src={images[currentIndex]}
                                     alt="Background Ambient"
                                     fill
-                                    className="object-cover blur-2xl scale-105 opacity-30"
+                                    className="object-cover blur-3xl scale-110 opacity-25"
                                     sizes="100vw"
                                 />
                             </div>
 
-                            {/* 主体海报层 - 墨韵渐隐双向羽化，消除左右垂直硬切边 */}
-                            <div
-                                className="absolute inset-0 z-10 flex items-center justify-center"
-                                style={{
-                                    maskImage:
-                                        'linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%), linear-gradient(to bottom, transparent 0%, black 6%, black 94%, transparent 100%)',
-                                    WebkitMaskImage:
-                                        'linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%), linear-gradient(to bottom, transparent 0%, black 6%, black 94%, transparent 100%)',
-                                    maskComposite: 'intersect',
-                                    WebkitMaskComposite: 'source-in' as any,
-                                }}
-                            >
-                                <Image
-                                    src={images[currentIndex]}
-                                    alt={`Hero Image ${currentIndex + 1}`}
-                                    fill
-                                    className="object-contain"
-                                    priority={currentIndex === 0}
-                                    onError={handleImageError}
-                                    sizes="(max-width: 1200px) 100vw, 1200px"
-                                />
+                            {/* 书海画廊三联折屏展台（Triptych Gallery Stage） */}
+                            <div className="absolute inset-0 z-10 flex items-center justify-center overflow-hidden">
+                                <div className="relative flex items-center justify-center w-full max-w-[1800px] h-full">
+                                    {/* 左翼海报（上一本精选） */}
+                                    {hasMultipleImages && (
+                                        <div
+                                            className="hidden md:block absolute left-1/2 -translate-x-[114%] lg:-translate-x-[120%] xl:-translate-x-[124%] h-[72vh] lg:h-[78vh] aspect-[760/1440] rounded-sm overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.85)] border border-[#E8E6DC]/10 opacity-45 z-10"
+                                            style={{
+                                                maskImage: 'linear-gradient(to left, black 35%, transparent 95%)',
+                                                WebkitMaskImage: 'linear-gradient(to left, black 35%, transparent 95%)',
+                                            }}
+                                        >
+                                            <Image
+                                                src={images[prevIndex]}
+                                                alt={`Previous Book ${prevIndex + 1}`}
+                                                fill
+                                                className="object-contain"
+                                                sizes="(max-width: 1200px) 400px, 500px"
+                                            />
+                                        </div>
+                                    )}
+
+                                    {/* 主角海报（当前本期精选好书） */}
+                                    <div className="relative h-[78vh] lg:h-[84vh] aspect-[760/1440] max-w-[90vw] rounded-sm overflow-hidden shadow-[0_25px_60px_-10px_rgba(0,0,0,0.95),0_0_35px_rgba(201,160,99,0.18)] border border-[#E8E6DC]/20 z-20">
+                                        <Image
+                                            src={images[currentIndex]}
+                                            alt={`Hero Image ${currentIndex + 1}`}
+                                            fill
+                                            className="object-contain"
+                                            priority={currentIndex === 0}
+                                            onError={handleImageError}
+                                            sizes="(max-width: 1200px) 500px, 600px"
+                                        />
+                                    </div>
+
+                                    {/* 右翼海报（下一本精选） */}
+                                    {hasMultipleImages && (
+                                        <div
+                                            className="hidden md:block absolute left-1/2 translate-x-[14%] lg:translate-x-[20%] xl:translate-x-[24%] h-[72vh] lg:h-[78vh] aspect-[760/1440] rounded-sm overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.85)] border border-[#E8E6DC]/10 opacity-45 z-10"
+                                            style={{
+                                                maskImage: 'linear-gradient(to right, black 35%, transparent 95%)',
+                                                WebkitMaskImage: 'linear-gradient(to right, black 35%, transparent 95%)',
+                                            }}
+                                        >
+                                            <Image
+                                                src={images[nextIndex]}
+                                                alt={`Next Book ${nextIndex + 1}`}
+                                                fill
+                                                className="object-contain"
+                                                sizes="(max-width: 1200px) 400px, 500px"
+                                            />
+                                        </div>
+                                    )}
+                                </div>
                             </div>
 
                             {/* Overlay: 电影级微暗角遮罩 - 增强文字可读性，保留中央通透与温润 */}
@@ -181,7 +212,7 @@ export default function HomeHero({ images, targetLink, subtitle }: HomeHeroProps
                                 className="absolute inset-0 z-20 pointer-events-none"
                                 style={{
                                     background:
-                                        'radial-gradient(ellipse 85% 75% at 50% 50%, rgba(18, 18, 20, 0.4) 0%, rgba(14, 14, 16, 0.75) 70%, rgba(10, 10, 12, 0.9) 100%)',
+                                        'radial-gradient(ellipse 92% 85% at 50% 50%, rgba(18, 18, 20, 0.38) 0%, rgba(14, 14, 16, 0.72) 65%, rgba(10, 10, 12, 0.94) 100%)',
                                 }}
                             />
                         </motion.div>
