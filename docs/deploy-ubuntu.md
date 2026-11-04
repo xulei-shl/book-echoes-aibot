@@ -15,7 +15,7 @@
 
 | 组件 | 版本要求 | 说明 |
 |------|---------|------|
-| Node.js | >= 18.18 (推荐 v22 LTS) | `/usr/local/bin/node` |
+| Node.js | >= 18.18 (推荐 v22 LTS) | `/usr/bin/node`（用 `which node` 确认实际路径） |
 | npm | 随 Node.js 自带 | 使用 `package-lock.json` 锁定版本 |
 | 系统 | Ubuntu 20.04+ | systemd 管理服务 |
 
@@ -88,10 +88,10 @@ Description=Book Echoes Aibot Next.js App
 After=network.target
 
 [Service]
-User=xulei
-Group=xulei
+User=root
+Group=root
 WorkingDirectory=/opt/book-echoes-aibot
-ExecStart=/usr/local/bin/node /opt/book-echoes-aibot/node_modules/next/dist/bin/next start
+ExecStart=/usr/bin/node /opt/book-echoes-aibot/node_modules/next/dist/bin/next start
 Environment=PORT=3000
 Environment=NODE_ENV=production
 Restart=always
@@ -104,7 +104,9 @@ SyslogIdentifier=book-echoes
 WantedBy=multi-user.target
 ```
 
-> **注意：** `User`/`Group` 需改为实际运行用户。如果以 root 运行，删除这两行或改为 `User=root`。
+> **注意：** 本机以 root 运行（项目目录属主为 root）。若改为非 root 用户，需先 `chown -R <user>:<group> /opt/book-echoes-aibot`（至少 `.next`），并把 `User`/`Group` 改为该用户。
+>
+> **注意：** `ExecStart` 中的 node 路径必须与 `which node` 的输出一致，否则服务会报 `203/EXEC` 启动失败。
 
 ### 2.5 启动服务
 
@@ -165,13 +167,10 @@ npm install
 # 3. 重新构建
 npm run build
 
-# 4. 设置 .next 目录权限（如果运行用户非 root）
-chown -R xulei:xulei .next
-
-# 5. 重启服务
+# 4. 重启服务
 sudo systemctl restart book-echoes.service
 
-# 6. 验证
+# 5. 验证
 sudo systemctl status book-echoes.service
 ```
 
@@ -188,7 +187,6 @@ cd /opt/book-echoes-aibot
 rm -rf .next node_modules
 npm install
 npm run build
-chown -R xulei:xulei .next
 sudo systemctl restart book-echoes.service
 ```
 
@@ -228,7 +226,8 @@ journalctl -u book-echoes -n 50 --no-pager
 常见原因：
 
 - **端口被占用：** `lsof -i :3000` 检查，`kill` 旧进程后重试
-- **权限问题：** `.next/` 目录属主与服务运行用户不一致 → `chown -R <user>:<group> .next`
+- **权限问题：** `.next/` 目录属主与服务运行用户不一致 → `chown -R <user>:<group> .next`（本机以 root 运行，一般不会遇到）
+- **`203/EXEC` 启动失败：** `ExecStart` 中 node 路径不对 → 用 `which node` 确认后修正服务文件，再 `systemctl daemon-reload && systemctl restart book-echoes`
 - **构建失败：** 单独运行 `npm run build` 查看详细错误
 - **环境变量缺失：** 检查 `.env` 和 `.env.local` 是否已正确配置
 
