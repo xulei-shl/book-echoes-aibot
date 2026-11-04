@@ -127,6 +127,7 @@ cp .env.local.example .env.local     # 敏感配置（LLM key、embedding key、
 | 变量 | 默认 | 说明 |
 |---|---|---|
 | `SEMANTIC_SEARCH_DEFAULT_MODE` | `fast` | 设为 `deep` 时默认走宽召回 |
+| `JEV_BASE_URL` | `https://api.typesafe.ai/v1` | Jev API 基址，请求发往 `${JEV_BASE_URL}/systemone` |
 | `JEV_MODEL` | `jev-latest` | Jev 模型名 |
 | `JEV_TIMEOUT_MS` | `20000` | Jev 请求超时 |
 | `SEMANTIC_SEARCH_WIDE_SHARD` | `50` | `deep` 模式分片大小 |

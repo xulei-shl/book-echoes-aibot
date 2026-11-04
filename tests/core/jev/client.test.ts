@@ -3,7 +3,7 @@ import { systemOne } from '@/lib/jev/client';
 import { JevDisabledError, JevError, JevProtocolError } from '@/lib/jev/errors';
 import type { Question } from '@/lib/jev/types';
 
-const config = { apiKey: 'test-key', model: 'jev-latest', timeoutMs: 5000 };
+const config = { apiKey: 'test-key', baseUrl: 'https://example.test/v1', model: 'jev-latest', timeoutMs: 5000 };
 const questions: Record<string, Question> = {
   q: { type: 'noul', instructions: '是否相关？' }
 };
@@ -36,6 +36,10 @@ describe('jev client', () => {
     expect(result.requestedModel).toBe('jev-latest');
     expect(result.attempts).toBe(1);
     expect(result.roundTripMs).toBeGreaterThanOrEqual(0);
+    expect(fetchImpl).toHaveBeenCalledWith(
+      `${config.baseUrl}/systemone`,
+      expect.objectContaining({ method: 'POST' })
+    );
   });
 
   it('429 重试一次后成功', async () => {

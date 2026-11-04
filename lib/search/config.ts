@@ -63,9 +63,12 @@ export const defaultMode = (): 'fast' | 'deep' =>
 
 export interface JevConfig {
   apiKey: string;
+  baseUrl: string;
   model: string;
   timeoutMs: number;
 }
+
+const DEFAULT_JEV_BASE_URL = 'https://api.typesafe.ai/v1';
 
 /** Jev 鉴权与模型配置。缺失 key 时返回 null，由调用方决定报错还是降级。 */
 export function readJevConfig(): JevConfig | null {
@@ -75,6 +78,7 @@ export function readJevConfig(): JevConfig | null {
   }
   return {
     apiKey,
+    baseUrl: readString('JEV_BASE_URL', DEFAULT_JEV_BASE_URL).replace(/\/+$/, ''),
     model: readString('JEV_MODEL', 'jev-latest'),
     timeoutMs: readNumber('JEV_TIMEOUT_MS', 20_000)
   };

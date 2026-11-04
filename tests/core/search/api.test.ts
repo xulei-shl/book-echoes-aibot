@@ -15,7 +15,7 @@ vi.mock('@/lib/search/config', async (importOriginal) => {
   return {
     ...actual,
     isSemanticSearchEnabled: () => true,
-    readJevConfig: () => ({ apiKey: 'mock-key', model: 'mock-model', timeoutMs: 1000 }),
+    readJevConfig: () => ({ apiKey: 'mock-key', baseUrl: 'https://example.test/v1', model: 'mock-model', timeoutMs: 1000 }),
     LIMIT_DEFAULT: 5,
     LIMIT_MAX: 24
   };

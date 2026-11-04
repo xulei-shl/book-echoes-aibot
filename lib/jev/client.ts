@@ -6,7 +6,6 @@ import type { SystemOneRequest, SystemOneResult } from './types';
 
 const logger = getLogger('jev.client');
 
-const ENDPOINT = 'https://api.typesafe.ai/v1/systemone';
 /** 仅这些状态码与网络错误重试（401/403/422 重试无意义且掩盖配置错误） */
 const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504, 529]);
 const MAX_ATTEMPTS = 2;
@@ -72,7 +71,7 @@ export async function systemOne(
     ]);
 
     try {
-      const response = await fetchImpl(ENDPOINT, {
+      const response = await fetchImpl(`${config.baseUrl}/systemone`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
