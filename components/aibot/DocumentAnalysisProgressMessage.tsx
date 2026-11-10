@@ -1,7 +1,6 @@
 'use client';
 
-import React from 'react';
-import ProgressLogDisplay from './ProgressLogDisplay';
+import UnifiedProgressMessage from './messages/UnifiedProgressMessage';
 import type { DocumentAnalysisProgressContent } from '@/src/core/aibot/types';
 
 interface DocumentAnalysisProgressMessageProps {
@@ -9,20 +8,9 @@ interface DocumentAnalysisProgressMessageProps {
 }
 
 export default function DocumentAnalysisProgressMessage({ content }: DocumentAnalysisProgressMessageProps) {
-    // 将文档分析日志转换为ProgressLogDisplay需要的格式
-    const logEntries = content.logs.map(log => ({
-        id: log.id,
-        timestamp: log.timestamp,
-        phase: log.phase,
-        status: log.status,
-        message: log.message,
-        details: log.details
-    }));
-
     return (
-        <ProgressLogDisplay
-            isVisible={true}
-            logs={logEntries}
+        <UnifiedProgressMessage
+            logs={content.logs}
             currentPhase={content.currentPhase}
             title="文档分析进度"
         />

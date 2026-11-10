@@ -1,18 +1,14 @@
 'use client';
 
-import { useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Message as UIMessage } from '@ai-sdk/ui-utils';
-import RetrievalResultDisplay from './RetrievalResultDisplay';
-import ProgressLogDisplay from './ProgressLogDisplay';
-import DeepSearchProgressMessage from './DeepSearchProgressMessage';
-import DeepSearchDraftMessage from './DeepSearchDraftMessage';
-import DeepSearchBookListMessage from './DeepSearchBookListMessage';
-import DocumentAnalysisProgressMessage from './DocumentAnalysisProgressMessage';
-import DocumentAnalysisDraftMessage from './DocumentAnalysisDraftMessage';
-import type { LogEntry } from './ProgressLogDisplay';
+import UnifiedProgressMessage from './messages/UnifiedProgressMessage';
+import UnifiedDraftMessage from './messages/UnifiedDraftMessage';
+import UnifiedBookSelection from './messages/UnifiedBookSelection';
+import UnifiedReportMessage from './messages/UnifiedReportMessage';
+import type { ProgressLogInput } from './messages/UnifiedProgressMessage';
 import { messageMarkdownComponents } from '@/lib/markdownComponents';
 import { useAIBotStore } from '@/store/aibot/useAIBotStore';
 import type {
@@ -115,24 +111,6 @@ const isDocumentAnalysisMessage = (content: unknown): content is DocumentAnalysi
     return isDocumentAnalysisProgress(content) || isDocumentAnalysisDraft(content) || isDocumentAnalysisBooks(content) || isDocumentAnalysisReport(content);
 };
 
-// 清理 markdown 代码块包裹（LLM 可能返回 ```markdown ... ``` 格式）
-const cleanMarkdownCodeBlock = (content: string): string => {
-    const openingFencePattern = /^```(?:markdown|md)?\s*\n?/i;
-    const closingFencePattern = /\n?```\s*$/;
-
-    if (!openingFencePattern.test(content)) {
-        return content;
-    }
-
-    let normalizedContent = content.replace(openingFencePattern, '');
-
-    if (closingFencePattern.test(normalizedContent)) {
-        normalizedContent = normalizedContent.replace(closingFencePattern, '');
-    }
-
-    return normalizedContent;
-};
-
 interface MessageStreamProps {
     messages: UIMessage[];
     isStreaming: boolean;
@@ -144,7 +122,7 @@ interface MessageStreamProps {
     onSecondaryRetrieval?: (selectedBooks: BookInfo[], originalQuery: string) => void;
     originalQuery?: string;
     // 简单检索进度相关
-    simpleSearchLogs?: LogEntry[];
+    simpleSearchLogs?: ProgressLogInput[];
     simpleSearchPhase?: string;
     // 深度检索回调
     onDeepSearchDraftChange?: (value: string) => void;
@@ -185,7 +163,7 @@ export default function MessageStream({
     onDocumentAnalysisDraftCancel,
     onDocumentAnalysisGenerateInterpretation
 }: MessageStreamProps) {
-    const { retrievalResults, deepSearchPhase, deepSearchLogs } = useAIBotStore(); // 获取检索结果状态、深度检索阶段和日志
+    const { retrievalResults } = useAIBotStore();
     const firstUserMessageId = messages.find((message) => message.role === 'user')?.id;
     const lastAssistantMessageId = messages.filter((message) => message.role === 'assistant').slice(-1)[0]?.id;
     const shouldShowSimpleSearchLogs =
@@ -194,36 +172,12 @@ export default function MessageStream({
         !messages.some((message) => message.role === 'assistant' && isDeepSearchMessage(getMessageContent(message))) &&
         !messages.some((message) => message.role === 'assistant' && isDocumentAnalysisMessage(getMessageContent(message)));
 
-    // 判断报告是否正在生成或已完成（用于自动折叠图书列表）
-    const isReportStartedOrCompleted = deepSearchPhase === 'report-streaming' || deepSearchPhase === 'completed';
-
-    // 调试日志：检查容器尺寸和滚动状态
-    useEffect(() => {
-        if (process.env.NODE_ENV === 'development') {
-            console.log('[MessageStream DEBUG]', {
-                消息数量: messages.length,
-                流式状态: isStreaming,
-                总内容长度: messages.reduce((sum, msg) => {
-                    const content = getMessageContent(msg);
-                    return sum + (typeof content === 'string' ? content.length : 0);
-                }, 0),
-                时间戳: new Date().toISOString(),
-                检索结果数量: retrievalResults.size
-            });
-        }
-    }, [messages, isStreaming, retrievalResults]);
-
     return (
         <div
             className="flex-1 overflow-y-auto pr-1 space-y-4 about-overlay-scroll"
             style={{
                 maxHeight: '100%',
-                minHeight: '0' // 确保flex子元素可以缩小
-            }}
-            onLoad={() => {
-                if (process.env.NODE_ENV === 'development') {
-                    console.log('[MessageStream DEBUG] 容器已加载');
-                }
+                minHeight: '0'
             }}
         >
             <AnimatePresence initial={false}>
@@ -233,202 +187,179 @@ export default function MessageStream({
                     const hasContent = content !== null && content !== undefined && content !== '';
 
                     return (
-                    <motion.div
-                        key={message.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className={message.role === 'user' ? 'text-right' : 'text-left'}
-                    >
-                        {message.role === 'assistant' && (
-                            <>
-                                {/* 深度检索进度消息 */}
-                                {isDeepSearchProgress(content) && (                                        <DeepSearchProgressMessage
-                                            logs={deepSearchLogs}
+                        <motion.div
+                            key={message.id}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            className={message.role === 'user' ? 'text-right' : 'text-left'}
+                        >
+                            {message.role === 'assistant' && (
+                                <>
+                                    {/* 深度检索进度消息 */}
+                                    {isDeepSearchProgress(content) && (
+                                        <UnifiedProgressMessage
+                                            logs={content.logs}
+                                            title="深度检索进度"
+                                            currentPhase={content.currentPhase}
                                         />
-                                )}
+                                    )}
 
-                                {/* 深度检索草稿消息 */}
-                                {isDeepSearchDraft(content) && (
-                                    <div key={`draft-container-${message.id}`}>
-                                        <DeepSearchDraftMessage
+                                    {/* 深度检索草稿消息 */}
+                                    {isDeepSearchDraft(content) && (
+                                        <UnifiedDraftMessage
+                                            title="📝 检索草稿"
                                             draftMarkdown={content.draftMarkdown}
                                             isStreaming={content.isStreaming}
                                             isComplete={content.isComplete}
                                             searchSnippets={content.searchSnippets}
                                             keywords={content.keywords}
+                                            userInput={content.userInput}
                                             onDraftChange={onDeepSearchDraftChange}
                                             onConfirm={onDeepSearchDraftConfirm}
                                             onRegenerate={onDeepSearchDraftRegenerate}
                                             onCancel={onDeepSearchDraftCancel}
                                         />
+                                    )}
+
+                                    {/* 深度检索图书列表消息 */}
+                                    {isDeepSearchBooks(content) && (
+                                        <UnifiedBookSelection
+                                            books={content.books}
+                                            draftMarkdown={content.draftMarkdown}
+                                            userInput={content.userInput}
+                                            onGenerateInterpretation={(books) =>
+                                                onDeepSearchGenerateInterpretation?.(books, content.draftMarkdown)
+                                            }
+                                            onSecondaryRetrieval={onSecondaryRetrieval}
+                                        />
+                                    )}
+
+                                    {/* 文档分析进度消息 */}
+                                    {isDocumentAnalysisProgress(content) && (
+                                        <UnifiedProgressMessage
+                                            logs={content.logs}
+                                            title="文档分析进度"
+                                            currentPhase={content.currentPhase}
+                                        />
+                                    )}
+
+                                    {/* 文档分析草稿消息 */}
+                                    {isDocumentAnalysisDraft(content) && (
+                                        <UnifiedDraftMessage
+                                            title="📝 交叉分析报告"
+                                            draftMarkdown={content.draftMarkdown}
+                                            isStreaming={content.isStreaming}
+                                            isComplete={content.isComplete}
+                                            documents={content.documentAnalyses}
+                                            userInput={content.userInput}
+                                            onDraftChange={onDocumentAnalysisDraftChange}
+                                            onConfirm={onDocumentAnalysisDraftConfirm}
+                                            onRegenerate={onDocumentAnalysisDraftRegenerate}
+                                            onCancel={onDocumentAnalysisDraftCancel}
+                                        />
+                                    )}
+
+                                    {/* 文档分析图书列表消息 */}
+                                    {isDocumentAnalysisBooks(content) && (
+                                        <UnifiedBookSelection
+                                            books={content.books}
+                                            draftMarkdown={content.draftMarkdown}
+                                            userInput={content.userInput}
+                                            autoCollapseOnReportStart={false}
+                                            onGenerateInterpretation={(books) =>
+                                                onDocumentAnalysisGenerateInterpretation?.(books, content.draftMarkdown)
+                                            }
+                                            onSecondaryRetrieval={onSecondaryRetrieval}
+                                        />
+                                    )}
+
+                                    {/* 文档分析解读报告消息 */}
+                                    {isDocumentAnalysisReport(content) && (
+                                        <UnifiedReportMessage
+                                            reportMarkdown={content.reportMarkdown}
+                                            isStreaming={content.isStreaming}
+                                            isComplete={content.isComplete}
+                                            selectedBooks={content.selectedBooks}
+                                            onSecondaryRetrieval={onSecondaryRetrieval}
+                                        />
+                                    )}
+
+                                    {/* 深度检索解读报告消息 */}
+                                    {(isDeepSearchReport(content) ||
+                                        (typeof content === 'string' &&
+                                            content &&
+                                            message.id === lastAssistantMessageId)) && (
+                                        <UnifiedReportMessage
+                                            reportMarkdown={typeof content === 'string' ? content : content.reportMarkdown}
+                                            isStreaming={typeof content === 'object' ? content.isStreaming : isStreaming}
+                                            isComplete={typeof content === 'object' ? content.isComplete : !isStreaming}
+                                            selectedBooks={typeof content === 'object' ? content.selectedBooks : []}
+                                            onSecondaryRetrieval={onSecondaryRetrieval}
+                                        />
+                                    )}
+
+                                    {/* 检索结果显示（简单检索） */}
+                                    {retrievalResults.get(message.id) && !isDeepSearchMessage(content) && (
+                                        <UnifiedBookSelection
+                                            books={retrievalResults.get(message.id)!.books}
+                                            mode={retrievalPhase === 'selection' ? 'selection' : 'display'}
+                                            selectedBookIds={selectedBookIds}
+                                            userInput={originalQuery}
+                                            onBookSelectionChange={onBookSelection}
+                                            onGenerateInterpretation={() => {
+                                                onGenerateInterpretation?.(selectedBookIds);
+                                            }}
+                                            onReenterSelection={onReenterSelection}
+                                            onSecondaryRetrieval={onSecondaryRetrieval}
+                                        />
+                                    )}
+                                </>
+                            )}
+
+                            {/* 纯文本气泡（用户提问或普通对话回答） */}
+                            {hasContent &&
+                                !isDeepSearchMessage(content) &&
+                                !isDocumentAnalysisMessage(content) &&
+                                !(message.role === 'assistant' &&
+                                    typeof content === 'string' &&
+                                    message.id === lastAssistantMessageId) && (
+                                    <div
+                                        className={`inline-block px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap font-info-content border ${
+                                            message.role === 'user'
+                                                ? 'bg-[#111111]/80 border-[#C9A063]/20 text-[#E8E6DC]'
+                                                : 'bg-[#1a1a1a]/80 border-[#C9A063]/20 text-[#E8E6DC]'
+                                        }`}
+                                    >
+                                        {message.role === 'assistant' ? (
+                                            <div suppressHydrationWarning>
+                                                <ReactMarkdown
+                                                    remarkPlugins={[remarkGfm]}
+                                                    components={messageMarkdownComponents}
+                                                >
+                                                    {textContent}
+                                                </ReactMarkdown>
+                                            </div>
+                                        ) : (
+                                            textContent
+                                        )}
                                     </div>
                                 )}
 
-                                {/* 深度检索图书列表消息 */}
-                                {isDeepSearchBooks(content) && (
-                                    <DeepSearchBookListMessage
-                                        books={content.books}
-                                        draftMarkdown={content.draftMarkdown}
-                                        userInput={content.userInput}
-                                        onGenerateInterpretation={onDeepSearchGenerateInterpretation}
-                                        onSecondaryRetrieval={onSecondaryRetrieval}
-                                        autoCollapseOnReportStart={isReportStartedOrCompleted}
-                                    />
-                                )}
-
-                                {/* 文档分析进度消息 */}
-                                {isDocumentAnalysisProgress(content) && (
-                                    <DocumentAnalysisProgressMessage
-                                        content={content}
-                                    />
-                                )}
-
-                                {/* 文档分析草稿消息 */}
-                                {isDocumentAnalysisDraft(content) && (
-                                    <div key={`document-draft-container-${message.id}`}>
-                                        <DocumentAnalysisDraftMessage
-                                            content={content}
-                                            onDraftChange={onDocumentAnalysisDraftChange || (() => {})}
-                                            onDraftConfirm={onDocumentAnalysisDraftConfirm || (() => {})}
-                                            onDraftRegenerate={onDocumentAnalysisDraftRegenerate || (() => {})}
-                                            onDraftCancel={onDocumentAnalysisDraftCancel || (() => {})}
+                            {/* 简单检索进度条 */}
+                            {message.role === 'user' &&
+                                message.id === firstUserMessageId &&
+                                shouldShowSimpleSearchLogs && (
+                                    <div className="mt-4 text-left">
+                                        <UnifiedProgressMessage
+                                            isVisible={true}
+                                            logs={simpleSearchLogs}
+                                            title="检索进度"
+                                            currentPhase={simpleSearchPhase}
                                         />
                                     </div>
                                 )}
-
-                                {/* 文档分析图书列表消息 - 复用深度检索的图书列表组件 */}
-                                {isDocumentAnalysisBooks(content) && (
-                                    <DeepSearchBookListMessage
-                                        books={content.books}
-                                        draftMarkdown={content.draftMarkdown}
-                                        userInput={content.userInput}
-                                        onGenerateInterpretation={onDocumentAnalysisGenerateInterpretation}
-                                        onSecondaryRetrieval={onSecondaryRetrieval}
-                                        autoCollapseOnReportStart={false} // 文档分析暂不使用自动折叠
-                                    />
-                                )}
-
-                                {/* 文档分析解读报告消息 */}
-                                {isDocumentAnalysisReport(content) && (
-                                    <div
-                                        className="bg-[#1a1a1a]/80 border border-[#C9A063]/20 p-4"
-                                        key={`document-report-container-${message.id}`}
-                                    >
-                                        <div
-                                            className="prose prose-invert prose-sm max-w-none font-info-content"
-                                            suppressHydrationWarning
-                                            key={`document-report-markdown-${message.id}`}
-                                        >
-                                            <ReactMarkdown
-                                                remarkPlugins={[remarkGfm]}
-                                                components={messageMarkdownComponents}
-                                            >
-                                                {cleanMarkdownCodeBlock(content.reportMarkdown || '')}
-                                            </ReactMarkdown>
-                                        </div>
-                                        {content.isStreaming && (
-                                            <span className="inline-block w-2 h-4 bg-[#C9A063] animate-pulse ml-1"></span>
-                                        )}
-                                    </div>
-                                )}
-
-                                {/* 深度检索解读报告消息 */}
-                                {/* 支持两种方式：对象结构（旧）和字符串内容（新，与简单检索一致） */}
-                                {/* 修复：在 report-streaming 和 completed 阶段都渲染报告样式 */}
-                                {(isDeepSearchReport(content) ||
-                                  ((deepSearchPhase === 'report-streaming' || deepSearchPhase === 'completed') &&
-                                   typeof content === 'string' && content &&
-                                   // 确保是最后一条助手消息（报告消息）
-                                   message.id === lastAssistantMessageId)) && (
-                                    <div
-                                        className="bg-[#1a1a1a]/80 border border-[#C9A063]/20 p-4"
-                                        key={`report-container-${message.id}`}
-                                    >
-                                        {/* 稳定容器：阻止 AnimatePresence 追踪 ReactMarkdown 内部 DOM 变化 */}
-                                        <div
-                                            className="prose prose-invert prose-sm max-w-none font-info-content"
-                                            suppressHydrationWarning
-                                            key={`report-markdown-${message.id}`}
-                                        >
-                                            <ReactMarkdown
-                                                remarkPlugins={[remarkGfm]}
-                                                components={messageMarkdownComponents}
-                                            >
-                                                {/* 新方式：直接使用字符串内容（与简单检索一致），清理可能的代码块包裹 */}
-                                                {typeof content === 'string'
-                                                    ? cleanMarkdownCodeBlock(content)
-                                                    : cleanMarkdownCodeBlock(content.reportMarkdown || '')}
-                                            </ReactMarkdown>
-                                        </div>
-                                        {/* 显示流式输出的光标 */}
-                                        {((typeof content === 'object' && content.isStreaming) ||
-                                          (deepSearchPhase === 'report-streaming' && typeof content === 'string')) && (
-                                            <span className="inline-block w-2 h-4 bg-[#C9A063] animate-pulse ml-1"></span>
-                                        )}
-                                    </div>
-                                )}
-
-                                {/* 检索结果显示（简单检索） */}
-                                {retrievalResults.get(message.id) && !isDeepSearchMessage(content) && (
-                                    <RetrievalResultDisplay
-                                        retrievalResult={retrievalResults.get(message.id)!}
-                                        mode={retrievalPhase === 'selection' ? 'selection' : 'display'}
-                                        selectedBookIds={selectedBookIds}
-                                        onSelectionChange={onBookSelection}
-                                        onGenerateInterpretation={onGenerateInterpretation}
-                                        onReenterSelection={onReenterSelection}
-                                        onSecondaryRetrieval={onSecondaryRetrieval}
-                                        originalQuery={originalQuery}
-                                    />
-                                )}
-                            </>
-                        )}
-                        
-                        {/* 只有当消息内容不为空且不是深度检索类型和文档分析类型时才显示气泡 */}
-                        {/* 使用 suppressHydrationWarning 和稳定容器防止 AnimatePresence 与 ReactMarkdown 的 DOM 冲突 */}
-                        {/* 修复：排除深度检索报告阶段的最后一条助手消息，避免重复渲染 */}
-                        {/* 修复：排除文档分析消息，其内容为对象而非字符串 */}
-                        {hasContent && !isDeepSearchMessage(content) && !isDocumentAnalysisMessage(content) &&
-                         // 排除深度检索报告消息（在 report-streaming 或 completed 阶段的最后一条助手消息）
-                         !((deepSearchPhase === 'report-streaming' || deepSearchPhase === 'completed') &&
-                           message.role === 'assistant' &&
-                           typeof content === 'string' &&
-                           message.id === lastAssistantMessageId) && (
-                            <div
-                                className={`inline-block px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap font-info-content border ${
-                                    message.role === 'user'
-                                        ? 'bg-[#111111]/80 border-[#C9A063]/20 text-[#E8E6DC]'
-                                        : 'bg-[#1a1a1a]/80 border-[#C9A063]/20 text-[#E8E6DC]'
-                                }`}
-                            >
-                                {message.role === 'assistant' ? (
-                                    // 稳定容器：阻止 AnimatePresence 追踪 ReactMarkdown 内部 DOM 变化
-                                    <div suppressHydrationWarning>
-                                        <ReactMarkdown
-                                            remarkPlugins={[remarkGfm]}
-                                            components={messageMarkdownComponents}
-                                        >
-                                            {textContent}
-                                        </ReactMarkdown>
-                                    </div>
-                                ) : (
-                                    textContent
-                                )}
-                            </div>
-                        )}
-
-                        {message.role === 'user' && message.id === firstUserMessageId && shouldShowSimpleSearchLogs && (
-                            <div className="mt-4 text-left">
-                                <ProgressLogDisplay
-                                    isVisible={true}
-                                    logs={simpleSearchLogs}
-                                    currentPhase={simpleSearchPhase}
-                                    title="检索进度"
-                                />
-                            </div>
-                        )}
-                    </motion.div>
+                        </motion.div>
                     );
                 })}
             </AnimatePresence>
@@ -436,7 +367,7 @@ export default function MessageStream({
             {isStreaming && (
                 <div className="text-left">
                     <div className="mt-4 flex items-center gap-2 text-sm font-mono tracking-wider text-[#C9A063]/70 animate-pulse">
-                        <div className="w-3 h-3 border border-[#C9A063] border-t-transparent animate-spin"></div>
+                        <div className="w-2 h-2 border border-[#C9A063] border-t-transparent animate-spin"></div>
                         正在生成中，请稍候...
                     </div>
                 </div>

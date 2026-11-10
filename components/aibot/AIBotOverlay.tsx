@@ -1,1355 +1,136 @@
 'use client';
 
-import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import clsx from 'clsx';
 import MessageStream from '@/components/aibot/MessageStream';
-import DocumentUploadButton from '@/components/aibot/DocumentUploadButton';
-import DocumentUploadWorkflow, { useDocumentUploadController, MAX_DOCUMENTS } from '@/components/aibot/DocumentUploadWorkflow';
-import { useAIBotStore, type AIBotMessage } from '@/store/aibot/useAIBotStore';
-import type { Message as UIMessage } from '@ai-sdk/ui-utils';
-import type {
-    BookInfo,
-    DeepSearchLogEntry,
-    KeywordResult,
-    DuckDuckGoSnippet,
-    UploadedDocument,
-    DocumentAnalysisLogEntry
-} from '@/src/core/aibot/types';
+import AIBotHeader from '@/components/aibot/panels/AIBotHeader';
+import AIBotInputBar from '@/components/aibot/panels/AIBotInputBar';
+import { useAIBotWorkflow } from '@/components/aibot/controllers/useAIBotWorkflow';
+import { useDocumentUploadController } from '@/components/aibot/DocumentUploadWorkflow';
+import { useAIBotStore } from '@/store/aibot/useAIBotStore';
 import { AIBOT_MODES } from '@/src/core/aibot/constants';
-import type { LogEntry, SearchPhase } from '@/components/aibot/ProgressLogDisplay';
-import { formatBooksForSecondarySearch } from '@/src/utils/format-book-for-search';
+import type { UploadedDocument, BookInfo } from '@/src/core/aibot/types';
 
-const generateUUID = (): string => {
-    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-        return crypto.randomUUID();
-    }
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-        const r = (Math.random() * 16) | 0;
-        const v = c === 'x' ? r : (r & 0x3) | 0x8;
-        return v.toString(16);
-    });
-};
-
-/** 读取消息 content（AIBot 会写入结构化内容，SDK 类型只声明为 string） */
-const getMessageContent = (message: UIMessage): unknown => (message as { content?: unknown }).content;
-
-const buildRequestMessages = (messages: UIMessage[]) =>
-    messages.map((message) => {
-        const content = getMessageContent(message);
-        return {
-            role: message.role,
-            content: typeof content === 'string' ? content : ''
-        };
-    });
+const subscribeMounted = () => () => {};
 
 export default function AIBotOverlay() {
+    const isMounted = useSyncExternalStore(
+        subscribeMounted,
+        () => true,
+        () => false
+    );
+    const [inputValue, setInputValue] = useState('');
+
     const {
         isOverlayOpen,
         toggleOverlay,
         mode,
         setMode,
-        isDeepMode,
-        setDeepMode,
         messages,
         setMessages,
-        appendMessage,
-        updateLastAssistantMessage,
-        updateMessageContent,
-        isStreaming,
-        setPendingDraft,
-        error,
-        setError,
-        setRetrievalResult,
-
-        // 简单检索状态
-        retrievalPhase,
-        currentRetrievalResult,
-        selectedBookIds,
-        originalQuery,
-        isGeneratingInterpretation,
-        setRetrievalPhase,
-        setCurrentRetrievalResult,
-        setOriginalQuery,
-        setIsGeneratingInterpretation,
-        addSelectedBook,
-        removeSelectedBook,
-        clearSelection,
-
-        // 深度检索对话式状态
-        deepSearchPhase,
-        deepSearchDraftMessageId,
-        deepSearchDraftContent,
-        isDeepSearchDraftStreaming,
-        isDeepSearchDraftComplete,
-        deepSearchSnippets,
-        deepSearchKeywords,
-        deepSearchUserInput,
-        setDeepSearchPhase,
-        setDeepSearchDraftMessageId,
-        appendDeepSearchDraftContent,
-        setDeepSearchDraftContent,
-        setDeepSearchDraftStreaming,
-        setDeepSearchDraftComplete,
-        setDeepSearchSnippets,
-        setDeepSearchKeywords,
-        setDeepSearchBooksMessageId,
-        setDeepSearchBooks,
-        setDeepSearchSelectedBooks,
-        setDeepSearchUserInput,
-        deepSearchSelectedBooks,
-        addDeepSearchLog,
-        clearDeepSearchLogs,
-        deepSearchLogs,
-        setDeepSearchProgressMessageId,
-        resetDeepSearch,
-
-        // 文档上传相关状态
-        uploadedDocuments,
         clearUploadedDocuments,
-
-        // 文档分析状态
-        documentAnalysisProgressMessageId,
-        documentAnalysisLogs,
-        documentAnalysisDraftMessageId,
-        documentAnalysisDraftContent,
-        isDocumentAnalysisDraftStreaming,
-        documentAnalysisSelectedBooks,
-        documentAnalysisUserInput,
-        setDocumentAnalysisPhase,
-        setDocumentAnalysisProgressMessageId,
-        addDocumentAnalysisLog,
-        setDocumentAnalysisDraftMessageId,
-        setDocumentAnalysisDraftContent,
-        setDocumentAnalysisDraftStreaming,
-        setDocumentAnalysisDraftComplete,
-        setDocumentAnalysisBooksMessageId,
-        setDocumentAnalysisBooks,
-        setDocumentAnalysisSelectedBooks,
-        setDocumentAnalysisUserInput,
-        setDocumentAnalysisReportMessageId,
-        setDocumentAnalysisReportContent,
-        setDocumentAnalysisReportStreaming,
-        resetDocumentAnalysis,
-        deepSearchReportContent,
-        documentAnalysisReportContent,
+        setError,
+        error
     } = useAIBotStore();
 
-    const [inputValue, setInputValue] = useState('');
-    const [isMounted, setIsMounted] = useState(false);
-    const [isSearching, setIsSearching] = useState(false);
-    const documentAnalysisLogsRef = useRef<DocumentAnalysisLogEntry[]>(documentAnalysisLogs);
-    const hasReadyDocuments = useMemo(
-        () => uploadedDocuments.some(doc => doc.status === 'ready'),
-        [uploadedDocuments]
-    );
-    const displayMode = useMemo(() => {
-        if (mode === AIBOT_MODES.DOCUMENT) {
-            return AIBOT_MODES.DOCUMENT;
-        }
-        return hasReadyDocuments ? AIBOT_MODES.DOCUMENT : mode;
-    }, [mode, hasReadyDocuments]);
+    const workflow = useAIBotWorkflow();
 
-    // 简单检索进度日志状态
-    const [simpleSearchLogs, setSimpleSearchLogs] = useState<LogEntry[]>([]);
-    const [simpleSearchPhase, setSimpleSearchPhase] = useState<string>('');
-
-    // 更新简单检索日志
-    const updateSimpleSearchLog = useCallback((
-        phase: SearchPhase,
-        status: 'pending' | 'running' | 'completed' | 'error',
-        message: string,
-        details?: string
-    ) => {
-        const newLog: LogEntry = {
-            id: `${phase}-${Date.now()}`,
-            timestamp: new Date().toLocaleTimeString('zh-CN'),
-            phase,
-            status,
-            message,
-            details
-        };
-
-        setSimpleSearchLogs(prev => {
-            const existingIndex = prev.findIndex(log => log.phase === phase);
-            if (existingIndex >= 0) {
-                const updated = [...prev];
-                updated[existingIndex] = newLog;
-                return updated;
-            }
-            return [...prev, newLog];
-        });
-
-        setSimpleSearchPhase(phase);
-    }, []);
-
-    // 清空简单检索日志
-    const clearSimpleSearchLogs = useCallback(() => {
-        setSimpleSearchLogs([]);
-        setSimpleSearchPhase('');
-    }, []);
-
-    const pushDocumentAnalysisLog = useCallback((entry: DocumentAnalysisLogEntry, targetMessageId?: string) => {
-        documentAnalysisLogsRef.current = [
-            ...documentAnalysisLogsRef.current.filter(log => log.phase !== entry.phase),
-            entry
-        ];
-
-        addDocumentAnalysisLog(entry);
-
-        const messageId = targetMessageId ?? documentAnalysisProgressMessageId;
-        if (messageId) {
-            updateMessageContent(messageId, {
-                type: 'document-analysis-progress',
-                logs: documentAnalysisLogsRef.current,
-                currentPhase: entry.phase
-            });
-        }
-    }, [addDocumentAnalysisLog, documentAnalysisProgressMessageId, updateMessageContent]);
-
-    useEffect(() => {
-        setIsMounted(true);
-    }, []);
-
-    useEffect(() => {
-        documentAnalysisLogsRef.current = documentAnalysisLogs;
-    }, [documentAnalysisLogs]);
-
-    const lastAssistant = useMemo(() => {
-        for (let i = messages.length - 1; i >= 0; i -= 1) {
-            const content = getMessageContent(messages[i]);
-            if (messages[i].role === 'assistant' && typeof content === 'string') {
-                return content;
-            }
-        }
-        return '';
-    }, [messages]);
-
-    const closeOverlay = () => {
-        console.log('[AIBotOverlay] 关闭对话框，重置所有状态', {
-            currentMessages: messages.length,
-            currentMode: mode,
-            currentDeepMode: isDeepMode
-        });
-        toggleOverlay(false);
-        setInputValue('');
-        setMessages([]);
-        setPendingDraft(null, undefined);
-        setError(undefined);
-        clearSimpleSearchLogs();
-        resetDeepSearch();
-        resetDocumentAnalysis();
+    // 关闭弹窗：物理中断全部进行中请求 + 状态重置
+    const handleClose = useCallback(() => {
+        workflow.reset();
         clearUploadedDocuments();
-        setMode(AIBOT_MODES.TEXT); // 重置到简单模式
-        console.log('[AIBotOverlay] 状态重置完成');
-    };
+        toggleOverlay(false);
+    }, [clearUploadedDocuments, toggleOverlay, workflow]);
 
-    // 调用分类器接口
-    const classifyIntent = async (input: string) => {
-        try {
-            const response = await fetch('/api/local-aibot/classify', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    userInput: input,
-                    messages: buildRequestMessages(messages)
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error('分类失败');
-            }
-
-            const data = await response.json();
-            return data;
-        } catch (error) {
-            console.error('[AIBotOverlay] 分类失败:', error);
-            // 默认返回简单检索
-            return { intent: 'simple_search', confidence: 0.5, reason: '分类服务不可用' };
-        }
-    };
-
-    const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        const trimmed = inputValue.trim();
-
-        console.log('[AIBotOverlay] handleSubmit', {
-            trimmed,
-            mode,
-            isDeepMode,
-            deepSearchPhase,
-            currentMessagesCount: messages.length,
-            currentMessages: messages.map(msg => ({ role: msg.role })),
-            currentRetrievalPhase: retrievalPhase
-        });
-
-        // 在文档模式下，不允许通过表单提交
-        if (mode === AIBOT_MODES.DOCUMENT) {
-            setError('文档分析模式下请使用上传功能');
-            return;
-        }
-
-        const hasReadyDocuments = documentUploadController.statusStats.ready > 0;
-        const isUploading = documentUploadController.statusStats.uploading > 0;
-
-        // 如果有准备好的文档，优先执行文档分析
-        if (hasReadyDocuments && !isUploading) {
-            const started = documentUploadController.handleSubmitDocuments();
-            if (started) {
-                setInputValue('');
-                return;
-            }
-        }
-
-        if (!trimmed) {
-            setError('请输入内容');
-            return;
-        }
-
-        // 立即添加用户消息到界面，无需等待分类
-        const userMessage: AIBotMessage = {
-            id: generateUUID(),
-            role: 'user',
-            content: trimmed
-        };
-
-        appendMessage(userMessage);
+    // 清空会话记录
+    const handleClear = useCallback(async () => {
+        workflow.reset();
+        setMessages([]);
         setInputValue('');
-
-        // 处理深度模式
-        if (isDeepMode) {
-            // 如果草稿已完成且正在确认阶段，执行图书检索
-            if (deepSearchPhase === 'draft-confirm' && isDeepSearchDraftComplete) {
-                await performDeepSearchBookRetrieval();
-                return;
-            }
-
-            // 如果没有进行中的深度检索，开始新的深度检索流程
-            if (deepSearchPhase === 'idle') {
-                await executeDeepSearchAnalysis(trimmed);
-                return;
-            }
-
-            // 其他情况暂不处理
-            return;
-        }
-
-        // 普通模式下，并行执行分类和简单检索
-        await performSimpleSearchWithClassification(trimmed);
-    };
-
-    // 执行文档分析（流式）
-    const executeDocumentAnalysis = async (documents: UploadedDocument[]) => {
-        // 重置文档分析状态
-        resetDocumentAnalysis();
-        documentAnalysisLogsRef.current = [];
-        setDocumentAnalysisPhase('progress');
-
-        // 添加进度消息
-        const progressMessageId = generateUUID();
-        const progressMessage: AIBotMessage = {
-            id: progressMessageId,
-            role: 'assistant',
-            content: {
-                type: 'document-analysis-progress',
-                logs: [],
-                currentPhase: ''
-            }
-        };
-        appendMessage(progressMessage);
-        setDocumentAnalysisProgressMessageId(progressMessageId);
+        clearUploadedDocuments();
+        setMode(AIBOT_MODES.TEXT);
 
         try {
-            const documentNames = documents.map(doc => doc.name).join(', ');
-            const defaultUserInput = `文档分析：${documentNames}`;
-            setDocumentAnalysisUserInput(defaultUserInput);
-            let analysisUserInput = defaultUserInput;
-            console.log('[AIBotOverlay] 开始文档分析', {
-                documentCount: documents.length,
-                documentNames
-            });
-
-            const response = await fetch('/api/local-aibot/document-analysis', {
+            await fetch('/api/local-aibot/clear', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    documents: documents.map(doc => ({
-                        id: doc.id,
-                        name: doc.name,
-                        content: doc.content
-                    }))
-                })
+                headers: { 'Content-Type': 'application/json' }
             });
-
-            if (!response.ok) {
-                throw new Error('文档分析失败');
-            }
-
-            const reader = response.body?.getReader();
-            const decoder = new TextDecoder();
-
-            if (!reader) {
-                throw new Error('无法读取响应流');
-            }
-
-            let buffer = '';
-
-            // 添加草稿消息（用于流式显示）
-            const draftMessageId = generateUUID();
-            let draftMessageAdded = false;
-
-            // 本地变量累积草稿内容
-            let accumulatedDraft = '';
-            // 本地变量保存文档分析结果
-            let documentAnalyses: string[] = [];
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split('\n');
-                buffer = lines.pop() || '';
-
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        try {
-                            const data = JSON.parse(line.slice(6));
-
-                            if (data.type === 'progress') {
-                                const logEntry: DocumentAnalysisLogEntry = {
-                                    id: `${data.phase}-${Date.now()}`,
-                                    timestamp: new Date().toLocaleTimeString('zh-CN'),
-                                    phase: data.phase,
-                                    status: data.status,
-                                    message: data.message,
-                                    details: data.details
-                                };
-                                pushDocumentAnalysisLog(logEntry, progressMessageId);
-                            } else if (data.type === 'draft-start') {
-                                // 草稿开始，保存文档分析结果
-                                documentAnalyses = data.documentAnalyses || [];
-                                if (typeof data.userInput === 'string' && data.userInput.trim()) {
-                                    analysisUserInput = data.userInput;
-                                    setDocumentAnalysisUserInput(data.userInput);
-                                }
-
-                                // 添加草稿消息
-                                if (!draftMessageAdded) {
-                                    const draftMessage: AIBotMessage = {
-                                        id: draftMessageId,
-                                        role: 'assistant',
-                                        content: {
-                                            type: 'document-analysis-draft',
-                                            draftMarkdown: '',
-                                            isStreaming: true,
-                                            isComplete: false,
-                                            documentAnalyses,
-                                            userInput: analysisUserInput
-                                        }
-                                    };
-                                    appendMessage(draftMessage);
-                                    setDocumentAnalysisDraftMessageId(draftMessageId);
-                                    setDocumentAnalysisDraftStreaming(true);
-                                    setDocumentAnalysisPhase('draft-streaming');
-                                    draftMessageAdded = true;
-                                }
-                            } else if (data.type === 'draft-chunk') {
-                                // 草稿内容块：使用本地变量累积
-                                accumulatedDraft += data.content;
-                                setDocumentAnalysisDraftContent(accumulatedDraft);
-
-                                // 更新草稿消息内容（使用本地累积的内容）
-                                updateMessageContent(draftMessageId, {
-                                    type: 'document-analysis-draft',
-                                    draftMarkdown: accumulatedDraft,
-                                    isStreaming: true,
-                                    isComplete: false,
-                                    documentAnalyses,
-                                    userInput: analysisUserInput
-                                });
-                            } else if (data.type === 'draft-complete') {
-                                // 草稿完成
-                                setDocumentAnalysisDraftContent(data.draftMarkdown);
-                                setDocumentAnalysisDraftStreaming(false);
-                                setDocumentAnalysisDraftComplete(true);
-                                setDocumentAnalysisPhase('draft-confirm');
-
-                                // 更新草稿消息为完成状态
-                                updateMessageContent(draftMessageId, {
-                                    type: 'document-analysis-draft',
-                                    draftMarkdown: data.draftMarkdown,
-                                    isStreaming: false,
-                                    isComplete: true,
-                                    documentAnalyses,
-                                    userInput: analysisUserInput
-                                });
-                            }
-                        } catch (parseError) {
-                            console.error('解析SSE数据失败:', parseError);
-                        }
-                    }
-                }
-            }
-        } catch (error) {
-            console.error('文档分析错误:', error);
-            setError(error instanceof Error ? error.message : '文档分析失败');
-            setDocumentAnalysisPhase('idle');
+        } catch {
+            setError('清空历史记录失败，请稍后重试');
+            setTimeout(() => setError(undefined), 2000);
         }
-    };
+    }, [clearUploadedDocuments, setError, setMessages, setMode, workflow]);
 
-    // 执行深度检索分析（流式）
-    const executeDeepSearchAnalysis = async (userInput: string) => {
-        // 重置状态
-        resetDeepSearch();
-        clearDeepSearchLogs();
-        setDeepSearchUserInput(userInput);
-        setDeepSearchPhase('progress');
-
-        // 添加进度消息
-        const progressMessageId = generateUUID();
-        const progressMessage: AIBotMessage = {
-            id: progressMessageId,
-            role: 'assistant',
-            content: {
-                type: 'deep-search-progress',
-                logs: [],
-                currentPhase: ''
-            }
-        };
-        appendMessage(progressMessage);
-        setDeepSearchProgressMessageId(progressMessageId);
-
-        try {
-            const response = await fetch('/api/local-aibot/deep-search-analysis', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userInput })
-            });
-
-            if (!response.ok) {
-                throw new Error('深度检索分析失败');
-            }
-
-            const reader = response.body?.getReader();
-            const decoder = new TextDecoder();
-
-            if (!reader) {
-                throw new Error('无法读取响应流');
-            }
-
-            let buffer = '';
-
-            // 添加草稿消息（用于流式显示）
-            const draftMessageId = generateUUID();
-            let draftMessageAdded = false;
-
-            // 本地变量累积草稿内容（避免闭包问题）
-            let accumulatedDraft = '';
-            // 本地变量保存元数据（避免闭包问题）
-            let localKeywords: KeywordResult[] = [];
-            let localSnippets: DuckDuckGoSnippet[] = [];
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split('\n');
-                buffer = lines.pop() || '';
-
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        try {
-                            const data = JSON.parse(line.slice(6));
-
-                            if (data.type === 'progress') {
-                                // 更新进度日志
-                                const logEntry: DeepSearchLogEntry = {
-                                    id: `${data.phase}-${Date.now()}`,
-                                    timestamp: new Date().toLocaleTimeString('zh-CN'),
-                                    phase: data.phase,
-                                    status: data.status,
-                                    message: data.message,
-                                    details: data.details
-                                };
-                                addDeepSearchLog(logEntry);
-
-                                // 获取当前的日志列表（在添加新日志后）
-                                const getCurrentLogs = () => {
-                                    // 直接获取当前状态中最新的日志
-                                    return deepSearchLogs.map(log =>
-                                        log.phase === data.phase ? logEntry : log
-                                    );
-                                };
-
-                                // 确保日志中包含当前阶段
-                                const updatedLogs = getCurrentLogs();
-                                if (!updatedLogs.some(log => log.phase === data.phase)) {
-                                    updatedLogs.push(logEntry);
-                                }
-
-                                // 更新进度消息内容
-                                updateMessageContent(progressMessageId, {
-                                    type: 'deep-search-progress',
-                                    logs: updatedLogs,
-                                    currentPhase: data.phase
-                                });
-                            } else if (data.type === 'draft-start') {
-                                // 草稿开始，保存元数据到本地变量和 store
-                                localKeywords = data.keywords || [];
-                                localSnippets = data.searchSnippets || [];
-                                setDeepSearchKeywords(localKeywords);
-                                setDeepSearchSnippets(localSnippets);
-
-                                // 添加草稿消息
-                                if (!draftMessageAdded) {
-                                    const draftMessage: AIBotMessage = {
-                                        id: draftMessageId,
-                                        role: 'assistant',
-                                        content: {
-                                            type: 'deep-search-draft',
-                                            draftMarkdown: '',
-                                            isStreaming: true,
-                                            isComplete: false,
-                                            searchSnippets: localSnippets,
-                                            keywords: localKeywords,
-                                            userInput
-                                        }
-                                    };
-                                    appendMessage(draftMessage);
-                                    setDeepSearchDraftMessageId(draftMessageId);
-                                    setDeepSearchDraftStreaming(true);
-                                    setDeepSearchPhase('draft-streaming');
-                                    draftMessageAdded = true;
-                                }
-                            } else if (data.type === 'draft-chunk') {
-                                // 草稿内容块：使用本地变量累积（复用简单检索的模式）
-                                accumulatedDraft += data.content;
-                                appendDeepSearchDraftContent(data.content);
-
-                                // 更新草稿消息内容（使用本地累积的内容）
-                                updateMessageContent(draftMessageId, {
-                                    type: 'deep-search-draft',
-                                    draftMarkdown: accumulatedDraft,
-                                    isStreaming: true,
-                                    isComplete: false,
-                                    searchSnippets: localSnippets,
-                                    keywords: localKeywords,
-                                    userInput
-                                });
-                            } else if (data.type === 'draft-complete') {
-                                // 草稿完成
-                                setDeepSearchDraftContent(data.draftMarkdown);
-                                setDeepSearchDraftStreaming(false);
-                                setDeepSearchDraftComplete(true);
-                                setDeepSearchPhase('draft-confirm');
-
-                                // 更新草稿消息为完成状态
-                                updateMessageContent(draftMessageId, {
-                                    type: 'deep-search-draft',
-                                    draftMarkdown: data.draftMarkdown,
-                                    isStreaming: false,
-                                    isComplete: true,
-                                    searchSnippets: localSnippets,
-                                    keywords: localKeywords,
-                                    userInput
-                                });
-                            }
-                        } catch (parseError) {
-                            console.error('解析SSE数据失败:', parseError);
-                        }
-                    }
-                }
-            }
-        } catch (error) {
-            console.error('深度检索分析错误:', error);
-            setError(error instanceof Error ? error.message : '深度检索分析失败');
-            setDeepSearchPhase('idle');
-        }
-    };
-
-    // 执行深度检索图书检索
-    const performDeepSearchBookRetrieval = async () => {
-        setDeepSearchPhase('book-search');
-
-        // 添加图书检索进度日志
-        const bookSearchLog: DeepSearchLogEntry = {
-            id: `book-search-${Date.now()}`,
-            timestamp: new Date().toLocaleTimeString('zh-CN'),
-            phase: 'book-search',
-            status: 'running',
-            message: '正在检索相关图书...'
-        };
-        addDeepSearchLog(bookSearchLog);
-
-        try {
-            const response = await fetch('/api/local-aibot/deep-search', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    draftMarkdown: deepSearchDraftContent,
-                    userInput: deepSearchUserInput
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error('图书检索失败');
-            }
-
-            const data = await response.json();
-
-            if (data.success) {
-                const books = data.retrievalResult?.books || [];
-                setDeepSearchBooks(books);
-
-                // 更新图书检索进度日志为完成
-                addDeepSearchLog({
-                    id: `book-search-${Date.now()}`,
-                    timestamp: new Date().toLocaleTimeString('zh-CN'),
-                    phase: 'book-search',
-                    status: 'completed',
-                    message: `找到 ${books.length} 本相关图书`
-                });
-
-                // 添加图书列表消息
-                const booksMessageId = generateUUID();
-                const booksMessage: AIBotMessage = {
-                    id: booksMessageId,
-                    role: 'assistant',
-                    content: {
-                        type: 'deep-search-books',
-                        books,
-                        draftMarkdown: deepSearchDraftContent,
-                        userInput: deepSearchUserInput
-                    }
-                };
-                appendMessage(booksMessage);
-                setDeepSearchBooksMessageId(booksMessageId);
-                setDeepSearchPhase('book-selection');
-            } else {
-                throw new Error(data.message || '图书检索失败');
-            }
-        } catch (error) {
-            console.error('图书检索错误:', error);
-            setError(error instanceof Error ? error.message : '图书检索失败');
-            setDeepSearchPhase('draft-confirm');
-        }
-    };
-
-    // 深度检索：草稿内容变更
-    const handleDeepSearchDraftChange = useCallback((value: string) => {
-        setDeepSearchDraftContent(value);
-        // 同步更新消息内容
-        if (deepSearchDraftMessageId) {
-            updateMessageContent(deepSearchDraftMessageId, {
-                type: 'deep-search-draft',
-                draftMarkdown: value,
-                isStreaming: false,
-                isComplete: true,
-                searchSnippets: deepSearchSnippets,
-                keywords: deepSearchKeywords,
-                userInput: deepSearchUserInput
-            });
-        }
-    }, [deepSearchDraftMessageId, deepSearchSnippets, deepSearchKeywords, deepSearchUserInput, setDeepSearchDraftContent, updateMessageContent]);
-
-    // 深度检索：确认草稿
-    const handleDeepSearchDraftConfirm = useCallback(async () => {
-        await performDeepSearchBookRetrieval();
-    }, [performDeepSearchBookRetrieval]);
-
-    // 深度检索：重新生成
-    const handleDeepSearchDraftRegenerate = useCallback(() => {
-        resetDeepSearch();
-        // 重新开始深度检索
-        if (deepSearchUserInput) {
-            executeDeepSearchAnalysis(deepSearchUserInput);
-        }
-    }, [deepSearchUserInput, resetDeepSearch, executeDeepSearchAnalysis]);
-
-    // 深度检索：取消
-    const handleDeepSearchDraftCancel = useCallback(() => {
-        resetDeepSearch();
-    }, [resetDeepSearch]);
-
-    // 深度检索：生成解读
-    const handleDeepSearchGenerateInterpretation = useCallback(async (selectedBooks: BookInfo[], draftMarkdown: string) => {
-        setDeepSearchSelectedBooks(selectedBooks);
-        setDeepSearchPhase('report-streaming');
-
-        // 添加报告生成进度日志
-        addDeepSearchLog({
-            id: `report-generation-${Date.now()}`,
-            timestamp: new Date().toLocaleTimeString('zh-CN'),
-            phase: 'report-generation',
-            status: 'running',
-            message: '正在生成解读报告...'
-        });
-
-        // 添加解读消息 - 使用简单检索的方式（字符串内容）
-        const reportMessage: AIBotMessage = {
-            id: generateUUID(),
-            role: 'assistant',
-            content: ''  // 使用空字符串初始化，后续用 updateLastAssistantMessage 更新
-        };
-        appendMessage(reportMessage);
-
-        try {
-            const response = await fetch('/api/local-aibot/deep-interpretation', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    selectedBooks,
-                    draftMarkdown,
-                    originalQuery: deepSearchUserInput
-                })
-            });
-
-            if (!response.ok || !response.body) {
-                throw new Error('深度解读生成失败');
-            }
-
-            // 流式读取解读内容（使用简单检索的方式）
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let buffer = '';
-
-            while (true) {
-                const { value, done } = await reader.read();
-                if (done) break;
-                buffer += decoder.decode(value, { stream: true });
-                updateLastAssistantMessage(buffer);
-            }
-
-            // 更新报告生成进度日志为完成
-            addDeepSearchLog({
-                id: `report-generation-${Date.now()}`,
-                timestamp: new Date().toLocaleTimeString('zh-CN'),
-                phase: 'report-generation',
-                status: 'completed',
-                message: '解读报告生成完成'
-            });
-
-            setDeepSearchPhase('completed');
-        } catch (error) {
-            console.error('深度解读生成错误:', error);
-            setError(error instanceof Error ? error.message : '深度解读生成失败');
-            setDeepSearchPhase('book-selection');
-        }
-    }, [deepSearchUserInput, appendMessage, setDeepSearchSelectedBooks, setDeepSearchPhase, setError, addDeepSearchLog, updateLastAssistantMessage]);
-
-    // ========== 文档分析相关回调函数 ==========
-
-    // 文档上传工作流：开始分析
-    const handleDocumentAnalysisStart = useCallback(async (documents: UploadedDocument[]) => {
-        // 切换到文档上传模式
-        setMode('document');
-
-        // 添加用户消息显示正在分析的文档
-        const documentNames = documents.map(doc => doc.name).join(', ');
-        const userMessage: AIBotMessage = {
-            id: generateUUID(),
-            role: 'user',
-            content: `分析以下文档：${documentNames}`
-        };
-
-        appendMessage(userMessage);
-
-        // 开始文档分析
-        await executeDocumentAnalysis(documents);
-    }, [setMode, appendMessage, executeDocumentAnalysis]);
+    // 文档分析启动回调
+    const handleDocumentAnalysisStart = useCallback(
+        async (documents: UploadedDocument[]) => {
+            setMode(AIBOT_MODES.DOCUMENT);
+            await workflow.startDocumentAnalysis(documents);
+        },
+        [setMode, workflow]
+    );
 
     const documentUploadController = useDocumentUploadController(handleDocumentAnalysisStart);
 
-    // 文档分析：草稿内容变更
-    const handleDocumentAnalysisDraftChange = useCallback((value: string) => {
-        setDocumentAnalysisDraftContent(value);
-        // 同步更新消息内容
-        if (documentAnalysisDraftMessageId) {
-            updateMessageContent(documentAnalysisDraftMessageId, {
-                type: 'document-analysis-draft',
-                draftMarkdown: value,
-                isStreaming: false,
-                isComplete: true,
-                documentAnalyses: [], // 这些值在实际使用中应该从状态获取
-                userInput: documentAnalysisUserInput
-            });
-        }
-    }, [documentAnalysisDraftMessageId, documentAnalysisUserInput, setDocumentAnalysisDraftContent, updateMessageContent]);
+    // 提交输入
+    const handleSubmit = useCallback(
+        async (e: React.FormEvent) => {
+            e.preventDefault();
 
-    // 文档分析：确认草稿
-    const handleDocumentAnalysisDraftConfirm = useCallback(async () => {
-        // 复用深度检索的图书检索逻辑
-        // 将文档分析的草稿作为查询内容
-        if (documentAnalysisDraftContent) {
-            // 复用深度检索的图书检索流程
-            setDocumentAnalysisPhase('book-search');
-            pushDocumentAnalysisLog({
-                id: `book-search-${Date.now()}`,
-                timestamp: new Date().toLocaleTimeString('zh-CN'),
-                phase: 'book-search',
-                status: 'running',
-                message: '正在检索相关图书...'
-            }, documentAnalysisProgressMessageId || undefined);
-
-            try {
-                const response = await fetch('/api/local-aibot/document-analysis/book-search', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        draftMarkdown: documentAnalysisDraftContent,
-                        userInput: documentAnalysisUserInput
-                    })
-                });
-
-                if (!response.ok) {
-                    throw new Error('文档分析图书检索失败');
-                }
-
-                const data = await response.json();
-
-                if (data.success) {
-                    const books = data.retrievalResult?.books || [];
-                    setDocumentAnalysisBooks(books);
-                    pushDocumentAnalysisLog({
-                        id: `book-search-${Date.now()}`,
-                        timestamp: new Date().toLocaleTimeString('zh-CN'),
-                        phase: 'book-search',
-                        status: 'completed',
-                        message: `找到 ${books.length} 本相关图书`
-                    }, documentAnalysisProgressMessageId || undefined);
-
-                    // 添加图书列表消息
-                    const booksMessageId = generateUUID();
-                    const booksMessage: AIBotMessage = {
-                        id: booksMessageId,
-                        role: 'assistant',
-                        content: {
-                            type: 'document-analysis-books',
-                            books,
-                            draftMarkdown: documentAnalysisDraftContent,
-                            userInput: documentAnalysisUserInput
-                        }
-                    };
-                    appendMessage(booksMessage);
-                    setDocumentAnalysisBooksMessageId(booksMessageId);
-                    setDocumentAnalysisPhase('book-selection');
-                } else {
-                    throw new Error(data.message || '图书检索失败');
-                }
-            } catch (error) {
-                console.error('图书检索错误:', error);
-                pushDocumentAnalysisLog({
-                    id: `book-search-${Date.now()}`,
-                    timestamp: new Date().toLocaleTimeString('zh-CN'),
-                    phase: 'book-search',
-                    status: 'error',
-                    message: error instanceof Error ? error.message : '图书检索失败'
-                }, documentAnalysisProgressMessageId || undefined);
-                setError(error instanceof Error ? error.message : '图书检索失败');
-                setDocumentAnalysisPhase('draft-confirm');
-            }
-        }
-    }, [appendMessage, documentAnalysisDraftContent, documentAnalysisProgressMessageId, documentAnalysisUserInput, pushDocumentAnalysisLog, setDocumentAnalysisBooks, setDocumentAnalysisBooksMessageId, setDocumentAnalysisPhase, setError]);
-
-    // 文档分析：重新生成
-    const handleDocumentAnalysisDraftRegenerate = useCallback(() => {
-        resetDocumentAnalysis();
-        // 重新开始文档分析
-        const readyDocuments = uploadedDocuments.filter(doc => doc.status === 'ready');
-        if (readyDocuments.length > 0) {
-            executeDocumentAnalysis(readyDocuments);
-        }
-    }, [uploadedDocuments, resetDocumentAnalysis, executeDocumentAnalysis]);
-
-    // 文档分析：取消
-    const handleDocumentAnalysisDraftCancel = useCallback(() => {
-        resetDocumentAnalysis();
-        setMode(AIBOT_MODES.TEXT); // 回到简单模式
-    }, [resetDocumentAnalysis, setMode]);
-
-    // 文档分析：生成解读
-    const handleDocumentAnalysisGenerateInterpretation = useCallback(async (selectedBooks: BookInfo[], draftMarkdown: string) => {
-        setDocumentAnalysisSelectedBooks(selectedBooks);
-        setDocumentAnalysisPhase('report-streaming');
-        setDocumentAnalysisReportContent('');
-        setDocumentAnalysisReportStreaming(true);
-        pushDocumentAnalysisLog({
-            id: `report-generation-${Date.now()}`,
-            timestamp: new Date().toLocaleTimeString('zh-CN'),
-            phase: 'report-generation',
-            status: 'running',
-            message: '正在生成解读报告...'
-        }, documentAnalysisProgressMessageId || undefined);
-
-        // 预先添加解读消息，方便流式实时渲染
-        const reportMessageId = generateUUID();
-        const reportMessage: AIBotMessage = {
-            id: reportMessageId,
-            role: 'assistant',
-            content: {
-                type: 'document-analysis-report',
-                reportMarkdown: '',
-                isStreaming: true,
-                isComplete: false,
-                selectedBooks
-            }
-        };
-        appendMessage(reportMessage);
-        setDocumentAnalysisReportMessageId(reportMessageId);
-
-        let buffer = '';
-
-        try {
-            const response = await fetch('/api/local-aibot/deep-interpretation', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    selectedBooks,
-                    draftMarkdown,
-                    originalQuery: documentAnalysisUserInput
-                })
-            });
-
-            if (!response.ok || !response.body) {
-                throw new Error('文档解读生成失败');
-            }
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-
-            while (true) {
-                const { value, done } = await reader.read();
-                if (done) break;
-                buffer += decoder.decode(value, { stream: true });
-                setDocumentAnalysisReportContent(buffer);
-                updateMessageContent(reportMessageId, {
-                    type: 'document-analysis-report',
-                    reportMarkdown: buffer,
-                    isStreaming: true,
-                    isComplete: false,
-                    selectedBooks
-                });
-            }
-
-            setDocumentAnalysisPhase('completed');
-            setDocumentAnalysisReportStreaming(false);
-            updateMessageContent(reportMessageId, {
-                type: 'document-analysis-report',
-                reportMarkdown: buffer,
-                isStreaming: false,
-                isComplete: true,
-                selectedBooks
-            });
-            pushDocumentAnalysisLog({
-                id: `report-generation-${Date.now()}`,
-                timestamp: new Date().toLocaleTimeString('zh-CN'),
-                phase: 'report-generation',
-                status: 'completed',
-                message: '解读报告生成完成'
-            }, documentAnalysisProgressMessageId || undefined);
-        } catch (error) {
-            console.error('文档解读生成错误:', error);
-            pushDocumentAnalysisLog({
-                id: `report-generation-${Date.now()}`,
-                timestamp: new Date().toLocaleTimeString('zh-CN'),
-                phase: 'report-generation',
-                status: 'error',
-                message: error instanceof Error ? error.message : '文档解读生成失败'
-            }, documentAnalysisProgressMessageId || undefined);
-            setError(error instanceof Error ? error.message : '文档解读生成失败');
-            setDocumentAnalysisPhase('book-selection');
-            updateMessageContent(reportMessageId, {
-                type: 'document-analysis-report',
-                reportMarkdown: buffer || '文档解读生成失败，请重试。',
-                isStreaming: false,
-                isComplete: false,
-                selectedBooks
-            });
-        } finally {
-            setDocumentAnalysisReportStreaming(false);
-            setDocumentAnalysisReportContent(buffer);
-        }
-    }, [
-        appendMessage,
-        documentAnalysisProgressMessageId,
-        documentAnalysisUserInput,
-        pushDocumentAnalysisLog,
-        setDocumentAnalysisPhase,
-        setDocumentAnalysisReportContent,
-        setDocumentAnalysisReportMessageId,
-        setDocumentAnalysisReportStreaming,
-        setDocumentAnalysisSelectedBooks,
-        setError,
-        updateMessageContent
-    ]);
-
-    // 执行简单检索（带分类）
-    const performSimpleSearchWithClassification = async (query: string) => {
-        setRetrievalPhase('search');
-        setOriginalQuery(query);
-        setIsSearching(true);
-        clearSimpleSearchLogs(); // 清空之前的日志
-
-        try {
-            // 阶段1: 问题分类
-            updateSimpleSearchLog('classify', 'running', '正在分析问题类型...');
-            const [classification] = await Promise.all([
-                classifyIntent(query),
-            ]);
-            updateSimpleSearchLog('classify', 'completed', `识别为: ${classification.intent === 'other' ? '非检索' : '图书检索'}`, classification.reason);
-
-            // 如果是其他类型，直接返回提示
-            if (classification.intent === 'other') {
-                const assistantMessage: AIBotMessage = {
-                    id: generateUUID(),
-                    role: 'assistant',
-                    content: '你好，我是 Book Echoes 图书智搜助手，专注解读与推荐书籍内容。\n当前输入暂未匹配到图书检索任务。试着告诉我：你想解决的问题、关注的主题、阅读目标或领域关键词，我就能为你找到书。'
-                };
-
-                appendMessage(assistantMessage);
-                setRetrievalPhase('search');
-                setIsSearching(false);
-                updateSimpleSearchLog('completed', 'completed', '分类完成，无需检索');
+            // 若有就绪文档，优先启动文档分析
+            const readyDocs = documentUploadController.uploadedDocuments.filter(
+                (d) => d.status === 'ready'
+            );
+            if (readyDocs.length > 0 && documentUploadController.statusStats.uploading === 0) {
+                await handleDocumentAnalysisStart(readyDocs);
                 return;
             }
 
-            // 阶段2: 检索扩展 + 阶段3: 并行检索（API内部执行）
-            updateSimpleSearchLog('expand', 'running', '正在扩展检索词...');
+            const trimmed = inputValue.trim();
+            if (!trimmed) return;
 
-            // 模拟扩展完成后显示并行检索状态
-            setTimeout(() => {
-                updateSimpleSearchLog('expand', 'completed', '检索词扩展完成');
-                updateSimpleSearchLog('parallel-search', 'running', '正在并行检索图书...');
-            }, 500);
+            setInputValue('');
 
-            const response = await fetch('/api/local-aibot/search-only', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    query,
-                    messages: buildRequestMessages(messages)
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error('检索失败');
+            if (mode === AIBOT_MODES.DEEP) {
+                await workflow.startDeepSearch(trimmed);
+            } else {
+                await workflow.startSimpleSearch(trimmed);
             }
+        },
+        [
+            documentUploadController.statusStats.uploading,
+            documentUploadController.uploadedDocuments,
+            handleDocumentAnalysisStart,
+            inputValue,
+            mode,
+            workflow
+        ]
+    );
 
-            const data = await response.json();
-            if (!data.success) {
-                throw new Error(data.message || '检索失败');
-            }
-
-            // 阶段3完成 + 阶段4: 结果合并
-            updateSimpleSearchLog('parallel-search', 'completed', '并行检索完成');
-            updateSimpleSearchLog('merge', 'running', '正在合并去重结果...');
-
-            setCurrentRetrievalResult(data.retrievalResult);
-
-            // 添加检索结果消息
-            const retrievalMessage: AIBotMessage = {
-                id: generateUUID(),
-                role: 'assistant',
-                content: ''
-            };
-
-            appendMessage(retrievalMessage);
-            setRetrievalResult(retrievalMessage.id, data.retrievalResult);
-
-            // 阶段4完成
-            const booksCount = data.retrievalResult?.books?.length || 0;
-            updateSimpleSearchLog('merge', 'completed', `找到 ${booksCount} 本相关图书`);
-            updateSimpleSearchLog('completed', 'completed', '检索完成');
-
-            // 进入选择阶段
-            setRetrievalPhase('selection');
-
-        } catch (err) {
-            updateSimpleSearchLog('error', 'error', err instanceof Error ? err.message : '检索失败');
-            setError(err instanceof Error ? err.message : '检索失败，请稍后重试');
-            setRetrievalPhase('search');
-        } finally {
-            setIsSearching(false);
-        }
-    };
-
-    // 新增：处理图书选择
-    const handleBookSelection = (bookId: string, isSelected: boolean) => {
-        if (isSelected) {
-            addSelectedBook(bookId);
-        } else {
-            removeSelectedBook(bookId);
-        }
-    };
-
-    // 新增：处理解读生成
-    const handleGenerateInterpretation = async (selectedBookIds: Set<string>) => {
-        if (selectedBookIds.size === 0) {
-            setError('请至少选择一本图书');
-            return;
-        }
-
-        setRetrievalPhase('interpretation');
-        setIsGeneratingInterpretation(true);
-
-        try {
-            const selectedBooks = currentRetrievalResult?.books.filter(book =>
-                selectedBookIds.has(book.id)
-            ) || [];
-
-            const response = await fetch('/api/local-aibot/generate-interpretation', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    originalQuery,
-                    selectedBooks,
-                    messages: buildRequestMessages(messages)
-                })
-            });
-
-            if (!response.ok || !response.body) {
-                throw new Error('生成解读失败');
-            }
-
-            // 添加解读消息
-            const interpretationMessage: AIBotMessage = {
-                id: generateUUID(),
-                role: 'assistant',
-                content: ''
-            };
-
-            appendMessage(interpretationMessage);
-
-            // 流式读取解读内容
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let buffer = '';
-
-            while (true) {
-                const { value, done } = await reader.read();
-                if (done) break;
-                buffer += decoder.decode(value, { stream: true });
-                updateLastAssistantMessage(buffer);
-            }
-
-            setRetrievalPhase('completed');
-            clearSelection();
-
-        } catch (err) {
-            setError(err instanceof Error ? err.message : '生成解读失败');
-            setRetrievalPhase('selection');
-        } finally {
-            setIsGeneratingInterpretation(false);
-        }
-    };
-
-
-    // 新增：重新进入选择模式
-    const reenterSelection = () => {
-        setRetrievalPhase('selection');
-    };
-
-    // 新增：处理二次检索
-    const handleSecondaryRetrieval = useCallback((selectedBooks: BookInfo[], query: string) => {
-        // 格式化图书信息并填充输入框
-        const formattedText = formatBooksForSecondarySearch(selectedBooks, query);
-        setInputValue(formattedText);
-
-        // 清空选择状态，回到检索模式
-        clearSelection();
-        setRetrievalPhase('search');
-
-        // 如果当前是深度检索模式，切换到简单检索模式
-        if (isDeepMode) {
-            setDeepMode(false);
-        }
-
-        console.log('[AIBotOverlay] 二次检索：切换到简单检索模式，填充输入框', {
-            selectedBooksCount: selectedBooks.length,
-            isDeepMode,
-            formattedTextLength: formattedText.length
-        });
-    }, [clearSelection, setRetrievalPhase, isDeepMode, setDeepMode]);
-
-
+    // 导出对话与报告
     const handleDownload = useCallback(() => {
-        const simpleSelectedBooks = selectedBookIds.size > 0 && currentRetrievalResult?.books
-            ? currentRetrievalResult.books.filter(book => selectedBookIds.has(book.id))
-            : [];
+        let downloadContent = `# AIBot 对话记录\n\n生成时间：${new Date().toLocaleString('zh-CN')}\n\n`;
 
-        let reportMarkdown = '';
-        let selectedBooks: BookInfo[] = [];
+        for (const msg of messages) {
+            const roleName = msg.role === 'user' ? '用户' : 'AIBot 助手';
+            const content = (msg as { content?: unknown }).content;
 
-        if (documentAnalysisReportContent) {
-            reportMarkdown = documentAnalysisReportContent;
-            selectedBooks = documentAnalysisSelectedBooks;
-        } else if (deepSearchReportContent) {
-            reportMarkdown = deepSearchReportContent;
-            selectedBooks = deepSearchSelectedBooks;
-        } else {
-            reportMarkdown = lastAssistant;
-            selectedBooks = simpleSelectedBooks;
+            if (typeof content === 'string') {
+                downloadContent += `## ${roleName}\n\n${content}\n\n`;
+            } else if (content && typeof content === 'object') {
+                const record = content as Record<string, unknown>;
+                if (record.userInput) {
+                    downloadContent += `> 主题/文档：${record.userInput}\n\n`;
+                }
+                if (typeof record.draftMarkdown === 'string') {
+                    downloadContent += `### 研究草稿\n\n${record.draftMarkdown}\n\n`;
+                }
+                if (typeof record.reportMarkdown === 'string') {
+                    downloadContent += `### 深度解读报告\n\n${record.reportMarkdown}\n\n`;
+                }
+            }
         }
-
-        if (!reportMarkdown) {
-            setError('暂无可下载内容');
-            return;
-        }
-
-        // 构建下载内容
-        let downloadContent = '';
-
-        // 添加勾选的图书信息（如果存在）
-        if (selectedBooks.length > 0) {
-            downloadContent += '# 选读书目\n\n';
-            selectedBooks.forEach((book, index) => {
-                downloadContent += `## ${index + 1}. ${book.title || '未知标题'}\n\n`;
-                if (book.author) {
-                    downloadContent += `- **作者**: ${book.author}\n`;
-                }
-                if (book.translator) {
-                    downloadContent += `- **译者**: ${book.translator}\n`;
-                }
-                if (book.publisher) {
-                    downloadContent += `- **出版社**: ${book.publisher}\n`;
-                }
-                if (book.publishYear) {
-                    downloadContent += `- **出版年**: ${book.publishYear}\n`;
-                }
-                if (book.pageCount) {
-                    downloadContent += `- **页数**: ${book.pageCount}\n`;
-                }
-                if (book.isbn) {
-                    downloadContent += `- **ISBN**: ${book.isbn}\n`;
-                }
-                if (book.callNumber) {
-                    downloadContent += `- **索书号**: ${book.callNumber}\n`;
-                }
-                if (book.rating) {
-                    downloadContent += `- **评分**: ${book.rating}\n`;
-                }
-                if (book.tags && book.tags.length > 0) {
-                    downloadContent += `- **标签**: ${book.tags.join(', ')}\n`;
-                }
-                if (book.description) {
-                    downloadContent += `\n**简介**: ${book.description}\n`;
-                }
-                downloadContent += '\n---\n\n';
-            });
-            downloadContent += '\n---\n\n';
-        }
-
-        // 添加报告内容
-        downloadContent += reportMarkdown;
 
         const blob = new Blob([downloadContent], { type: 'text/markdown;charset=utf-8' });
         const url = URL.createObjectURL(blob);
@@ -1362,44 +143,23 @@ export default function AIBotOverlay() {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-    }, [documentAnalysisReportContent, deepSearchReportContent, lastAssistant, selectedBookIds, currentRetrievalResult, deepSearchSelectedBooks, documentAnalysisSelectedBooks, setError]);
+    }, [messages]);
 
-    const handleClear = async () => {
-        console.log('[AIBotOverlay] 清空聊天记录', {
-            currentMessages: messages.length,
-            currentDeepMode: isDeepMode
-        });
+    const isBusy =
+        workflow.state.status === 'analyzing' ||
+        workflow.state.status === 'searching-books' ||
+        workflow.state.status === 'interpreting';
 
-        // 清空前端状态
-        setMessages([]);
-        setInputValue('');
-        setPendingDraft(null, undefined);
-        setError(undefined);
-        clearSimpleSearchLogs();
-        resetDeepSearch(); // 重置深度检索状态
-        resetDocumentAnalysis(); // 重置文档分析状态
-        clearUploadedDocuments(); // 清空已上传文档
-        setMode(AIBOT_MODES.TEXT); // 回到简单模式，恢复上传能力
+    const busyLabel =
+        workflow.state.status === 'analyzing'
+            ? '分析生成中...'
+            : workflow.state.status === 'searching-books'
+              ? '检索图书中...'
+              : workflow.state.status === 'interpreting'
+                ? '生成解读中...'
+                : undefined;
 
-        // 清空后端历史记录
-        try {
-            await fetch('/api/local-aibot/clear', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
-            console.log('[AIBotOverlay] 后端历史记录已清空');
-        } catch (err) {
-            console.error('[AIBotOverlay] 清空后端历史记录失败:', err);
-            setError('清空历史记录失败，请稍后重试');
-            setTimeout(() => setError(undefined), 2000);
-        }
-    };
-
-    if (!isMounted) {
-        return null;
-    }
+    if (!isMounted) return null;
 
     return createPortal(
         <AnimatePresence>
@@ -1412,9 +172,7 @@ export default function AIBotOverlay() {
                     className="fixed inset-0"
                     style={{ zIndex: 9999 }}
                     onClick={(e) => {
-                        if (e.target === e.currentTarget) {
-                            closeOverlay();
-                        }
+                        if (e.target === e.currentTarget) handleClose();
                     }}
                 >
                     <motion.div
@@ -1434,39 +192,23 @@ export default function AIBotOverlay() {
                         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-[#C9A063] z-20" />
-                        <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-[#C9A063] z-20" />
-                        <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-[#C9A063] z-20" />
-                        <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-[#C9A063] z-20" />
+                        {/* 装饰边角 */}
+                        <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-[#C9A063] z-20 pointer-events-none" />
+                        <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-[#C9A063] z-20 pointer-events-none" />
+                        <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-[#C9A063] z-20 pointer-events-none" />
+                        <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-[#C9A063] z-20 pointer-events-none" />
 
+                        {/* 水印 */}
                         <div className="absolute -bottom-24 -right-12 pointer-events-none select-none opacity-[0.03] z-0">
                             <span className="font-display text-[16rem] leading-none text-[#C9A063] block transform -rotate-12">
                                 书海回响
                             </span>
                         </div>
 
-                        <header className="flex items-center justify-between px-6 md:px-10 py-6 border-b border-[#C9A063]/20 shrink-0 relative z-10 bg-[#1a1a1a]">
-                            <div className="flex items-center gap-4">
-                                <div className="w-2 h-2 bg-[#C9A063]" />
-                                <div>
-                                    <p className="font-mono text-[#C9A063] tracking-[0.3em] text-sm uppercase">AIBot</p>
-                                    <p className="text-xs text-[#C9A063]/50 mt-1">本地对话 · 仅限本地调试，云端默认关闭</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <button
-                                    type="button"
-                                    onClick={closeOverlay}
-                                    className="group relative w-10 h-10 flex items-center justify-center border border-[#C9A063]/30 hover:bg-[#C9A063] transition-colors duration-300 cursor-pointer"
-                                    aria-label="Close"
-                                >
-                                    <span className="font-mono text-[#C9A063] group-hover:text-[#1a1a1a] text-xl transition-colors">×</span>
-                                    <div className="absolute top-0 left-0 w-1 h-1 border-t border-l border-[#C9A063] opacity-0 group-hover:opacity-100 transition-opacity" />
-                                    <div className="absolute bottom-0 right-0 w-1 h-1 border-b border-r border-[#C9A063] opacity-0 group-hover:opacity-100 transition-opacity" />
-                                </button>
-                            </div>
-                        </header>
+                        {/* 顶栏 */}
+                        <AIBotHeader onClose={handleClose} />
 
+                        {/* 消息主体 */}
                         <div className="relative flex-1 overflow-hidden z-10 flex flex-col" style={{ minHeight: '0' }}>
                             <div className="relative flex-1 overflow-hidden">
                                 <div
@@ -1476,28 +218,38 @@ export default function AIBotOverlay() {
                                     <div className="flex-1 min-h-0" style={{ overflow: 'hidden' }}>
                                         <MessageStream
                                             messages={messages}
-                                            isStreaming={isStreaming || isGeneratingInterpretation || isDeepSearchDraftStreaming || isDocumentAnalysisDraftStreaming}
-                                            retrievalPhase={retrievalPhase}
-                                            selectedBookIds={selectedBookIds}
-                                            onBookSelection={handleBookSelection}
-                                            onGenerateInterpretation={handleGenerateInterpretation}
-                                            onReenterSelection={reenterSelection}
-                                            onSecondaryRetrieval={handleSecondaryRetrieval}
-                                            originalQuery={originalQuery}
-                                            simpleSearchLogs={simpleSearchLogs}
-                                            simpleSearchPhase={simpleSearchPhase}
-                                            // 深度检索回调
-                                            onDeepSearchDraftChange={handleDeepSearchDraftChange}
-                                            onDeepSearchDraftConfirm={handleDeepSearchDraftConfirm}
-                                            onDeepSearchDraftRegenerate={handleDeepSearchDraftRegenerate}
-                                            onDeepSearchDraftCancel={handleDeepSearchDraftCancel}
-                                            onDeepSearchGenerateInterpretation={handleDeepSearchGenerateInterpretation}
-                                            // 文档分析回调
-                                            onDocumentAnalysisDraftChange={handleDocumentAnalysisDraftChange}
-                                            onDocumentAnalysisDraftConfirm={handleDocumentAnalysisDraftConfirm}
-                                            onDocumentAnalysisDraftRegenerate={handleDocumentAnalysisDraftRegenerate}
-                                            onDocumentAnalysisDraftCancel={handleDocumentAnalysisDraftCancel}
-                                            onDocumentAnalysisGenerateInterpretation={handleDocumentAnalysisGenerateInterpretation}
+                                            isStreaming={isBusy}
+                                            onDeepSearchDraftConfirm={() => workflow.confirmDraft()}
+                                            onDeepSearchDraftChange={(draft) => workflow.confirmDraft(draft)}
+                                            onDocumentAnalysisDraftConfirm={() => workflow.confirmDraft()}
+                                            onDocumentAnalysisDraftChange={(draft) => workflow.confirmDraft(draft)}
+                                            onDeepSearchGenerateInterpretation={(books, draft) =>
+                                                workflow.generateInterpretation(books, draft)
+                                            }
+                                            onDocumentAnalysisGenerateInterpretation={(books, draft) =>
+                                                workflow.generateInterpretation(books, draft)
+                                            }
+                                            onSecondaryRetrieval={(books, query) =>
+                                                workflow.secondaryRetrieval(books, query)
+                                            }
+                                            onGenerateInterpretation={(selectedBookIds) => {
+                                                const selectedBooks = messages
+                                                    .flatMap((m) => {
+                                                        const c = (m as { content?: unknown }).content;
+                                                        if (c && typeof c === 'object' && 'books' in c) {
+                                                            return (c as { books: unknown[] }).books;
+                                                        }
+                                                        return [];
+                                                    })
+                                                    .filter(
+                                                        (b) =>
+                                                            b &&
+                                                            typeof b === 'object' &&
+                                                            'id' in b &&
+                                                            selectedBookIds.has((b as { id: string }).id)
+                                                    ) as unknown as BookInfo[];
+                                                workflow.generateInterpretation(selectedBooks);
+                                            }}
                                         />
                                     </div>
                                 </div>
@@ -1505,112 +257,22 @@ export default function AIBotOverlay() {
 
                             <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-[#1a1a1a] to-transparent pointer-events-none z-10" />
 
-                            <form id="aibot-form" className="space-y-3 px-6 md:px-10 py-4 border-t border-[#C9A063]/20 bg-[#1a1a1a] relative z-10 shrink-0" onSubmit={handleSubmit}>
-                                {/* 文档上传工作流 */}
-                                <div className="relative" style={{ minHeight: '150px' }}>
-                                    <textarea
-                                        value={inputValue}
-                                        onChange={(e) => setInputValue(e.target.value)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter' && e.ctrlKey) {
-                                                e.preventDefault();
-                                                // 创建一个模拟的表单事件
-                                                const syntheticEvent = {
-                                                    preventDefault: () => { },
-                                                    currentTarget: e.currentTarget.form
-                                                } as React.FormEvent<HTMLFormElement>;
-                                                handleSubmit(syntheticEvent);
-                                            }
-                                        }}
-                                        placeholder={
-                                            mode === AIBOT_MODES.DEEP ? '输入检索主题，开始深度检索' :
-                                                mode === AIBOT_MODES.DOCUMENT ? '文档分析模式中，请等待分析完成...' :
-                                                    '想检索关于什么主题的图书？或点击左下角上传文档分析'
-                                        }
-                                        className="w-full h-24 bg-[#111111]/80 border border-[#C9A063]/20 rounded-none p-4 text-sm text-[#E8E6DC] focus:outline-none focus:border-[#C9A063] font-info-content about-overlay-scroll overflow-y-auto"
-                                        disabled={isStreaming || isGeneratingInterpretation || isSearching || isDeepSearchDraftStreaming || isDocumentAnalysisDraftStreaming || mode === AIBOT_MODES.DOCUMENT}
-                                    />
-
-                                    {/* 文档上传工作流组件 - 在简单模式和文档模式下显示 */}
-                                    {(mode === AIBOT_MODES.TEXT || mode === AIBOT_MODES.DOCUMENT) && (
-                                        <DocumentUploadWorkflow
-                                            controller={documentUploadController}
-                                        />
-                                    )}
-                                </div>
-
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3 text-xs text-[#7C7A74]">
-                                        <DocumentUploadButton
-                                            onFilesSelected={documentUploadController.handleFilesSelected}
-                                            disabled={
-                                                isStreaming ||
-                                                isGeneratingInterpretation ||
-                                                isSearching ||
-                                                isDeepSearchDraftStreaming ||
-                                                isDocumentAnalysisDraftStreaming ||
-                                                mode === AIBOT_MODES.DOCUMENT
-                                            }
-                                            uploadedCount={documentUploadController.uploadedDocuments.length}
-                                            maxFiles={MAX_DOCUMENTS}
-                                        />
-                                        <button
-                                            type="button"
-                                            className={clsx(
-                                                'px-3 py-1 border text-xs font-mono tracking-wider transition-colors duration-300',
-                                                mode === AIBOT_MODES.DEEP
-                                                    ? 'border-[#C9A063] bg-[#C9A063] text-[#1a1a1a]'
-                                                    : 'border-[#C9A063]/30 text-[#C9A063] hover:bg-[#C9A063] hover:text-[#1a1a1a]'
-                                            )}
-                                            onClick={() => setMode(mode === AIBOT_MODES.DEEP ? AIBOT_MODES.TEXT : AIBOT_MODES.DEEP)}
-                                        >
-                                            深度检索
-                                        </button>
-                                        {/* 模式指示器 */}
-                                        <div className="flex items-center gap-1 text-xs">
-                                            <span
-                                                className="inline-block w-2 h-2 rounded-full shrink-0"
-                                                style={{
-                                                    backgroundColor: displayMode === AIBOT_MODES.TEXT ? '#3B82F6' : displayMode === AIBOT_MODES.DEEP ? '#C9A063' : '#A855F7'
-                                                }}
-                                            ></span>
-                                            <span style={{
-                                                color: displayMode === AIBOT_MODES.TEXT ? '#60A5FA' : displayMode === AIBOT_MODES.DEEP ? '#C9A063' : '#C084FC'
-                                            }}>
-                                                {displayMode === AIBOT_MODES.TEXT ? '简单' : displayMode === AIBOT_MODES.DEEP ? '深度' : '文档'}
-                                            </span>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={handleClear}
-                                            disabled={isStreaming}
-                                            className="px-3 py-1 border border-[#C9A063]/30 text-[#C9A063] hover:bg-[#C9A063] hover:text-[#1a1a1a] transition-colors duration-300 disabled:cursor-not-allowed disabled:text-[#555] text-xs font-mono tracking-wider"
-                                        >
-                                            清空
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={handleDownload}
-                                            className="px-3 py-1 border border-[#C9A063]/30 text-[#C9A063] hover:bg-[#C9A063] hover:text-[#1a1a1a] transition-colors duration-300 text-xs font-mono tracking-wider"
-                                        >
-                                            下载
-                                        </button>
-                                    </div>
-                                    <button
-                                        type="submit"
-                                        disabled={isStreaming || isSearching || isDeepSearchDraftStreaming || isDocumentAnalysisDraftStreaming || mode === AIBOT_MODES.DOCUMENT || documentUploadController.statusStats.uploading > 0}
-                                        className="px-4 py-2 border border-[#C9A063] bg-[#C9A063] text-[#1a1a1a] text-sm font-mono tracking-wider disabled:opacity-50 transition-colors duration-300 hover:bg-[#C9A063]/20 hover:text-[#C9A063]"
-                                    >
-                                        {mode === AIBOT_MODES.DOCUMENT ? '文档分析模式' :
-                                            documentUploadController.statusStats.ready > 0 && documentUploadController.statusStats.uploading === 0 ? `开始分析 (${documentUploadController.statusStats.ready})` :
-                                                isSearching ? '检索中...' :
-                                                    isDeepSearchDraftStreaming || isDocumentAnalysisDraftStreaming ? '生成草稿中...' :
-                                                        deepSearchPhase === 'draft-confirm' ? '确认检索' :
-                                                            deepSearchPhase !== 'idle' && deepSearchPhase !== 'completed' && isDeepMode ? '深度检索进行中...' :
-                                                                '发送'}
-                                    </button>
-                                </div>
-                            </form>
+                            {/* 统一输入栏 */}
+                            <AIBotInputBar
+                                inputValue={inputValue}
+                                onInputChange={setInputValue}
+                                onSubmit={handleSubmit}
+                                mode={mode}
+                                onModeToggle={() =>
+                                    setMode(mode === AIBOT_MODES.DEEP ? AIBOT_MODES.TEXT : AIBOT_MODES.DEEP)
+                                }
+                                onClear={handleClear}
+                                onDownload={handleDownload}
+                                disabled={isBusy}
+                                isBusy={isBusy}
+                                busyLabel={busyLabel}
+                                documentUploadController={documentUploadController}
+                            />
 
                             {error && (
                                 <p className="px-6 md:px-10 py-3 border-t border-[#C9A063]/10 text-xs text-[#C76B6B] bg-[#1a1a1a] relative z-10">
@@ -1618,6 +280,7 @@ export default function AIBotOverlay() {
                                 </p>
                             )}
 
+                            {/* 底部信息栏 */}
                             <div className="px-6 md:px-10 py-3 border-t border-[#C9A063]/20 flex justify-between items-center bg-[#1a1a1a] relative z-10">
                                 <span className="font-mono text-[10px] text-[#C9A063]/40 tracking-widest">
                                     BOOK ECHOES SHANGHAI LIBRARY
