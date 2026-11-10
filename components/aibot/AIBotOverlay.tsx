@@ -269,7 +269,6 @@ export default function AIBotOverlay() {
                                 onClear={handleClear}
                                 onDownload={handleDownload}
                                 disabled={isBusy}
-                                isBusy={isBusy}
                                 busyLabel={busyLabel}
                                 documentUploadController={documentUploadController}
                             />

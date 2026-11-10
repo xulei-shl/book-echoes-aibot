@@ -191,9 +191,9 @@ export default function UnifiedBookSelection({
                                         key={book.id}
                                         book={book}
                                         isSelected={isSelectionMode ? selectedIds.has(book.id) : false}
-                                        onSelect={isSelectionMode ? handleBookSelect : undefined}
+                                        onSelectionChange={isSelectionMode ? handleBookSelect : undefined}
                                         disabled={!isSelectionMode || isLoading}
-                                        selectable={isSelectionMode}
+                                        showCheckbox={isSelectionMode}
                                     />
                                 ))}
                             </div>

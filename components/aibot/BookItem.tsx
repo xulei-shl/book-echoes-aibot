@@ -9,13 +9,15 @@ export default function BookItem({
     isCompact = false,
     isSelected = false,
     onSelectionChange,
-    showCheckbox = false
+    showCheckbox = false,
+    disabled = false
 }: { 
     book: BookInfo; 
     isCompact?: boolean;
     isSelected?: boolean;
     onSelectionChange?: (bookId: string, isSelected: boolean) => void;
     showCheckbox?: boolean;
+    disabled?: boolean;
 }) {
     const [isExpanded, setIsExpanded] = useState(false);
     const [localSelected, setLocalSelected] = useState(isSelected);
@@ -58,7 +60,8 @@ export default function BookItem({
                         type="checkbox"
                         checked={localSelected}
                         onChange={(e) => handleSelectionChange(e.target.checked)}
-                        className="w-4 h-4 text-[#C9A063] bg-[#1B1B1B] border-[#343434] rounded focus:ring-[#C9A063] focus:ring-2"
+                        disabled={disabled}
+                        className="w-4 h-4 text-[#C9A063] bg-[#1B1B1B] border-[#343434] rounded focus:ring-[#C9A063] focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
                         style={{ accentColor: '#C9A063' }}
                     />
                 </div>
