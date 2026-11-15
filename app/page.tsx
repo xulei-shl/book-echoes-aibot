@@ -12,18 +12,29 @@ export default async function Home() {
   const latestMonth = months.length > 0 ? months[0] : null;
 
   // Extract images from the latest month's books
-  // We prioritize originalImageUrl, but fallback to coverImageUrl if needed
-  const images = latestMonth?.books
-    .map(book => book.originalImageUrl || book.coverImageUrl)
-    .filter((url): url is string => !!url) || [];
+  // Provide horizontal, vertical, and fallback image URLs for adaptive layout
+  const heroCards = latestMonth?.books
+    .map(book => {
+      const horizontalUrl = book.originalImageUrl;
+      const verticalUrl = book.cardImageUrl || book.coverImageUrl;
+      const primaryUrl = horizontalUrl || verticalUrl || '';
+      return {
+        id: String(book['书目条码'] || ''),
+        image: primaryUrl,
+        horizontalUrl,
+        verticalUrl,
+        title: book['豆瓣书名'] || '',
+      };
+    })
+    .filter(card => !!card.image) || [];
 
-  // If no images found, we might want a fallback or just show empty state
-  // For now, we assume there are images if there is a month.
+  const images = heroCards.map(c => c.image);
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[var(--background)]">
       {latestMonth ? (
         <HomeHero
+          cards={heroCards}
           images={images}
           targetLink={`/${latestMonth.id}`}
           subtitle={latestMonth.label}

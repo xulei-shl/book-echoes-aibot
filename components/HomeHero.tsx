@@ -7,8 +7,17 @@ import { useRouter } from 'next/navigation';
 import TopNav from './TopNav';
 import Orb from './Orb';
 
+export interface HeroCardData {
+    id: string;
+    image: string;
+    verticalUrl?: string;
+    horizontalUrl?: string;
+    title?: string;
+}
+
 interface HomeHeroProps {
-    images: string[];
+    images?: string[];
+    cards?: HeroCardData[];
     targetLink: string;
     subtitle: string;
 }
@@ -44,50 +53,126 @@ function getServerOrbSizeSnapshot() {
     return 1.03;
 }
 
-export default function HomeHero({ images, targetLink, subtitle }: HomeHeroProps) {
+function getIsMobileSnapshot() {
+    return window.innerWidth < 768;
+}
+
+function getServerIsMobileSnapshot() {
+    return false;
+}
+
+function getInitialAspect(url?: string): number {
+    if (!url) return 760 / 1440;
+    if (url.includes('_original') || url.includes('original')) {
+        return 1792 / 1104;
+    }
+    if (url.includes('-S')) {
+        return 760 / 1440;
+    }
+    if (url.includes('cover')) {
+        return 2 / 3;
+    }
+    return 760 / 1440;
+}
+
+export default function HomeHero({ images, cards, targetLink, subtitle }: HomeHeroProps) {
     const router = useRouter();
     const [currentIndex, setCurrentIndex] = useState(0);
+    const [aspectRatios, setAspectRatios] = useState<Record<string, number>>({});
     const orbSize = useSyncExternalStore(subscribeResize, getOrbSizeSnapshot, getServerOrbSizeSnapshot);
+    const isMobile = useSyncExternalStore(subscribeResize, getIsMobileSnapshot, getServerIsMobileSnapshot);
     const canHover = useSyncExternalStore(subscribeHover, getHoverSnapshot, getServerHoverSnapshot);
     const shouldReduceMotion = useReducedMotion();
 
+    // 格式化卡片列表，无缝兼容纯字符串数组或结构化卡片对象
+    const heroCards: HeroCardData[] = (cards && cards.length > 0)
+        ? cards
+        : (images || []).map((img, i) => ({
+            id: `card-${i}`,
+            image: img,
+            horizontalUrl: img.includes('_original') ? img : undefined,
+            verticalUrl: !img.includes('_original') ? img : undefined,
+        }));
+
+    const cardCount = heroCards.length;
+
     useEffect(() => {
-        if (images.length <= 1) return;
+        if (cardCount <= 1) return;
 
         const timer = setInterval(() => {
-            setCurrentIndex((prev) => (prev + 1) % images.length);
+            setCurrentIndex((prev) => (prev + 1) % cardCount);
         }, 6000);
 
         return () => clearInterval(timer);
-    }, [images.length]);
+    }, [cardCount]);
 
     const handleImageError = () => {
         console.warn(`Failed to load image at index ${currentIndex}`);
     };
 
+    const handleImageAspect = (url: string, width: number, height: number) => {
+        if (!url || !width || !height) return;
+        const ratio = width / height;
+        setAspectRatios((prev) => {
+            if (prev[url] === ratio) return prev;
+            return { ...prev, [url]: ratio };
+        });
+    };
+
+    // 预探测卡片实际物理尺寸，提前掌握画幅宽高比
+    useEffect(() => {
+        heroCards.forEach((card) => {
+            const url = isMobile && card.verticalUrl ? card.verticalUrl : (card.horizontalUrl || card.image);
+            if (!url || aspectRatios[url]) return;
+
+            const img = new window.Image();
+            img.src = url;
+            img.onload = () => {
+                if (img.naturalWidth && img.naturalHeight) {
+                    handleImageAspect(url, img.naturalWidth, img.naturalHeight);
+                }
+            };
+        });
+    }, [heroCards, isMobile, aspectRatios]);
+
     // 统一的书法单字物理弹簧配置（增加阻尼，杜绝失控晃动）
     const glyphSpring = { type: 'spring', stiffness: 300, damping: 20 } as const;
     const isInteractiveHover = !shouldReduceMotion && canHover;
 
-    const prevIndex = (currentIndex - 1 + images.length) % images.length;
-    const nextIndex = (currentIndex + 1) % images.length;
+    const prevIndex = (currentIndex - 1 + cardCount) % cardCount;
+    const nextIndex = (currentIndex + 1) % cardCount;
 
-    // 计算三联流动画廊的当前槽位卡片组，保持 key 稳定以触发自然的流动位移
+    // 计算三联流动画廊的当前槽位卡片组，携带自适应横竖版状态
     const visibleCards = (() => {
-        if (images.length === 0) return [];
-        if (images.length === 1) {
-            return [{ key: `card-${currentIndex}`, image: images[currentIndex], slot: 'current' as const, index: currentIndex }];
+        if (cardCount === 0) return [];
+
+        const resolveCardInfo = (c: HeroCardData, slot: 'current' | 'prev' | 'next', index: number) => {
+            const resolvedUrl = isMobile && c.verticalUrl ? c.verticalUrl : (c.horizontalUrl || c.image);
+            const aspect = aspectRatios[resolvedUrl] || getInitialAspect(resolvedUrl);
+            const isLandscape = aspect >= 1.15;
+            return {
+                key: `card-${c.id || index}-${resolvedUrl}`,
+                image: resolvedUrl,
+                slot,
+                index,
+                aspect,
+                isLandscape,
+            };
+        };
+
+        if (cardCount === 1) {
+            return [resolveCardInfo(heroCards[currentIndex], 'current', currentIndex)];
         }
-        if (images.length === 2) {
+        if (cardCount === 2) {
             return [
-                { key: `card-${currentIndex}`, image: images[currentIndex], slot: 'current' as const, index: currentIndex },
-                { key: `card-${nextIndex}`, image: images[nextIndex], slot: 'next' as const, index: nextIndex },
+                resolveCardInfo(heroCards[currentIndex], 'current', currentIndex),
+                resolveCardInfo(heroCards[nextIndex], 'next', nextIndex),
             ];
         }
         return [
-            { key: `card-${prevIndex}`, image: images[prevIndex], slot: 'prev' as const, index: prevIndex },
-            { key: `card-${currentIndex}`, image: images[currentIndex], slot: 'current' as const, index: currentIndex },
-            { key: `card-${nextIndex}`, image: images[nextIndex], slot: 'next' as const, index: nextIndex },
+            resolveCardInfo(heroCards[prevIndex], 'prev', prevIndex),
+            resolveCardInfo(heroCards[currentIndex], 'current', currentIndex),
+            resolveCardInfo(heroCards[nextIndex], 'next', nextIndex),
         ];
     })();
 
@@ -154,6 +239,36 @@ export default function HomeHero({ images, targetLink, subtitle }: HomeHeroProps
                     }}
                 />
 
+                {/* 背景动态氛围弥散层 - 为横竖版提供柔和深邃的景深底色，消弭四周黑场断层 */}
+                <AnimatePresence initial={false}>
+                    {heroCards[currentIndex] && (
+                        <motion.div
+                            key={`ambient-${heroCards[currentIndex].id || currentIndex}`}
+                            className="absolute inset-0 z-0 overflow-hidden pointer-events-none select-none"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 0.24 }}
+                            exit={{ opacity: 0 }}
+                            transition={{
+                                duration: shouldReduceMotion ? 0.3 : 0.8,
+                                ease: 'easeInOut',
+                            }}
+                        >
+                            <Image
+                                src={
+                                    isMobile && heroCards[currentIndex].verticalUrl
+                                        ? heroCards[currentIndex].verticalUrl
+                                        : (heroCards[currentIndex].horizontalUrl || heroCards[currentIndex].image)
+                                }
+                                alt="Ambient Atmosphere"
+                                fill
+                                className="object-cover blur-3xl scale-110"
+                                priority={currentIndex === 0}
+                                sizes="100vw"
+                            />
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
                 {/* 书海画廊三联折屏展台（Triptych Fluid Carousel Stage） */}
                 <div className="absolute inset-0 z-10 flex items-center justify-center overflow-hidden">
                     <div className="relative flex items-center justify-center w-full max-w-[1920px] h-full">
@@ -162,24 +277,38 @@ export default function HomeHero({ images, targetLink, subtitle }: HomeHeroProps
                                 const isCurrent = card.slot === 'current';
                                 const isPrev = card.slot === 'prev';
                                 const isNext = card.slot === 'next';
+                                const isLandscape = card.isLandscape;
+
+                                // 弹性位移：横版由于宽度较大，降低相对百分比偏移量，避免越界或重叠
+                                const sideOffset = isLandscape ? 82 : 124;
+                                const enterOffset = isLandscape ? 120 : 165;
+                                const currentScale = isLandscape ? 1.05 : 1.15;
 
                                 return (
                                     <motion.div
                                         key={card.key}
-                                        className={`absolute h-[85vh] sm:h-[88vh] lg:h-[92vh] aspect-[760/1440] max-w-[90vw] rounded-sm overflow-hidden select-none pointer-events-none will-change-[transform,opacity] shadow-[0_25px_60px_-10px_rgba(0,0,0,0.92)] border border-[#E8E6DC]/10 ${!isCurrent ? 'hidden md:block' : 'block'}`}
+                                        layout
+                                        className={`absolute rounded-sm overflow-hidden select-none pointer-events-none will-change-[transform,opacity] shadow-[0_25px_60px_-10px_rgba(0,0,0,0.92)] border border-[#E8E6DC]/10 ${!isCurrent ? 'hidden md:block' : 'block'} ${
+                                            isLandscape
+                                                ? 'w-[90vw] sm:w-[84vw] md:w-[78vw] lg:w-[70vw] max-w-[1120px] max-h-[62vh] sm:max-h-[68vh] lg:max-h-[72vh] h-auto'
+                                                : 'h-[85vh] sm:h-[88vh] lg:h-[92vh] max-w-[90vw] w-auto'
+                                        }`}
+                                        style={{
+                                            aspectRatio: `${card.aspect}`,
+                                        }}
                                         initial={{
-                                            x: isNext ? '165%' : isPrev ? '-165%' : '60%',
+                                            x: isNext ? `${enterOffset}%` : isPrev ? `-${enterOffset}%` : '50%',
                                             scale: isCurrent ? 0.95 : 0.72,
                                             opacity: 0,
                                         }}
                                         animate={{
-                                            x: isCurrent ? '0%' : isPrev ? '-124%' : '124%',
-                                            scale: isCurrent ? 1.15 : 0.82,
+                                            x: isCurrent ? '0%' : isPrev ? `-${sideOffset}%` : `${sideOffset}%`,
+                                            scale: isCurrent ? currentScale : 0.82,
                                             opacity: isCurrent ? 1.0 : 0.38,
                                             zIndex: isCurrent ? 20 : 10,
                                         }}
                                         exit={{
-                                            x: isPrev ? '-165%' : '165%',
+                                            x: isPrev ? `-${enterOffset}%` : `${enterOffset}%`,
                                             scale: 0.72,
                                             opacity: 0,
                                             zIndex: 5,
@@ -190,15 +319,25 @@ export default function HomeHero({ images, targetLink, subtitle }: HomeHeroProps
                                                 : { type: 'spring', damping: 28, stiffness: 190, mass: 0.85 }
                                         }
                                     >
-                                        {/* 海报原画主体图片 */}
+                                        {/* 海报主体图片：容器比例与自然比例精准贴合，消除死区黑边 */}
                                         <Image
                                             src={card.image}
                                             alt={`Book Poster ${card.index + 1}`}
                                             fill
-                                            className="object-contain"
+                                            className="object-cover"
                                             priority={isCurrent && currentIndex === 0}
+                                            onLoad={(e) => {
+                                                const img = e.currentTarget;
+                                                if (img.naturalWidth && img.naturalHeight) {
+                                                    handleImageAspect(card.image, img.naturalWidth, img.naturalHeight);
+                                                }
+                                            }}
                                             onError={handleImageError}
-                                            sizes="(max-width: 1200px) 500px, 750px"
+                                            sizes={
+                                                isLandscape
+                                                    ? '(max-width: 1200px) 85vw, 1120px'
+                                                    : '(max-width: 1200px) 500px, 750px'
+                                            }
                                         />
 
                                         {/* 主角海报独享：宋金高光精工边线与立体暖金辉光（平滑插值淡入淡出，零跳变） */}
