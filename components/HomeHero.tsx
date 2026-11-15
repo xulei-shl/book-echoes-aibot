@@ -279,10 +279,10 @@ export default function HomeHero({ images, cards, targetLink, subtitle }: HomeHe
                                 const isNext = card.slot === 'next';
                                 const isLandscape = card.isLandscape;
 
-                                // 弹性位移：横版由于宽度较大，降低相对百分比偏移量，避免越界或重叠
-                                const sideOffset = isLandscape ? 82 : 124;
-                                const enterOffset = isLandscape ? 120 : 165;
-                                const currentScale = isLandscape ? 1.05 : 1.15;
+                                // 弹性位移与尺寸基准：轮播图尺寸紧密契合中心圆形光晕（Orb 直径约 82.4vh / 92vw），稍大微凸，克制内敛
+                                const sideOffset = isLandscape ? 104 : 124;
+                                const enterOffset = isLandscape ? 135 : 165;
+                                const currentScale = 1.0;
 
                                 return (
                                     <motion.div
@@ -290,8 +290,8 @@ export default function HomeHero({ images, cards, targetLink, subtitle }: HomeHe
                                         layout
                                         className={`absolute rounded-sm overflow-hidden select-none pointer-events-none will-change-[transform,opacity] shadow-[0_25px_60px_-10px_rgba(0,0,0,0.92)] border border-[#E8E6DC]/10 ${!isCurrent ? 'hidden md:block' : 'block'} ${
                                             isLandscape
-                                                ? 'w-[90vw] sm:w-[84vw] md:w-[78vw] lg:w-[70vw] max-w-[1120px] max-h-[62vh] sm:max-h-[68vh] lg:max-h-[72vh] h-auto'
-                                                : 'h-[85vh] sm:h-[88vh] lg:h-[92vh] max-w-[90vw] w-auto'
+                                                ? 'w-[90vw] sm:w-[86vh] max-w-[92vw] sm:max-w-[88vh] max-h-[55vh] sm:max-h-[58vh] h-auto'
+                                                : 'h-[68vh] sm:h-[78vh] lg:h-[86vh] max-w-[88vw] sm:max-w-[90vw] w-auto'
                                         }`}
                                         style={{
                                             aspectRatio: `${card.aspect}`,
@@ -335,8 +335,8 @@ export default function HomeHero({ images, cards, targetLink, subtitle }: HomeHe
                                             onError={handleImageError}
                                             sizes={
                                                 isLandscape
-                                                    ? '(max-width: 1200px) 85vw, 1120px'
-                                                    : '(max-width: 1200px) 500px, 750px'
+                                                    ? '(max-width: 768px) 92vw, (max-width: 1280px) 86vh, 960px'
+                                                    : '(max-width: 768px) 88vw, (max-width: 1280px) 500px, 650px'
                                             }
                                         />
 
