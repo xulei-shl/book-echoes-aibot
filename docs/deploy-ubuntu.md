@@ -190,6 +190,32 @@ npm run build
 sudo systemctl restart book-echoes.service
 ```
 
+### 4.4 修改 `.env` / `.env.local` 后的生效方式
+
+改环境变量不一定要重新构建，取决于变量类型：
+
+| 变量类型 | 示例 | 生效方式 |
+|---------|------|---------|
+| 服务端变量 | `R2_*`、`R2_PUBLIC_URL`、`AIBOT_LLM_*`、`BOOK_API_BASE_URL`、`JINA_API_KEY`、`TAVILY_API_KEY`、`EMBEDDING_*`、`SEARCH_API_KEY`、`SEMANTIC_SEARCH_ENABLED` | 只需重启：`sudo systemctl restart book-echoes.service` |
+| `NEXT_PUBLIC_*` 变量 | `NEXT_PUBLIC_R2_PUBLIC_URL`、`NEXT_PUBLIC_ENABLE_AIBOT_LOCAL`、`NEXT_PUBLIC_ENABLE_SEMANTIC_SEARCH` | 必须重新构建再重启：`npm run build && sudo systemctl restart book-echoes.service` |
+| 语义检索阈值类 | `SEMANTIC_SEARCH_FIT_GATE_POSITION`、`SEMANTIC_SEARCH_W_FIT`、`SEMANTIC_SEARCH_FACET_WEIGHT_*`、`SEMANTIC_SEARCH_RRF_K` 等 | 无需重启，下一次请求即生效（每次请求读取、不缓存） |
+
+说明：
+
+- `next start` 启动时会重新加载 `.env` / `.env.local`，所以服务端变量改完重启进程即可，不需要 `npm run build`。
+- `NEXT_PUBLIC_*` 在 `npm run build` 时被内联进客户端 JS 常量（如 `app/layout.tsx`、`components/HomeNavigation.tsx`），只重启进程不会变化，必须重新构建。
+- 语义检索阈值类变量在 `.env.example` 中标注为「线上应急调参」，不随构建缓存；恢复默认只需删除对应变量。
+
+最稳妥的做法（不区分类型时）：
+
+```bash
+cd /opt/book-echoes-aibot
+npm run build
+sudo systemctl restart book-echoes.service
+```
+
+> **注意：** 修改 `.env` 不会影响已构建的 `.next` 中内联的 `NEXT_PUBLIC_*` 值，务必确认是否重新构建。
+
 ---
 
 ## 5. 日志查看
