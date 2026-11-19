@@ -6,24 +6,28 @@ export interface AIBotHeaderProps {
 
 export default function AIBotHeader({ onClose }: AIBotHeaderProps) {
     return (
-        <header className="flex items-center justify-between px-4 sm:px-6 md:px-10 py-4 md:py-6 border-b border-[#C9A063]/20 shrink-0 relative z-10 bg-[#1a1a1a] gap-3">
-            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                <div className="w-2 h-2 bg-[#C9A063] shrink-0" />
-                <div className="min-w-0">
-                    <p className="font-mono text-[#C9A063] tracking-[0.3em] text-sm uppercase truncate">AIBot</p>
-                    <p className="text-xs text-[#C9A063]/50 mt-0.5 truncate">本地对话 · 仅限本地调试，云端默认关闭</p>
+        <header className="flex items-center justify-between px-4 sm:px-6 md:px-8 py-2.5 sm:py-3 border-b border-[#C9A063]/20 shrink-0 relative z-10 bg-[#161514] gap-3">
+            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                <div className="w-1.5 h-1.5 bg-[#C9A063] rounded-full shrink-0 animate-pulse" />
+                <div className="flex items-baseline gap-2 min-w-0 flex-wrap">
+                    <p className="font-mono text-[#C9A063] tracking-[0.25em] text-sm font-semibold uppercase shrink-0">AIBot</p>
+                    <span className="text-[11px] text-[#A2A09A] font-info-content truncate">
+                        书海回响深度书目智能体
+                    </span>
+                    <span className="hidden sm:inline-block text-[10px] text-[#C9A063]/40 font-mono tracking-wider">
+                        · 本地模式
+                    </span>
                 </div>
             </div>
-            <div className="flex items-center gap-3 shrink-0">
+            <div className="flex items-center gap-2 shrink-0">
                 <button
                     type="button"
                     onClick={onClose}
-                    className="group relative w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center border border-[#C9A063]/30 hover:bg-[#C9A063] transition-colors duration-300 cursor-pointer shrink-0"
-                    aria-label="Close"
+                    className="group relative w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center border border-[#C9A063]/30 hover:border-[#C9A063] hover:bg-[#C9A063] active:scale-[0.96] transition-[background-color,border-color,transform] duration-150 ease-out cursor-pointer shrink-0"
+                    aria-label="关闭对话弹窗"
+                    title="关闭 (Esc)"
                 >
-                    <span className="font-mono text-[#C9A063] group-hover:text-[#1a1a1a] text-xl transition-colors">×</span>
-                    <div className="absolute top-0 left-0 w-1 h-1 border-t border-l border-[#C9A063] opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <div className="absolute bottom-0 right-0 w-1 h-1 border-b border-r border-[#C9A063] opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <span className="font-mono text-[#C9A063] group-hover:text-[#121110] text-lg leading-none transition-colors duration-150">×</span>
                 </button>
             </div>
         </header>

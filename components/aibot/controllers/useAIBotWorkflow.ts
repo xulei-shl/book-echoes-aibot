@@ -496,6 +496,26 @@ export function useAIBotWorkflow() {
         [appendMessage, getNewSignal, state]
     );
 
+    // 重新生成草稿
+    const regenerateDraft = useCallback(async () => {
+        if (state.status !== 'draft-review') return;
+        const { source, userInput } = state;
+        if (source === 'deep') {
+            await startDeepSearch(userInput);
+        } else if (source === 'document') {
+            const docs = useAIBotStore.getState().uploadedDocuments.filter((d) => d.status === 'ready');
+            if (docs.length > 0) {
+                await startDocumentAnalysis(docs);
+            }
+        }
+    }, [startDeepSearch, startDocumentAnalysis, state]);
+
+    // 取消草稿
+    const cancelDraft = useCallback(() => {
+        cancelOngoing();
+        dispatch({ type: 'RESET' });
+    }, [cancelOngoing]);
+
     // ========== 5. 选书与状态切换 ==========
     const selectBook = useCallback((bookId: string, isSelected?: boolean) => {
         dispatch({ type: 'TOGGLE_BOOK_SELECTION', bookId, isSelected });
@@ -697,6 +717,8 @@ export function useAIBotWorkflow() {
         startDeepSearch,
         startDocumentAnalysis,
         confirmDraft,
+        regenerateDraft,
+        cancelDraft,
         selectBook,
         selectBooksBatch,
         generateInterpretation,

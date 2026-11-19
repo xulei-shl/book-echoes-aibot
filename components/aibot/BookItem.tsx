@@ -65,16 +65,16 @@ export default function BookItem({
         <div
             onClick={handleCardClick}
             className={clsx(
-                'book-item group relative flex flex-col rounded-lg border transition-all duration-200 select-none mb-2.5',
+                'book-item group relative flex flex-col rounded-md border transition-[background-color,border-color,box-shadow] duration-150 select-none mb-2',
                 showCheckbox && !disabled ? 'cursor-pointer' : 'cursor-default',
                 localSelected
-                    ? 'border-[#C9A063] bg-[#C9A063]/10 shadow-[0_0_16px_rgba(201,160,99,0.18)]'
-                    : 'border-[#C9A063]/25 bg-[#171615]/85 hover:border-[#C9A063]/50 hover:bg-[#1d1b19]/90 shadow-[0_4px_16px_rgba(0,0,0,0.35)]',
+                    ? 'border-[#C9A063] bg-[#C9A063]/12 shadow-[0_0_12px_rgba(201,160,99,0.2)]'
+                    : 'border-[#C9A063]/25 bg-[#171615]/90 hover:border-[#C9A063]/50 hover:bg-[#1c1a18]/95',
                 disabled && 'opacity-60 cursor-not-allowed'
             )}
         >
             {/* 上半部分：图书卡片摘要行 */}
-            <div className="flex items-start gap-3 p-3.5">
+            <div className="flex items-start gap-3 p-3">
                 {/* 勾选复选框 */}
                 {showCheckbox && (
                     <div
@@ -88,7 +88,7 @@ export default function BookItem({
                     >
                         <div
                             className={clsx(
-                                'w-5 h-5 rounded border flex items-center justify-center transition-all duration-150',
+                                'w-5 h-5 rounded-sm border flex items-center justify-center transition-[background-color,border-color] duration-150',
                                 localSelected
                                     ? 'bg-[#C9A063] border-[#C9A063] text-[#121110] shadow-[0_0_8px_rgba(201,160,99,0.4)]'
                                     : 'bg-[#141312]/80 border-[#C9A063]/40 text-transparent hover:border-[#C9A063]/80'
@@ -112,13 +112,13 @@ export default function BookItem({
 
                 {/* 图书封面 */}
                 {book.coverUrl && (
-                    <div className="relative flex-shrink-0 w-12 h-16 rounded overflow-hidden shadow-md outline outline-1 outline-white/10 bg-[#141312]">
+                    <div className="relative flex-shrink-0 w-11 h-15 rounded-sm overflow-hidden shadow-md outline outline-1 outline-white/10 bg-[#141312]">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                             src={book.coverUrl}
                             alt={book.title}
                             loading="lazy"
-                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                            className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
                             onError={(e) => {
                                 (e.currentTarget.parentElement as HTMLElement).style.display = 'none';
                             }}
@@ -147,13 +147,13 @@ export default function BookItem({
                                     e.stopPropagation();
                                     setIsExpanded(!isExpanded);
                                 }}
-                                className="book-item-action flex-shrink-0 flex items-center gap-1 px-2 py-0.5 rounded border border-[#C9A063]/30 bg-[#141312]/70 hover:border-[#C9A063]/70 hover:bg-[#C9A063]/15 text-[#C9A063] text-[11px] font-mono tracking-wider transition-all duration-150 active:scale-[0.96]"
+                                className="book-item-action flex-shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-sm border border-[#C9A063]/30 bg-[#141312]/70 hover:border-[#C9A063]/70 hover:bg-[#C9A063]/15 text-[#C9A063] text-[11px] font-mono tracking-wider transition-[background-color,border-color,transform] duration-150 active:scale-[0.96]"
                                 title={isExpanded ? '收起简介与详情' : '展开图书完整简介与出版信息'}
                             >
                                 <span>{isExpanded ? '收起' : '简介'}</span>
                                 <motion.span
                                     animate={{ rotate: isExpanded ? 180 : 0 }}
-                                    transition={{ duration: 0.2 }}
+                                    transition={{ duration: 0.18, ease: 'easeOut' }}
                                     className="text-[9px] inline-block"
                                 >
                                     ▼
@@ -167,14 +167,14 @@ export default function BookItem({
                         {book.author}
                         {book.publisher && <span className="text-[#7C7A74]"> · {book.publisher}</span>}
                         {book.publishYear && (
-                            <span className="text-[#7C7A74] tabular-nums"> · {book.publishYear}年</span>
+                            <span className="text-[#7C7A74] tabular-nums font-mono"> · {book.publishYear}年</span>
                         )}
                     </p>
 
                     {/* 指标与评分徽标 */}
-                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
                         {book.rating !== undefined && book.rating !== null && (
-                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded bg-[#C9A063]/15 border border-[#C9A063]/30 text-[#C9A063] font-mono text-xs tabular-nums">
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded-sm bg-[#C9A063]/15 border border-[#C9A063]/30 text-[#C9A063] font-mono text-xs tabular-nums">
                                 <span>★</span>
                                 <span>{book.rating}</span>
                             </span>
@@ -201,32 +201,32 @@ export default function BookItem({
 
                     {/* 折叠状态下的亮点或摘要预览（2行截断） */}
                     {!isExpanded && (book.highlights?.length || book.description) && (
-                        <p className="mt-1.5 text-xs text-[#A2A09A] font-info-content line-clamp-2 leading-relaxed">
+                        <p className="mt-1 text-xs text-[#A2A09A] font-info-content line-clamp-2 leading-relaxed">
                             {book.highlights?.length ? book.highlights.join('；') : book.description}
                         </p>
                     )}
                 </div>
             </div>
 
-            {/* 下半部分：垂直流展开的详细信息抽屉（绝不挤压横向布局） */}
+            {/* 下半部分：垂直流展开的详细信息抽屉 */}
             <AnimatePresence>
                 {isExpanded && hasDetails && !isCompact && (
                     <motion.div
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
                         exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.22, ease: 'easeOut' }}
-                        className="overflow-hidden border-t border-[#C9A063]/20 bg-[#121110]/95 rounded-b-lg"
+                        transition={{ duration: 0.18, ease: 'easeOut' }}
+                        className="overflow-hidden border-t border-[#C9A063]/20 bg-[#141312]/95 rounded-b-md"
                     >
-                        <div className="p-4 space-y-3 font-info-content">
+                        <div className="p-3.5 space-y-2.5 font-info-content">
                             {/* 内容简介 */}
                             {book.description && (
                                 <div>
-                                    <h4 className="text-[#C9A063] font-mono font-medium text-xs tracking-wider mb-1.5 flex items-center gap-1.5">
+                                    <h4 className="text-[#C9A063] font-mono font-medium text-xs tracking-wider mb-1 flex items-center gap-1.5">
                                         <span>📖</span>
                                         <span>内容简介</span>
                                     </h4>
-                                    <div className="max-h-56 overflow-y-auto about-overlay-scroll pr-2 text-xs md:text-sm text-[#DCD9D0] leading-relaxed whitespace-pre-wrap select-text bg-[#181716]/60 p-3 rounded border border-white/5">
+                                    <div className="max-h-52 overflow-y-auto about-overlay-scroll pr-2 text-xs md:text-sm text-[#DCD9D0] leading-relaxed whitespace-pre-wrap select-text bg-[#191817]/70 p-2.5 rounded-sm border border-white/5">
                                         {book.description}
                                     </div>
                                 </div>
@@ -235,11 +235,11 @@ export default function BookItem({
                             {/* 作者简介 */}
                             {book.authorIntro && (
                                 <div>
-                                    <h4 className="text-[#C9A063] font-mono font-medium text-xs tracking-wider mb-1.5 flex items-center gap-1.5">
+                                    <h4 className="text-[#C9A063] font-mono font-medium text-xs tracking-wider mb-1 flex items-center gap-1.5">
                                         <span>✍️</span>
                                         <span>作者简介</span>
                                     </h4>
-                                    <div className="max-h-36 overflow-y-auto about-overlay-scroll pr-2 text-xs text-[#A2A09A] leading-relaxed whitespace-pre-wrap select-text bg-[#181716]/60 p-2.5 rounded border border-white/5">
+                                    <div className="max-h-32 overflow-y-auto about-overlay-scroll pr-2 text-xs text-[#A2A09A] leading-relaxed whitespace-pre-wrap select-text bg-[#191817]/70 p-2 rounded-sm border border-white/5">
                                         {book.authorIntro}
                                     </div>
                                 </div>
@@ -281,9 +281,9 @@ export default function BookItem({
                                     <div className="col-span-full flex items-center gap-1.5 flex-wrap mt-1">
                                         <span className="text-[#6F6D68]">标签: </span>
                                         {book.tags.map((tag) => (
-                                            <span
+                                             <span
                                                 key={tag}
-                                                className="px-1.5 py-0.5 rounded bg-[#C9A063]/10 border border-[#C9A063]/25 text-[#C9A063] text-[10px]"
+                                                className="px-1.5 py-0.5 rounded-sm bg-[#C9A063]/10 border border-[#C9A063]/25 text-[#C9A063] text-[10px]"
                                             >
                                                 {tag}
                                             </span>

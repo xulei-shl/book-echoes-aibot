@@ -78,16 +78,19 @@ export default function AIBotOverlay() {
         async (e: React.FormEvent) => {
             e.preventDefault();
 
-            // 若有就绪文档，优先启动文档分析
+            // 若有就绪文档且处于文档模式（或有就绪文档且输入为空），优先启动文档分析
             const readyDocs = documentUploadController.uploadedDocuments.filter(
                 (d) => d.status === 'ready'
             );
-            if (readyDocs.length > 0 && documentUploadController.statusStats.uploading === 0) {
-                await handleDocumentAnalysisStart(readyDocs);
-                return;
+            const trimmed = inputValue.trim();
+
+            if (mode === AIBOT_MODES.DOCUMENT || (readyDocs.length > 0 && !trimmed)) {
+                if (readyDocs.length > 0 && documentUploadController.statusStats.uploading === 0) {
+                    await handleDocumentAnalysisStart(readyDocs);
+                    return;
+                }
             }
 
-            const trimmed = inputValue.trim();
             if (!trimmed) return;
 
             setInputValue('');
@@ -196,19 +199,19 @@ export default function AIBotOverlay() {
                     />
                     <motion.div
                         key="aibot-dialog"
-                        className="fixed inset-x-2 sm:inset-x-4 md:inset-x-20 lg:inset-x-32 top-3 sm:top-6 md:top-12 bottom-3 sm:bottom-6 md:bottom-12 bg-[#1a1a1a]/90 backdrop-blur-xl border border-[#C9A063]/30 overflow-hidden z-[10000] pointer-events-auto flex flex-col"
+                        className="fixed inset-x-2 sm:inset-x-4 md:inset-x-12 lg:inset-x-24 xl:inset-x-36 top-2 sm:top-4 md:top-6 bottom-2 sm:bottom-4 md:bottom-6 bg-[#161514]/95 backdrop-blur-xl border border-[#C9A063]/30 overflow-hidden z-[10000] pointer-events-auto flex flex-col shadow-[0_20px_60px_rgba(0,0,0,0.85)]"
                         style={{ minHeight: 0 }}
-                        initial={{ opacity: 0, scale: 0.95 }}
+                        initial={{ opacity: 0, scale: 0.96 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                        exit={{ opacity: 0, scale: 0.96 }}
+                        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* 装饰边角 */}
-                        <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-[#C9A063] z-20 pointer-events-none" />
-                        <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-[#C9A063] z-20 pointer-events-none" />
-                        <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-[#C9A063] z-20 pointer-events-none" />
-                        <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-[#C9A063] z-20 pointer-events-none" />
+                        <div className="absolute top-0 left-0 w-3.5 h-3.5 border-t-2 border-l-2 border-[#C9A063] z-20 pointer-events-none" />
+                        <div className="absolute top-0 right-0 w-3.5 h-3.5 border-t-2 border-r-2 border-[#C9A063] z-20 pointer-events-none" />
+                        <div className="absolute bottom-0 left-0 w-3.5 h-3.5 border-b-2 border-l-2 border-[#C9A063] z-20 pointer-events-none" />
+                        <div className="absolute bottom-0 right-0 w-3.5 h-3.5 border-b-2 border-r-2 border-[#C9A063] z-20 pointer-events-none" />
 
                         {/* 水印 */}
                         <div className="absolute -bottom-24 -right-12 pointer-events-none select-none opacity-[0.03] z-0">
@@ -217,46 +220,39 @@ export default function AIBotOverlay() {
                             </span>
                         </div>
 
-                        {/* 顶栏 */}
+                        {/* 顶栏 (精简高度) */}
                         <AIBotHeader onClose={handleClose} />
 
-                        {/* 消息主体 */}
-                        <div className="relative flex-1 overflow-hidden z-10 flex flex-col" style={{ minHeight: '0' }}>
-                            <div className="relative flex-1 overflow-hidden">
-                                <div
-                                    className="h-full flex flex-col gap-6 px-4 sm:px-6 md:px-10 py-6 md:py-8 overflow-y-auto about-overlay-scroll"
-                                    style={{ minHeight: '0' }}
-                                >
-                                    <div className="flex-1 min-h-0" style={{ overflow: 'hidden' }}>
-                                        <MessageStream
-                                            messages={messages}
-                                            isStreaming={isBusy}
-                                            onDeepSearchDraftConfirm={() => workflow.confirmDraft()}
-                                            onDeepSearchDraftChange={(draft) => workflow.confirmDraft(draft)}
-                                            onDocumentAnalysisDraftConfirm={() => workflow.confirmDraft()}
-                                            onDocumentAnalysisDraftChange={(draft) => workflow.confirmDraft(draft)}
-                                            onDeepSearchGenerateInterpretation={(books, draft) =>
-                                                workflow.generateInterpretation(books, draft)
-                                            }
-                                            onDocumentAnalysisGenerateInterpretation={(books, draft) =>
-                                                workflow.generateInterpretation(books, draft)
-                                            }
-                                            onSecondaryRetrieval={(books, query) =>
-                                                workflow.secondaryRetrieval(books, query)
-                                            }
-                                            onGenerateInterpretation={(selectedBooks, userInput) =>
-                                                workflow.generateInterpretation(
-                                                    selectedBooks,
-                                                    userInput,
-                                                    'simple'
-                                                )
-                                            }
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-[#1a1a1a] to-transparent pointer-events-none z-10" />
+                        {/* 消息主体 (扁平化单一滚动区，保留全部交互) */}
+                        <div className="relative flex-1 min-h-0 z-10 flex flex-col overflow-hidden">
+                            <MessageStream
+                                messages={messages}
+                                isStreaming={isBusy}
+                                onDeepSearchDraftConfirm={() => workflow.confirmDraft()}
+                                onDeepSearchDraftChange={(draft) => workflow.confirmDraft(draft)}
+                                onDeepSearchDraftRegenerate={() => workflow.regenerateDraft()}
+                                onDeepSearchDraftCancel={() => workflow.cancelDraft()}
+                                onDocumentAnalysisDraftConfirm={() => workflow.confirmDraft()}
+                                onDocumentAnalysisDraftChange={(draft) => workflow.confirmDraft(draft)}
+                                onDocumentAnalysisDraftRegenerate={() => workflow.regenerateDraft()}
+                                onDocumentAnalysisDraftCancel={() => workflow.cancelDraft()}
+                                onDeepSearchGenerateInterpretation={(books, draft) =>
+                                    workflow.generateInterpretation(books, draft)
+                                }
+                                onDocumentAnalysisGenerateInterpretation={(books, draft) =>
+                                    workflow.generateInterpretation(books, draft)
+                                }
+                                onSecondaryRetrieval={(books, query) =>
+                                    workflow.secondaryRetrieval(books, query)
+                                }
+                                onGenerateInterpretation={(selectedBooks, userInput) =>
+                                    workflow.generateInterpretation(
+                                        selectedBooks,
+                                        userInput,
+                                        'simple'
+                                    )
+                                }
+                            />
 
                             {/* 统一输入栏 */}
                             <AIBotInputBar
@@ -271,26 +267,15 @@ export default function AIBotOverlay() {
                                 onDownload={handleDownload}
                                 disabled={isBusy}
                                 busyLabel={busyLabel}
+                                onAbort={() => workflow.cancelOngoing()}
                                 documentUploadController={documentUploadController}
                             />
 
                             {displayedError && (
-                                <p className="px-6 md:px-10 py-3 border-t border-[#C9A063]/10 text-xs text-[#C76B6B] bg-[#1a1a1a] relative z-10">
+                                <p className="px-4 sm:px-6 py-2 border-t border-[#C76B6B]/30 text-xs text-[#E58585] bg-[#C76B6B]/10 relative z-10 font-info-content">
                                     {displayedError}
                                 </p>
                             )}
-
-                            {/* 底部信息栏 */}
-                            <div className="px-4 sm:px-6 md:px-10 py-2.5 md:py-3 border-t border-[#C9A063]/20 flex justify-between items-center bg-[#1a1a1a] relative z-10">
-                                <span className="font-mono text-[10px] text-[#C9A063]/40 tracking-widest">
-                                    BOOK ECHOES SHANGHAI LIBRARY
-                                </span>
-                                <div className="flex gap-2">
-                                    <div className="w-1 h-1 bg-[#C9A063]/40 rounded-full animate-pulse" />
-                                    <div className="w-1 h-1 bg-[#C9A063]/40 rounded-full" />
-                                    <div className="w-1 h-1 bg-[#C9A063]/40 rounded-full" />
-                                </div>
-                            </div>
                         </div>
                     </motion.div>
                 </motion.div>

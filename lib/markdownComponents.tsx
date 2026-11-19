@@ -135,7 +135,7 @@ export const messageMarkdownComponents: Components = {
         <h6 className="text-xs font-semibold text-[#C9B890] mt-2 mb-1 uppercase" {...props} />
     ),
     p: (props) => (
-        <p className="text-sm leading-relaxed text-[#E8E6DC] mb-3 whitespace-pre-wrap" {...props} />
+        <p className="text-sm leading-relaxed text-[#E8E6DC] mb-3" {...props} />
     ),
     ul: (props) => (
         <ul className="list-none space-y-1 text-[#E8E6DC] mb-3" {...props} />

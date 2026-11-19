@@ -24,96 +24,64 @@ export default function DocumentListDisplay({
         return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
     };
 
-    const formatUploadTime = (date: Date): string => {
-        return date.toLocaleTimeString('zh-CN', {
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    };
-
     return (
-        <div className="bg-[#1a1a1a]/80 border border-[#C9A063]/20 p-3 max-h-32 overflow-y-auto about-overlay-scroll">
+        <div className="bg-[#141312]/90 border border-[#C9A063]/25 p-2 sm:p-2.5 space-y-1.5">
             {/* 文档列表标题 */}
-            <div className="flex items-center justify-between mb-2 text-xs text-[#C9A063]">
-                <span className="font-mono tracking-wider">已上传文档 ({documents.length}/{maxDocuments})</span>
-                <span className="text-[#C9A063]/50">支持 .md 格式</span>
+            <div className="flex items-center justify-between text-[11px] text-[#C9A063]">
+                <span className="font-mono tracking-wider font-medium">
+                    📎 待分析文档 ({documents.length}/{maxDocuments})
+                </span>
+                <span className="text-[#A2A09A] text-[10px] font-info-content">支持 .md 文件</span>
             </div>
 
-            {/* 文档网格 */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {/* 文档胶囊列表 */}
+            <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto about-overlay-scroll pr-1">
                 {documents.map((document) => (
                     <div
                         key={document.id}
                         className={`
-                            relative group flex items-center bg-[#111111]/80 p-2
-                            border border-[#C9A063]/10 hover:border-[#C9A063]/30 transition-colors
-                            ${document.status === 'error' ? 'border-red-900 bg-red-950/20' : ''}
+                            relative group flex items-center gap-2 bg-[#1b1a18] px-2.5 py-1
+                            border border-[#C9A063]/30 hover:border-[#C9A063]/60 transition-colors
+                            ${document.status === 'error' ? 'border-red-500/50 bg-red-950/20 text-red-300' : ''}
                         `}
                     >
-                        {/* 文档图标 */}
-                        <div className={`
-                            flex-shrink-0 w-6 h-6 rounded mr-2 flex items-center justify-center text-xs
-                            ${document.status === 'ready'
-                                ? 'bg-[#C9A063]/20 text-[#C9A063]'
-                                : document.status === 'uploading'
-                                ? 'bg-blue-500/20 text-blue-400'
-                                : 'bg-red-500/20 text-red-400'
-                            }
-                        `}>
+                        {/* 状态指示 */}
+                        <div className="flex-shrink-0">
                             {document.status === 'ready' ? (
-                                // MD文档图标
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20M12,11L8,15H10.5V19H13.5V15H16L12,11Z" />
-                                </svg>
+                                <span className="text-[#C9A063] text-xs">📄</span>
                             ) : document.status === 'uploading' ? (
-                                // 上传中图标
-                                <div className="w-3 h-3 border border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                                <div className="w-2.5 h-2.5 border border-[#C9A063] border-t-transparent rounded-full animate-spin" />
                             ) : (
-                                // 错误图标
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M12,2L1,21H23M12,6L19.53,19H4.47M11,10V14H13V10M11,16V18H13V16" />
-                                </svg>
+                                <span className="text-red-400 text-xs">⚠️</span>
                             )}
                         </div>
 
                         {/* 文档信息 */}
-                        <div className="flex-1 min-w-0">
-                            <div className="text-sm text-[#E8E6DC] truncate font-medium">
+                        <div className="min-w-0 max-w-[160px] sm:max-w-[200px]">
+                            <div className="text-xs text-[#E8E6DC] truncate font-info-content">
                                 {document.name}
-                            </div>
-                            <div className="text-xs text-[#6F6D68] flex items-center gap-2">
-                                <span>{formatFileSize(document.size)}</span>
-                                <span>•</span>
-                                <span>{formatUploadTime(document.uploadTime)}</span>
                             </div>
                         </div>
 
-                        {/* 删除按钮 */}
+                        <span className="text-[10px] text-[#A2A09A] font-mono tabular-nums shrink-0">
+                            {formatFileSize(document.size)}
+                        </span>
+
+                        {/* 删除按钮（扩大热区至40px） */}
                         <button
                             type="button"
-                            onClick={() => onRemoveDocument(document.id)}
-                            className="absolute -top-1 -right-1 w-5 h-5 border border-red-500/40 bg-[#1a1a1a] hover:bg-red-500 text-red-400 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center text-xs"
-                            title="删除文档"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onRemoveDocument(document.id);
+                            }}
+                            className="relative ml-0.5 text-[#A2A09A] hover:text-red-400 p-0.5 transition-colors cursor-pointer after:absolute after:-inset-2 after:content-['']"
+                            title={`移除 ${document.name}`}
+                            aria-label={`移除 ${document.name}`}
                         >
-                            ×
+                            <span className="font-mono text-sm leading-none">×</span>
                         </button>
-
-                        {/* 状态指示条 */}
-                        {document.status === 'uploading' && (
-                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500/30 overflow-hidden">
-                                <div className="h-full bg-blue-500 animate-pulse"></div>
-                            </div>
-                        )}
                     </div>
                 ))}
-            </div>
-
-            {/* 底部提示 */}
-            <div className="mt-2 text-xs text-[#6F6D68] text-center">
-                {documents.length === maxDocuments
-                    ? '已达到最大文档数量限制'
-                    : `还可添加 ${maxDocuments - documents.length} 个文档`
-                }
             </div>
         </div>
     );

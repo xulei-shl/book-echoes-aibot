@@ -84,13 +84,13 @@ export default function DocumentUploadButton({
                 onClick={handleClick}
                 disabled={buttonDisabled}
                 className={`
-                    px-3 py-1 border text-xs font-mono tracking-wider transition-colors duration-300
-                    flex items-center gap-2 shrink-0 whitespace-nowrap
+                    px-2.5 py-1 border text-xs font-mono tracking-wider transition-[background-color,border-color,color,transform] duration-150
+                    flex items-center gap-1.5 shrink-0 whitespace-nowrap active:scale-[0.96]
                     ${buttonDisabled
                         ? 'border-[#3A3A3A] text-[#555] cursor-not-allowed opacity-60'
                         : hasUploadedDocuments
-                            ? 'border-[#C9A063] bg-[#C9A063] text-[#1a1a1a] hover:bg-[#C9A063]/20 hover:text-[#C9A063]'
-                            : 'border-[#C9A063]/30 text-[#C9A063] hover:bg-[#C9A063] hover:text-[#1a1a1a]'
+                            ? 'border-[#C9A063] bg-[#C9A063] text-[#121110] font-medium'
+                            : 'border-[#C9A063]/30 text-[#C9A063] hover:bg-[#C9A063]/15'
                     }
                 `}
                 title={buttonDisabled
@@ -98,7 +98,8 @@ export default function DocumentUploadButton({
                     : `上传Markdown文档（${uploadedCount}/${maxFiles}）`
                 }
             >
-                上传文档
+                <span>📎</span>
+                <span>上传文档</span>
             </button>
 
             <input

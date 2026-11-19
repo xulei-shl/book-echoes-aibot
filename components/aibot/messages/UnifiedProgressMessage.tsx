@@ -114,13 +114,13 @@ export default function UnifiedProgressMessage({
                     <span className="text-[#C9A063] text-sm font-medium font-mono tracking-wider shrink-0 whitespace-nowrap">
                         {title}
                     </span>
-                    <div className="text-xs text-[#A2A09A] font-mono tracking-wider shrink-0 whitespace-nowrap">
+                    <div className="text-xs text-[#A2A09A] font-mono tracking-wider tabular-nums shrink-0 whitespace-nowrap">
                         {completedCount} / {totalCount} 完成
                     </div>
                 </div>
                 <motion.div
                     animate={{ rotate: isExpanded ? 180 : 0 }}
-                    transition={{ duration: 0.2 }}
+                    transition={{ duration: 0.18, ease: 'easeOut' }}
                     className="text-[#A2A09A] shrink-0"
                 >
                     ▼
@@ -134,94 +134,61 @@ export default function UnifiedProgressMessage({
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.3 }}
+                        transition={{ duration: 0.2, ease: 'easeOut' }}
                         className="overflow-hidden"
                     >
-                        <div className="border border-[#C9A063]/30 border-t-0 bg-[#1a1a1a]/90 backdrop-blur-xl">
-                            {/* 进度条 */}
-                            <div className="p-4 pb-3">
-                                <div className="w-full bg-[#1B1B1B] h-1 rounded-full">
+                        <div className="border border-[#C9A063]/25 border-t-0 bg-[#161514]/90 backdrop-blur-xl">
+                            {/* 进度条 (GPU 加速 scaleX 代替 width) */}
+                            <div className="p-3.5 pb-2.5">
+                                <div className="w-full bg-[#201e1c] h-1 rounded-full overflow-hidden">
                                     <motion.div
-                                        className="bg-[#C9A063] h-1 rounded-full"
-                                        initial={{ width: 0 }}
-                                        animate={{ width: `${progressPercent}%` }}
-                                        transition={{ duration: 0.5 }}
+                                        className="bg-[#C9A063] h-1 w-full rounded-full"
+                                        style={{ transformOrigin: 'left' }}
+                                        initial={{ scaleX: 0 }}
+                                        animate={{ scaleX: Math.max(0, Math.min(1, progressPercent / 100)) }}
+                                        transition={{ duration: 0.35, ease: 'easeOut' }}
                                     />
                                 </div>
                             </div>
 
                             {/* 日志列表 */}
-                            <div className="px-4 pb-4">
-                                <div className="space-y-2 max-h-48 overflow-y-auto about-overlay-scroll">
+                            <div className="px-3.5 pb-3.5">
+                                <div className="space-y-1.5 max-h-48 overflow-y-auto about-overlay-scroll">
                                     {logs.map((log) => {
                                         const isRunning = log.status === 'running';
 
                                         return (
-                                            <motion.div
+                                            <div
                                                 key={log.id}
-                                                initial={{ opacity: 0, x: -20 }}
-                                                animate={
-                                                    isRunning
-                                                        ? {
-                                                              opacity: [0.9, 1, 0.9],
-                                                              borderColor: [
-                                                                  'rgba(201,160,99,0.22)',
-                                                                  'rgba(201,160,99,0.45)',
-                                                                  'rgba(201,160,99,0.22)'
-                                                              ],
-                                                              backgroundColor: [
-                                                                  'rgba(201,160,99,0.03)',
-                                                                  'rgba(201,160,99,0.08)',
-                                                                  'rgba(201,160,99,0.03)'
-                                                              ]
-                                                          }
-                                                        : { opacity: 1, x: 0 }
-                                                }
-                                                transition={
-                                                    isRunning
-                                                        ? { duration: 1.8, repeat: Infinity, ease: 'easeInOut' }
-                                                        : { duration: 0.2 }
-                                                }
-                                                className={`relative overflow-hidden p-3 border ${
+                                                className={`relative overflow-hidden p-2.5 border transition-colors duration-150 ${
                                                     log.status === 'error'
                                                         ? 'border-red-500/30 bg-red-500/5'
                                                         : log.status === 'running'
-                                                          ? 'border-[#C9A063]/30 bg-[#C9A063]/5'
+                                                          ? 'border-[#C9A063]/40 bg-[#C9A063]/10'
                                                           : log.status === 'completed'
-                                                            ? 'border-[#C9A063]/28 bg-[#C9A063]/8'
-                                                            : 'border-[#C9A063]/15 bg-[#111111]/80'
+                                                            ? 'border-[#C9A063]/20 bg-[#C9A063]/5'
+                                                            : 'border-[#C9A063]/10 bg-[#111110]/60'
                                                 }`}
                                             >
-                                                {isRunning && (
-                                                    <motion.div
-                                                        aria-hidden="true"
-                                                        className="pointer-events-none absolute inset-y-0 left-0 w-10 bg-gradient-to-r from-transparent via-[#C9A063]/12 to-transparent"
-                                                        initial={{ x: '-120%' }}
-                                                        animate={{ x: '420%' }}
-                                                        transition={{ duration: 1.6, repeat: Infinity, ease: 'linear' }}
-                                                    />
-                                                )}
-
-                                                <div className="flex items-start gap-3">
+                                                <div className="flex items-start gap-2.5">
                                                     <div className="flex-shrink-0 mt-0.5">
                                                         {isRunning ? (
                                                             <div className="relative flex h-3 w-3 items-center justify-center">
-                                                                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#C9A063]/35"></span>
-                                                                <span className="relative inline-flex h-2.5 w-2.5 animate-spin rounded-full border border-[#C9A063]/25 border-t-[#C9A063]"></span>
+                                                                <span className="relative inline-flex h-2.5 w-2.5 animate-spin rounded-full border border-[#C9A063]/30 border-t-[#C9A063]"></span>
                                                             </div>
                                                         ) : log.status === 'error' ? (
-                                                            <span className="text-red-400">❌</span>
+                                                            <span className="text-red-400 text-xs">❌</span>
                                                         ) : log.status === 'completed' ? (
-                                                            <span className="text-[#E6C98B]">✓</span>
+                                                            <span className="text-[#C9A063] text-xs font-mono">✓</span>
                                                         ) : (
-                                                            <span className="text-[#A2A09A]">○</span>
+                                                            <span className="text-[#A2A09A] text-xs">○</span>
                                                         )}
                                                     </div>
 
                                                     <div className="relative z-10 flex-1 min-w-0">
-                                                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                                        <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                                                             <span
-                                                                className="text-sm font-medium font-info-content shrink-0 whitespace-nowrap"
+                                                                className="text-xs font-medium font-info-content shrink-0 whitespace-nowrap"
                                                                 style={{
                                                                     color:
                                                                         log.status === 'error'
@@ -234,23 +201,19 @@ export default function UnifiedProgressMessage({
                                                                 {PHASE_ICONS[log.phase] || '📋'} {PHASE_LABELS[log.phase] || log.phase}
                                                             </span>
                                                             {log.timestamp && (
-                                                                <span className="text-xs font-mono tracking-wider text-[#A2A09A] shrink-0 whitespace-nowrap">
+                                                                <span className="text-[11px] font-mono tabular-nums tracking-wider text-[#A2A09A] shrink-0 whitespace-nowrap">
                                                                     {log.timestamp}
                                                                 </span>
                                                             )}
                                                             {isRunning && (
-                                                                <motion.span
-                                                                    className="text-[10px] font-mono tracking-[0.24em] text-[#C9A063] shrink-0 whitespace-nowrap"
-                                                                    animate={{ opacity: [0.55, 1, 0.55] }}
-                                                                    transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
-                                                                >
+                                                                <span className="text-[9px] font-mono tracking-widest text-[#C9A063] shrink-0 whitespace-nowrap animate-pulse">
                                                                     RUNNING
-                                                                </motion.span>
+                                                                </span>
                                                             )}
                                                         </div>
 
                                                         <p
-                                                            className="text-sm font-medium font-info-content"
+                                                            className="text-xs font-info-content leading-relaxed"
                                                             style={{
                                                                 color:
                                                                     log.status === 'error'
@@ -258,19 +221,19 @@ export default function UnifiedProgressMessage({
                                                                         : log.status === 'running' || log.status === 'completed'
                                                                           ? '#E8E6DC'
                                                                           : '#A2A09A'
-                                                            }}
+                                                                }}
                                                         >
                                                             {log.message}
                                                         </p>
 
                                                         {log.details && (
-                                                            <p className="text-xs mt-1 font-info-content text-[#A2A09A]">
+                                                            <p className="text-[11px] mt-0.5 font-info-content text-[#A2A09A] leading-relaxed">
                                                                 {log.details}
                                                             </p>
                                                         )}
                                                     </div>
                                                 </div>
-                                            </motion.div>
+                                            </div>
                                         );
                                     })}
                                 </div>

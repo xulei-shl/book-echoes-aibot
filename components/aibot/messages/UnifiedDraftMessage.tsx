@@ -117,12 +117,12 @@ export default function UnifiedDraftMessage({
                         </span>
                     )}
                     {isComplete && !isStreaming && (
-                        <span className="text-xs text-[#C9A063]/70 font-mono tracking-wider shrink-0 whitespace-nowrap">
+                        <span className="text-xs text-[#C9A063]/80 font-mono tabular-nums tracking-wider shrink-0 whitespace-nowrap">
                             ✓ 生成完成 ({cleanedDraft.length} 字符)
                         </span>
                     )}
                     {!isComplete && !isStreaming && cleanedDraft && (
-                        <span className="text-xs text-[#E8E6DC] font-mono tracking-wider shrink-0 whitespace-nowrap">
+                        <span className="text-xs text-[#E8E6DC] font-mono tabular-nums tracking-wider shrink-0 whitespace-nowrap">
                             {cleanedDraft.length} 字符
                         </span>
                     )}
@@ -136,7 +136,7 @@ export default function UnifiedDraftMessage({
                                 e.stopPropagation();
                                 setShowMetadata(!showMetadata);
                             }}
-                            className="bg-transparent border border-[#C9A063]/30 text-[#C9A063]/70 hover:bg-[#C9A063] hover:text-[#1a1a1a] transition-colors text-xs px-2 py-1 font-mono tracking-wider shrink-0 whitespace-nowrap"
+                            className="bg-transparent border border-[#C9A063]/30 text-[#C9A063]/80 hover:bg-[#C9A063]/15 active:scale-[0.96] transition-[background-color,border-color,transform] duration-150 text-xs px-2 py-1 font-mono tracking-wider shrink-0 whitespace-nowrap"
                         >
                             源数据 (
                             {[
@@ -151,8 +151,8 @@ export default function UnifiedDraftMessage({
                     )}
                     <motion.div
                         animate={{ rotate: isExpanded ? 180 : 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="text-[#A2A09A] shrink-0"
+                        transition={{ duration: 0.18, ease: 'easeOut' }}
+                        className="text-[#A2A09A] shrink-0 text-xs"
                     >
                         ▼
                     </motion.div>
@@ -279,13 +279,13 @@ export default function UnifiedDraftMessage({
                                     </div>
 
                                     {/* 操作按钮区 */}
-                                    <div className="mt-4 pt-3 border-t border-[#C9A063]/20 flex items-center justify-between flex-wrap gap-2.5">
+                                    <div className="mt-3.5 pt-3 border-t border-[#C9A063]/20 flex items-center justify-between flex-wrap gap-2.5">
                                         <div className="flex items-center gap-2 flex-wrap">
                                             {onDraftChange && !isStreaming && (
                                                 <button
                                                     type="button"
                                                     onClick={handleStartEdit}
-                                                    className="px-3 py-1.5 border border-[#C9A063]/40 text-[#C9A063] hover:bg-[#C9A063]/10 text-xs font-mono tracking-wider transition-colors shrink-0 whitespace-nowrap active:scale-[0.96]"
+                                                    className="px-3 py-1.5 border border-[#C9A063]/40 text-[#C9A063] hover:bg-[#C9A063]/10 text-xs font-mono tracking-wider transition-[background-color,border-color,transform] duration-150 shrink-0 whitespace-nowrap active:scale-[0.96]"
                                                 >
                                                     ✏️ 编辑草稿
                                                 </button>
@@ -294,7 +294,7 @@ export default function UnifiedDraftMessage({
                                                 <button
                                                     type="button"
                                                     onClick={onRegenerate}
-                                                    className="px-3 py-1.5 border border-[#A2A09A]/40 text-[#A2A09A] hover:text-[#E8E6DC] text-xs font-mono tracking-wider transition-colors shrink-0 whitespace-nowrap active:scale-[0.96]"
+                                                    className="px-3 py-1.5 border border-[#A2A09A]/40 text-[#A2A09A] hover:text-[#E8E6DC] text-xs font-mono tracking-wider transition-[background-color,border-color,transform] duration-150 shrink-0 whitespace-nowrap active:scale-[0.96]"
                                                 >
                                                     🔄 重新生成
                                                 </button>
@@ -306,7 +306,7 @@ export default function UnifiedDraftMessage({
                                                 <button
                                                     type="button"
                                                     onClick={onCancel}
-                                                    className="px-3 py-1.5 border border-[#A2A09A]/40 text-[#A2A09A] hover:text-[#E8E6DC] text-xs font-mono tracking-wider transition-colors shrink-0 whitespace-nowrap active:scale-[0.96]"
+                                                    className="px-3 py-1.5 border border-[#A2A09A]/40 text-[#A2A09A] hover:text-[#E8E6DC] text-xs font-mono tracking-wider transition-[background-color,border-color,transform] duration-150 shrink-0 whitespace-nowrap active:scale-[0.96]"
                                                 >
                                                     取消
                                                 </button>
@@ -316,7 +316,7 @@ export default function UnifiedDraftMessage({
                                                     type="button"
                                                     onClick={onConfirm}
                                                     disabled={isStreaming || !cleanedDraft}
-                                                    className="px-4 py-1.5 bg-[#C9A063] text-[#1a1a1a] font-medium text-xs font-mono tracking-wider hover:bg-[#D4AF37] transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0 whitespace-nowrap active:scale-[0.96]"
+                                                    className="px-4 py-1.5 bg-[#C9A063] text-[#121110] font-medium text-xs font-mono tracking-wider hover:bg-[#D4AF37] transition-[background-color,color,transform] duration-150 disabled:opacity-40 disabled:cursor-not-allowed shrink-0 whitespace-nowrap active:scale-[0.96]"
                                                 >
                                                     确认并检索图书 →
                                                 </button>

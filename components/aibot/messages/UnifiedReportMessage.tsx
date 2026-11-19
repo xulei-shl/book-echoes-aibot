@@ -131,7 +131,7 @@ export default function UnifiedReportMessage({
     }
 
     return (
-        <div className="bg-[#1a1a1a]/85 border border-[#C9A063]/25 p-4 rounded-none backdrop-blur-sm space-y-3">
+        <div className="bg-[#161514]/90 border border-[#C9A063]/25 p-3.5 sm:p-4 rounded-md space-y-3">
             {/* 顶栏微型工具条 */}
             <div className="flex items-center justify-between border-b border-[#C9A063]/15 pb-2.5 flex-wrap gap-2.5">
                 <div className="flex items-center gap-2.5 min-w-0 flex-wrap">
@@ -142,7 +142,7 @@ export default function UnifiedReportMessage({
                         <button
                             type="button"
                             onClick={() => setIsBooksExpanded(!isBooksExpanded)}
-                            className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-mono tracking-wider text-[#A2A09A] hover:text-[#C9A063] bg-[#C9A063]/5 hover:bg-[#C9A063]/10 border border-[#C9A063]/25 hover:border-[#C9A063]/50 transition-colors shrink-0"
+                            className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-mono tracking-wider text-[#A2A09A] hover:text-[#C9A063] bg-[#C9A063]/5 hover:bg-[#C9A063]/10 border border-[#C9A063]/25 hover:border-[#C9A063]/50 active:scale-[0.96] transition-[background-color,border-color,color,transform] duration-150 shrink-0"
                             title="点击展开/收起研读图书清单"
                         >
                             <span>📚 参考图书 ({selectedBooks.length}本)</span>
@@ -156,9 +156,9 @@ export default function UnifiedReportMessage({
                         <button
                             type="button"
                             onClick={handleCopy}
-                            className={`text-[11px] font-mono tracking-wider transition-colors px-2.5 py-1 border shrink-0 whitespace-nowrap active:scale-[0.96] ${
+                            className={`text-[11px] font-mono tracking-wider transition-[background-color,border-color,color,transform] duration-150 px-2.5 py-1 border shrink-0 whitespace-nowrap active:scale-[0.96] ${
                                 copied
-                                    ? 'text-[#C9A063] border-[#C9A063]/60 bg-[#C9A063]/10'
+                                    ? 'text-[#C9A063] border-[#C9A063]/60 bg-[#C9A063]/10 font-medium'
                                     : 'text-[#A2A09A] hover:text-[#C9A063] border-[#C9A063]/20 hover:border-[#C9A063]/50 bg-transparent'
                             }`}
                         >
@@ -237,14 +237,14 @@ export default function UnifiedReportMessage({
 
             {/* 底栏拓展行动项 */}
             {!isStreaming && selectedBooks.length > 0 && onSecondaryRetrieval && (
-                <div className="pt-3 border-t border-[#C9A063]/15 flex items-center justify-end">
+                <div className="pt-2.5 border-t border-[#C9A063]/15 flex items-center justify-end">
                     <button
                         type="button"
                         onClick={() => onSecondaryRetrieval(selectedBooks, '')}
-                        className="px-3 py-1.5 border border-[#C9A063]/40 text-[#C9A063] hover:bg-[#C9A063]/15 active:scale-[0.96] text-xs font-mono tracking-wider transition-all duration-150 flex items-center gap-1.5 shrink-0 whitespace-nowrap"
+                        className="px-3 py-1.5 border border-[#C9A063]/40 text-[#C9A063] hover:bg-[#C9A063]/15 active:scale-[0.96] text-xs font-mono tracking-wider transition-[background-color,border-color,transform] duration-150 flex items-center gap-1.5 shrink-0 whitespace-nowrap cursor-pointer"
                     >
                         <span>🔍 基于本报告选书延伸二次检索</span>
-                        <span className="px-1.5 py-0.2 bg-[#C9A063]/25 border border-[#C9A063]/40 rounded text-[#E8E6DC] text-[11px] font-semibold tabular-nums">
+                        <span className="px-1.5 py-0.2 bg-[#C9A063]/25 border border-[#C9A063]/40 rounded-sm text-[#E8E6DC] text-[11px] font-semibold tabular-nums">
                             {selectedBooks.length}本
                         </span>
                         <span>→</span>

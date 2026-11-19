@@ -175,7 +175,7 @@ export default function MessageStream({
 
     return (
         <div
-            className="flex-1 overflow-y-auto pr-1 space-y-4 about-overlay-scroll"
+            className="flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6 md:px-8 py-4 sm:py-6 space-y-5 about-overlay-scroll"
             style={{
                 maxHeight: '100%',
                 minHeight: '0'
@@ -190,9 +190,10 @@ export default function MessageStream({
                     return (
                         <motion.div
                             key={message.id}
-                            initial={{ opacity: 0, y: 10 }}
+                            initial={{ opacity: 0, y: 8 }}
                             animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
+                            exit={{ opacity: 0, y: -4 }}
+                            transition={{ duration: 0.18, ease: 'easeOut' }}
                             className={message.role === 'user' ? 'text-right' : 'text-left'}
                         >
                             {message.role === 'assistant' && (
