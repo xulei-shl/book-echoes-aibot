@@ -40,8 +40,9 @@ export default function UnifiedBookSelection({
     const [showAll, setShowAll] = useState(false);
     const [userExpanded, setUserExpanded] = useState<boolean | null>(null);
 
-    // 受控与非受控并存模式：优先使用外部传入的 selectedBookIds
-    const selectedIds = externalSelectedBookIds ?? localSelectedIds;
+    // 受控与非受控并存模式：当父组件传入 externalSelectedBookIds 且有变更回调时受控，否则由内部 localSelectedIds 自主维护
+    const isControlled = externalSelectedBookIds !== undefined && onBookSelectionChange !== undefined;
+    const selectedIds = isControlled ? externalSelectedBookIds : localSelectedIds;
     const isSelectionMode = mode === 'selection';
 
     // 报告开始生成时默认折叠；用户手动展开/收起后以用户选择为准
@@ -65,18 +66,19 @@ export default function UnifiedBookSelection({
         onSelectionBatchChange?.(selectedBooks, next);
     };
 
-    // 自动筛选高相关度图书 (similarityScore > 0.42)
+    // 计算高相关度图书数量 (similarityScore > 0.42) 或兜底前 3 本
+    const highRelevanceCount = books.filter((b) => (b.similarityScore || 0) > 0.42).length;
+    const autoSelectCount = highRelevanceCount > 0 ? highRelevanceCount : Math.min(3, books.length);
+
+    // 自动筛选高相关度图书
     const handleAutoSelect = () => {
-        const autoSelectedIds = new Set(
-            books
-                .filter((b) => (b.similarityScore || 0) > 0.42)
-                .map((b) => b.id)
-        );
+        const highRelevance = books.filter((b) => (b.similarityScore || 0) > 0.42);
+        const targetBooks = highRelevance.length > 0 ? highRelevance : books.slice(0, Math.min(3, books.length));
+        const autoSelectedIds = new Set(targetBooks.map((b) => b.id));
         setLocalSelectedIds(autoSelectedIds);
 
-        autoSelectedIds.forEach((id) => onBookSelectionChange?.(id, true));
-        const selectedBooks = books.filter((b) => autoSelectedIds.has(b.id));
-        onSelectionBatchChange?.(selectedBooks, autoSelectedIds);
+        books.forEach((b) => onBookSelectionChange?.(b.id, autoSelectedIds.has(b.id)));
+        onSelectionBatchChange?.(targetBooks, autoSelectedIds);
     };
 
     // 清空选择
@@ -103,9 +105,8 @@ export default function UnifiedBookSelection({
 
     // 二次检索
     const handleSecondaryRetrieval = () => {
-        const finalBooks = selectedCount > 0
-            ? books.filter((b) => selectedIds.has(b.id))
-            : books;
+        if (selectedCount === 0) return;
+        const finalBooks = books.filter((b) => selectedIds.has(b.id));
 
         if (finalBooks.length > 0 && onSecondaryRetrieval) {
             onSecondaryRetrieval(finalBooks, userInput);
@@ -128,7 +129,9 @@ export default function UnifiedBookSelection({
                         📚 {title} ({books.length} 本)
                     </span>
                     {isSelectionMode && (
-                        <span className="text-xs text-[#A2A09A] font-mono tracking-wider">
+                        <span className={`text-xs font-mono tracking-wider ${
+                            selectedCount > 0 ? 'text-[#C9A063] font-semibold' : 'text-[#A2A09A]'
+                        }`}>
                             已选 {selectedCount} 本
                         </span>
                     )}
@@ -164,35 +167,36 @@ export default function UnifiedBookSelection({
                                         <button
                                             type="button"
                                             onClick={handleAutoSelect}
-                                            className="px-2.5 py-1 text-xs font-mono tracking-wider border border-[#C9A063]/40 text-[#C9A063] hover:bg-[#C9A063]/10 transition-colors"
+                                            className="px-2.5 py-1 text-xs font-mono tracking-wider border border-[#C9A063]/40 text-[#C9A063] hover:bg-[#C9A063]/10 active:scale-[0.96] transition-all"
+                                            title="自动筛选高相关度图书"
                                         >
-                                            ⚡ 智能优选 ({books.filter((b) => (b.similarityScore || 0) > 0.42).length})
+                                            ⚡ 智能优选 ({autoSelectCount})
                                         </button>
                                         {selectedCount > 0 && (
                                             <button
                                                 type="button"
                                                 onClick={handleClearSelection}
-                                                className="px-2.5 py-1 text-xs font-mono tracking-wider border border-[#A2A09A]/30 text-[#A2A09A] hover:text-[#E8E6DC] transition-colors"
+                                                className="px-2.5 py-1 text-xs font-mono tracking-wider border border-[#A2A09A]/30 text-[#A2A09A] hover:text-[#E8E6DC] active:scale-[0.96] transition-all"
                                             >
                                                 清空选择
                                             </button>
                                         )}
                                     </div>
                                     <div className="text-xs text-[#A2A09A] font-mono">
-                                        点击卡片勾选深入解读的图书
+                                        点击卡片勾选深入解读或二次检索图书
                                     </div>
                                 </div>
                             )}
 
                             {/* 图书卡片列表 */}
-                            <div className="space-y-3">
+                            <div className="space-y-1">
                                 {displayBooks.map((book) => (
                                     <BookItem
                                         key={book.id}
                                         book={book}
-                                        isSelected={isSelectionMode ? selectedIds.has(book.id) : false}
-                                        onSelectionChange={isSelectionMode ? handleBookSelect : undefined}
-                                        disabled={!isSelectionMode || isLoading}
+                                        isSelected={selectedIds.has(book.id)}
+                                        onSelectionChange={handleBookSelect}
+                                        disabled={isLoading}
                                         showCheckbox={isSelectionMode}
                                     />
                                 ))}
@@ -218,10 +222,18 @@ export default function UnifiedBookSelection({
                                         <button
                                             type="button"
                                             onClick={handleSecondaryRetrieval}
-                                            disabled={isLoading}
-                                            className="px-3 py-1.5 border border-[#C9A063]/40 text-[#C9A063] hover:bg-[#C9A063]/10 text-xs font-mono tracking-wider transition-colors disabled:opacity-50"
+                                            disabled={isLoading || selectedCount === 0}
+                                            title={selectedCount === 0 ? '请先勾选需要二次检索的图书' : `基于选中的 ${selectedCount} 本图书进行二次检索`}
+                                            className="px-3.5 py-1.5 border border-[#C9A063]/50 text-[#C9A063] hover:bg-[#C9A063]/15 active:scale-[0.96] text-xs font-mono tracking-wider transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
                                         >
-                                            🔍 基于选书二次检索
+                                            <span>🔍 基于选书二次检索</span>
+                                            {selectedCount > 0 ? (
+                                                <span className="px-1.5 py-0.2 bg-[#C9A063]/25 border border-[#C9A063]/40 rounded text-[#E8E6DC] text-[11px] font-semibold tabular-nums">
+                                                    {selectedCount}本
+                                                </span>
+                                            ) : (
+                                                <span className="text-[10px] text-[#A2A09A] font-normal">(请先勾选)</span>
+                                            )}
                                         </button>
                                     )}
                                     {!isSelectionMode && onReenterSelection && (
@@ -240,7 +252,7 @@ export default function UnifiedBookSelection({
                                         type="button"
                                         onClick={handleGenerateInterpretation}
                                         disabled={isLoading}
-                                        className="px-4 py-1.5 bg-[#C9A063] text-[#1a1a1a] font-medium text-xs font-mono tracking-wider hover:bg-[#D4AF37] transition-colors disabled:opacity-50"
+                                        className="px-4 py-1.5 bg-[#C9A063] text-[#1a1a1a] font-medium text-xs font-mono tracking-wider hover:bg-[#D4AF37] active:scale-[0.96] transition-all duration-150 disabled:opacity-50 flex items-center gap-1.5"
                                     >
                                         {selectedCount > 0
                                             ? `生成深度解读 (${selectedCount}本) →`

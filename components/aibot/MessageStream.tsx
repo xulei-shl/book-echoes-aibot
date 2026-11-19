@@ -141,8 +141,7 @@ interface MessageStreamProps {
 export default function MessageStream({
     messages,
     isStreaming,
-    retrievalPhase = 'search',
-    selectedBookIds = new Set(),
+    selectedBookIds,
     onBookSelection,
     onGenerateInterpretation,
     onReenterSelection,
@@ -303,12 +302,12 @@ export default function MessageStream({
                                     {retrievalResults.get(message.id) && !isDeepSearchMessage(content) && (
                                         <UnifiedBookSelection
                                             books={retrievalResults.get(message.id)!.books}
-                                            mode={retrievalPhase === 'selection' ? 'selection' : 'display'}
+                                            mode="selection"
                                             selectedBookIds={selectedBookIds}
-                                            userInput={originalQuery}
+                                            userInput={retrievalResults.get(message.id)!.searchQuery || originalQuery}
                                             onBookSelectionChange={onBookSelection}
-                                            onGenerateInterpretation={() => {
-                                                onGenerateInterpretation?.(selectedBookIds);
+                                            onGenerateInterpretation={(selectedBooks) => {
+                                                onGenerateInterpretation?.(new Set(selectedBooks.map((b) => b.id)));
                                             }}
                                             onReenterSelection={onReenterSelection}
                                             onSecondaryRetrieval={onSecondaryRetrieval}

@@ -5,7 +5,7 @@ import type { RetrievalResultData, BookInfo } from '@/src/core/aibot/types';
 
 export default function RetrievalResultDisplay({
     retrievalResult,
-    mode = 'display',
+    mode = 'selection',
     selectedBookIds = new Set(),
     onSelectionChange,
     onGenerateInterpretation,

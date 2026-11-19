@@ -605,7 +605,10 @@ export function useAIBotWorkflow() {
     // ========== 7. 二次检索 ==========
     const secondaryRetrieval = useCallback(
         async (selectedBooks: BookInfo[], query: string) => {
-            const combinedQuery = `${query} ${selectedBooks.map((b) => b.title).join(' ')}`.trim();
+            const bookTitles = selectedBooks.map((b) => `《${b.title}》`).join(' ');
+            const combinedQuery = query
+                ? `${query} ${bookTitles}`.trim()
+                : bookTitles;
             await startSimpleSearch(combinedQuery);
         },
         [startSimpleSearch]
