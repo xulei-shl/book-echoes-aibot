@@ -145,6 +145,10 @@ export default function AIBotOverlay() {
         URL.revokeObjectURL(url);
     }, [messages]);
 
+    const workflowError =
+        workflow.state.status === 'error' ? workflow.state.error : undefined;
+    const displayedError = error ?? workflowError;
+
     const isBusy =
         workflow.state.status === 'analyzing' ||
         workflow.state.status === 'searching-books' ||
@@ -273,9 +277,9 @@ export default function AIBotOverlay() {
                                 documentUploadController={documentUploadController}
                             />
 
-                            {error && (
+                            {displayedError && (
                                 <p className="px-6 md:px-10 py-3 border-t border-[#C9A063]/10 text-xs text-[#C76B6B] bg-[#1a1a1a] relative z-10">
-                                    {error}
+                                    {displayedError}
                                 </p>
                             )}
 
