@@ -97,7 +97,12 @@ export function useAIBotWorkflow() {
                 });
 
                 if (!response.ok) {
-                    throw new Error('简单检索失败');
+                    const failure = (await response.json().catch(() => null)) as { message?: unknown } | null;
+                    throw new Error(
+                        typeof failure?.message === 'string' && failure.message
+                            ? failure.message
+                            : '简单检索失败'
+                    );
                 }
 
                 const result = await response.json();
