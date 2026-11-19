@@ -1,10 +1,11 @@
 import { getLogger } from '@/src/utils/logger';
+import { researchWithDoubao } from '@/src/core/aibot/doubao/doubaoResearcher';
 import { researchWithTavily } from '@/src/core/aibot/tavily/tavilyResearcher';
+import { researchWithAnySearch } from '@/src/core/aibot/anysearch/anysearchResearcher';
 import { researchWithExaMcp } from '@/src/core/aibot/exa/exaMcpResearcher';
-import { extractContentFromUrls } from '@/src/core/aibot/jina/jinaContentExtractor';
-import { JINA_SEARCH_PER_KEYWORD, DEEP_SEARCH_SNIPPETS_PER_KEYWORD } from '@/src/core/aibot/constants';
-import { hasTavilyApiKey, shouldUseTavilySearch } from '@/src/core/aibot/searchConfig';
-import type { WebSearchSnippet } from '@/src/core/aibot/types';
+import { SEARCH_RESULTS_PER_KEYWORD } from '@/src/core/aibot/constants';
+import { hasDoubaoApiKey, hasTavilyApiKey } from '@/src/core/aibot/searchConfig';
+import type { WebSearchSnippet, WebSearchSource } from '@/src/core/aibot/types';
 
 const logger = getLogger('aibot.webSearch');
 
@@ -12,144 +13,176 @@ interface SearchResultItem {
     title: string;
     url: string;
     snippet: string;
-    source: 'tavily' | 'exa';
-    raw?: unknown;
-    /** 由 Jina 提取的网页全文，附加在已抓取的结果上 */
     content?: string;
+    source: WebSearchSource;
+    raw?: unknown;
 }
 
-const UNSUPPORTED_CONTENT_EXTENSIONS = [
-    '.pdf', '.mp3', '.mp4', '.wav', '.avi', '.mov', '.webm', '.m4a',
-    '.doc', '.docx', '.ppt', '.pptx', '.xls', '.xlsx', '.zip', '.rar'
-];
+interface SearchEngine {
+    id: WebSearchSource;
+    label: string;
+    run: (query: string, topK: number) => Promise<SearchResultItem[]>;
+}
 
-const isContentExtractionSupported = (url: string): boolean => {
-    try {
-        const urlObj = new URL(url);
-        const pathname = urlObj.pathname.toLowerCase();
-        return !UNSUPPORTED_CONTENT_EXTENSIONS.some(ext => pathname.endsWith(ext));
-    } catch {
-        return false;
+interface SearchAttempt {
+    engine: WebSearchSource;
+    label: string;
+    error: string;
+}
+
+const doubaoEngine: SearchEngine = {
+    id: 'doubao',
+    label: '豆包',
+    async run(query, topK) {
+        const results = await researchWithDoubao(query, { topK });
+        return results.map(result => ({
+            title: result.title,
+            url: result.url,
+            snippet: result.snippet,
+            content: result.content,
+            source: 'doubao' as const,
+            raw: result.raw
+        }));
     }
+};
+
+const tavilyEngine: SearchEngine = {
+    id: 'tavily',
+    label: 'Tavily',
+    async run(query, topK) {
+        const results = await researchWithTavily(query, { topK });
+        return results.map(result => ({
+            title: result.title,
+            url: result.url,
+            snippet: result.content,
+            source: 'tavily' as const,
+            raw: result.raw
+        }));
+    }
+};
+
+const anysearchEngine: SearchEngine = {
+    id: 'anysearch',
+    label: 'AnySearch',
+    async run(query, topK) {
+        const results = await researchWithAnySearch(query, { topK });
+        return results.map(result => ({
+            title: result.title,
+            url: result.url,
+            snippet: result.snippet,
+            content: result.content,
+            source: 'anysearch' as const,
+            raw: result.raw
+        }));
+    }
+};
+
+const exaEngine: SearchEngine = {
+    id: 'exa',
+    label: 'Exa',
+    async run(query, topK) {
+        const results = await researchWithExaMcp(query, { topK });
+        return results.map(result => ({
+            title: result.title,
+            url: result.url,
+            snippet: result.snippet,
+            source: 'exa' as const,
+            raw: result.raw
+        }));
+    }
+};
+
+/**
+ * 检索源降级链：豆包（中文深索引）→ Tavily（已有付费源）→ AnySearch（匿名兜底）→ Exa MCP。
+ * 未配置 Key 的付费源会被跳过；AnySearch 与 Exa 始终可用。
+ */
+const buildSearchChain = (): SearchEngine[] => {
+    const chain: SearchEngine[] = [];
+
+    if (hasDoubaoApiKey()) {
+        chain.push(doubaoEngine);
+    }
+    if (hasTavilyApiKey()) {
+        chain.push(tavilyEngine);
+    }
+
+    chain.push(anysearchEngine, exaEngine);
+
+    return chain;
 };
 
 const convertToWebSnippet = (item: SearchResultItem): WebSearchSnippet => ({
     title: item.title,
     url: item.url,
     snippet: item.snippet,
-    source: item.source as 'tavily' | 'exa',
+    content: item.content,
+    source: item.source,
     raw: item.raw
 });
+
+const dedupeByUrl = (snippets: WebSearchSnippet[]): WebSearchSnippet[] => {
+    const seen = new Set<string>();
+
+    return snippets.filter(snippet => {
+        if (!snippet.url) {
+            return true;
+        }
+        if (seen.has(snippet.url)) {
+            return false;
+        }
+        seen.add(snippet.url);
+        return true;
+    });
+};
 
 export async function performWebSearch(
     query: string,
     topK?: number
 ): Promise<WebSearchSnippet[]> {
-    const shouldUseTavily = shouldUseTavilySearch();
-    const effectiveTopK = topK !== undefined 
-        ? topK 
-        : (shouldUseTavily ? JINA_SEARCH_PER_KEYWORD : DEEP_SEARCH_SNIPPETS_PER_KEYWORD);
+    const effectiveTopK = topK !== undefined ? topK : SEARCH_RESULTS_PER_KEYWORD;
+    const chain = buildSearchChain();
+    const attempts: SearchAttempt[] = [];
 
     logger.info('执行网络搜索', {
         query,
         topK: effectiveTopK,
-        engine: shouldUseTavily ? 'tavily' : 'exa',
-        tavilyConfigured: hasTavilyApiKey()
+        chain: chain.map(engine => engine.id)
     });
 
-    const searchResults: SearchResultItem[] = [];
-
-    if (shouldUseTavily) {
+    for (const engine of chain) {
         try {
-            logger.info('尝试 Tavily 搜索', { query });
-            const tavilyResults = await researchWithTavily(query, { topK: effectiveTopK });
+            logger.info(`尝试 ${engine.label} 搜索`, { query });
+            const results = await engine.run(query, effectiveTopK);
 
-            if (tavilyResults.length > 0) {
-                logger.info('Tavily 搜索成功', {
-                    query,
-                    resultCount: tavilyResults.length
-                });
-
-                searchResults.push(...tavilyResults.map(r => ({
-                    title: r.title,
-                    url: r.url,
-                    snippet: r.content,
-                    source: 'tavily' as const,
-                    raw: r.raw
-                })));
-            } else {
-                logger.info('Tavily 返回空结果，尝试 Exa MCP 回退', { query });
+            if (results.length === 0) {
+                attempts.push({ engine: engine.id, label: engine.label, error: '空结果' });
+                logger.info(`${engine.label} 返回空结果，降级到下一检索源`, { query });
+                continue;
             }
-        } catch (error) {
-            logger.info('Tavily 搜索失败，尝试 Exa MCP 回退', {
+
+            logger.info(`${engine.label} 搜索成功`, {
                 query,
-                error: error instanceof Error ? error.message : String(error)
+                resultCount: results.length
+            });
+
+            return dedupeByUrl(results.map(convertToWebSnippet));
+        } catch (error) {
+            const reason = error instanceof Error ? error.message : String(error);
+            attempts.push({ engine: engine.id, label: engine.label, error: reason });
+            logger.error(`${engine.label} 搜索失败，降级到下一检索源`, {
+                query,
+                error: reason
             });
         }
     }
 
-    if (searchResults.length === 0) {
-        try {
-            logger.info('使用 Exa MCP 搜索', { query });
-            const exaResults = await researchWithExaMcp(query, { topK: effectiveTopK });
+    logger.error('所有检索源均失败', { query, attempts });
 
-            searchResults.push(...exaResults.map(r => ({
-                title: r.title,
-                url: r.url,
-                snippet: r.snippet,
-                source: 'exa' as const,
-                raw: r.raw
-            })));
-
-            logger.info('Exa MCP 搜索完成', {
-                query,
-                resultCount: searchResults.length
-            });
-        } catch (error) {
-            logger.error('Exa MCP 搜索也失败了', {
-                query,
-                error: error instanceof Error ? error.message : String(error)
-            });
-
-            return [{
-                title: '搜索服务暂时不可用',
-                url: '',
-                snippet: `无法完成对"${query}"的搜索，请稍后重试。`,
-                source: 'tavily',
-                raw: { error: 'All search engines failed' }
-            }];
-        }
-    }
-
-    const urls = searchResults.map(r => r.url).filter(Boolean);
-    const supportedUrls = urls.filter(isContentExtractionSupported);
-    const skippedUrls = urls.filter(url => !isContentExtractionSupported(url));
-    
-    if (skippedUrls.length > 0) {
-        logger.info('跳过不支持内容提取的URL', { skippedUrls });
-    }
-    
-    if (supportedUrls.length > 0) {
-        logger.info('开始获取网页全文内容', { query, urlsCount: supportedUrls.length });
-        
-        try {
-            const extractionResults = await extractContentFromUrls(supportedUrls, 3, 15000);
-            
-            searchResults.forEach(result => {
-                const extraction = extractionResults.get(result.url);
-                if (extraction?.success && extraction.content) {
-                    result.content = extraction.content;
-                }
-            });
-            
-            logger.info('网页内容提取完成', { query, successCount: [...extractionResults.values()].filter(r => r.success).length });
-        } catch (error) {
-            logger.error('网页内容提取失败', { 
-                query, 
-                error: error instanceof Error ? error.message : String(error) 
-            });
-        }
-    }
-
-    return searchResults.map(convertToWebSnippet);
+    return [{
+        title: '搜索服务暂时不可用',
+        url: '',
+        snippet: `无法完成对"${query}"的搜索，请稍后重试。`,
+        source: 'anysearch',
+        raw: { error: 'All search engines failed', attempts }
+    }];
 }

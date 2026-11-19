@@ -16,7 +16,7 @@ import type {
     BookInfo,
     DeepSearchLogEntry,
     KeywordResult,
-    DuckDuckGoSnippet,
+    SearchSnippet,
     DocumentAnalysisMessageContent,
     DocumentAnalysisProgressContent,
     DocumentAnalysisDraftContent,
@@ -36,7 +36,7 @@ interface DeepSearchDraftMessageContent {
     draftMarkdown: string;
     isStreaming: boolean;
     isComplete: boolean;
-    searchSnippets: DuckDuckGoSnippet[];
+    searchSnippets: SearchSnippet[];
     keywords: KeywordResult[];
     userInput: string;
 }

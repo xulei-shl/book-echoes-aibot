@@ -6,7 +6,7 @@ import { performWebSearch } from '@/src/core/aibot/webSearchService';
 import { loadPrompt } from '@/src/core/aibot/promptLoader';
 import { generateTextWithFallback, streamTextWithFallback } from '@/src/core/aibot/llmClient';
 import { AIBOT_PROMPT_FILES } from '@/src/core/aibot/constants';
-import { getSearchEngineLabel, shouldUseTavilySearch, hasTavilyApiKey } from '@/src/core/aibot/searchConfig';
+import { getSearchEngineLabel, hasAnysearchApiKey, hasDoubaoApiKey, hasTavilyApiKey } from '@/src/core/aibot/searchConfig';
 import type { WebSearchSnippet } from '@/src/core/aibot/types';
 
 const logger = getLogger('aibot.api.deep-search-analysis');
@@ -160,18 +160,19 @@ export async function POST(request: Request) {
 
                 currentPhase = 'search';
                 const searchEngine = getSearchEngineLabel();
-                sendProgress(controller, 'search', `正在执行${searchEngine}检索...`, 'running');
+                sendProgress(controller, 'search', `正在执行网络检索（${searchEngine}）...`, 'running');
                 sendProgress(controller, 'analysis', '准备分析检索结果...', 'running');
 
                 // [调试] 记录搜索配置
                 const debugSearchConfig = {
                     searchEngine,
-                    useTavily: shouldUseTavilySearch(),
+                    hasDoubaoKey: hasDoubaoApiKey(),
                     hasTavilyKey: hasTavilyApiKey(),
+                    hasAnysearchKey: hasAnysearchApiKey(),
                     proxyConfigured: !!(process.env.HTTP_PROXY || process.env.HTTPS_PROXY)
                 };
                 logger.info('[DEBUG] 搜索配置', debugSearchConfig);
-                sendProgress(controller, 'search', `搜索引擎: ${searchEngine}`, 'running', JSON.stringify(debugSearchConfig));
+                sendProgress(controller, 'search', `检索源: ${searchEngine}`, 'running', JSON.stringify(debugSearchConfig));
 
                 // 并行处理所有关键词的检索和分析
                 const searchAndAnalysisPromises = keywords.map(async (keywordItem) => {
@@ -240,7 +241,7 @@ export async function POST(request: Request) {
                 });
 
                 // 最终进度确认
-                sendProgress(controller, 'search', `${searchEngine}检索完成，获取 ${allSnippets.length} 条结果`, 'completed');
+                sendProgress(controller, 'search', `网络检索完成（${searchEngine}），获取 ${allSnippets.length} 条结果`, 'completed');
                 sendProgress(controller, 'analysis', `所有关键词分析完成，共生成 ${allAnalyses.length} 篇分析`, 'completed');
 
                 // 第三步：交叉分析（流式输出草稿）

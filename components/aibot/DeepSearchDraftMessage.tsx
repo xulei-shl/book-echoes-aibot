@@ -1,13 +1,13 @@
 'use client';
 
 import UnifiedDraftMessage from './messages/UnifiedDraftMessage';
-import type { DuckDuckGoSnippet, KeywordResult } from '@/src/core/aibot/types';
+import type { SearchSnippet, KeywordResult } from '@/src/core/aibot/types';
 
 interface DeepSearchDraftMessageProps {
     draftMarkdown: string;
     isStreaming: boolean;
     isComplete: boolean;
-    searchSnippets: DuckDuckGoSnippet[];
+    searchSnippets: SearchSnippet[];
     keywords: KeywordResult[];
     onDraftChange?: (value: string) => void;
     onConfirm?: () => void;

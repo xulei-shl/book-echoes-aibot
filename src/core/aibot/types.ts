@@ -9,10 +9,24 @@ export interface ChatMessage {
     content: string;
 }
 
-export interface DuckDuckGoSnippet {
+export type WebSearchSource = 'doubao' | 'tavily' | 'anysearch' | 'exa';
+
+// 前端展示用的统一网络检索结果
+export interface SearchSnippet {
     title: string;
     url: string;
     snippet: string;
+    raw?: unknown;
+}
+
+export interface DoubaoSnippet {
+    title: string;
+    url: string;
+    snippet: string;
+    content?: string;
+    score?: number;
+    siteName?: string;
+    publishedAt?: string;
     raw?: unknown;
 }
 
@@ -43,9 +57,17 @@ export interface ExaSearchOptions {
     topK?: number;
 }
 
+export interface AnySearchSnippet {
+    title: string;
+    url: string;
+    snippet: string;
+    content?: string;
+    raw?: unknown;
+}
+
 export interface DraftPayload {
     userInput: string;
-    searchSnippets: DuckDuckGoSnippet[];
+    searchSnippets: SearchSnippet[];
     articleAnalysis: string;
     crossAnalysis: string;
     draftMarkdown: string;
@@ -73,28 +95,13 @@ export interface ChatWorkflowContext {
     llmConfig: LLMConfig;
 }
 
-export interface DuckDuckGoOptions {
-    topK?: number;
-    locale?: string;
-}
-
-// ========== Jina AI 搜索相关类型 ==========
-
-// Jina 搜索选项
-export interface JinaSearchOptions {
-    topK?: number;         // 返回结果数量
-    locale?: string;       // 搜索地区
-    site?: string;         // 限定搜索域名
-    withContent?: boolean; // 是否获取全文内容
-}
-
-// 统一网络搜索结果类型（兼容 DuckDuckGo 和 Jina）
+// 统一网络搜索结果类型（豆包 / Tavily / AnySearch / Exa）
 export interface WebSearchSnippet {
     title: string;
     url: string;
     snippet: string;
     content?: string;
-    source: 'tavily' | 'exa';
+    source: WebSearchSource;
     raw?: unknown;
 }
 
@@ -287,7 +294,7 @@ export interface DeepSearchDraftContent {
     draftMarkdown: string;          // 流式累积内容
     isStreaming: boolean;           // 是否正在流式输出
     isComplete: boolean;            // 是否流式完成
-    searchSnippets: DuckDuckGoSnippet[];
+    searchSnippets: SearchSnippet[];
     keywords: KeywordResult[];
     userInput: string;
 }
@@ -339,7 +346,7 @@ export interface DeepSearchState {
     draftContent: string;
     isDraftStreaming: boolean;
     isDraftComplete: boolean;
-    searchSnippets: DuckDuckGoSnippet[];
+    searchSnippets: SearchSnippet[];
     keywords: KeywordResult[];
     // 图书相关
     booksMessageId: string | null;

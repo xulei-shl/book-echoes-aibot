@@ -32,9 +32,9 @@ export const STREAM_EVENTS = {
 
 export const DEFAULT_TOP_K = 5;
 export const DEFAULT_MULTI_QUERY_TOP_K = 12;
-export const MAX_SNIPPETS = 8;
-export const DEEP_SEARCH_SNIPPETS_PER_KEYWORD = 5;
 
-// ========== Jina AI 搜索配置 ==========
-export const JINA_SEARCH_PER_KEYWORD = 3;      // 每个关键词返回的搜索结果数
-export const JINA_API_TIMEOUT = 30000;         // Jina API 请求超时时间（毫秒）
+// ========== 网络搜索配置 ==========
+export const MAX_SNIPPETS = 8;                  // 单个检索源默认结果数上限
+export const SEARCH_RESULTS_PER_KEYWORD = 5;   // 每个关键词返回的搜索结果数
+export const DOUBAO_MAX_RESULTS = 50;          // 豆包搜索单次结果上限
+export const ANYSEARCH_MAX_RESULTS = 10;       // AnySearch 单次结果上限

@@ -12,7 +12,7 @@ import type {
 import type {
     BookInfo,
     UploadedDocument,
-    DuckDuckGoSnippet,
+    SearchSnippet,
     KeywordResult
 } from '@/src/core/aibot/types';
 import { useAIBotStore } from '@/store/aibot/useAIBotStore';
@@ -153,7 +153,7 @@ export function useAIBotWorkflow() {
             let draftMessageId: string | null = null;
             let accumulatedDraft = '';
             let localKeywords: KeywordResult[] = [];
-            let localSnippets: DuckDuckGoSnippet[] = [];
+            let localSnippets: SearchSnippet[] = [];
             const runningLogs: PipelineProgressLog[] = [];
 
             try {
