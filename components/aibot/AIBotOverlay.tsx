@@ -10,7 +10,7 @@ import { useAIBotWorkflow } from '@/components/aibot/controllers/useAIBotWorkflo
 import { useDocumentUploadController } from '@/components/aibot/DocumentUploadWorkflow';
 import { useAIBotStore } from '@/store/aibot/useAIBotStore';
 import { AIBOT_MODES } from '@/src/core/aibot/constants';
-import type { UploadedDocument, BookInfo } from '@/src/core/aibot/types';
+import type { UploadedDocument } from '@/src/core/aibot/types';
 
 const subscribeMounted = () => () => {};
 
@@ -236,24 +236,13 @@ export default function AIBotOverlay() {
                                             onSecondaryRetrieval={(books, query) =>
                                                 workflow.secondaryRetrieval(books, query)
                                             }
-                                            onGenerateInterpretation={(selectedBookIds) => {
-                                                const selectedBooks = messages
-                                                    .flatMap((m) => {
-                                                        const c = (m as { content?: unknown }).content;
-                                                        if (c && typeof c === 'object' && 'books' in c) {
-                                                            return (c as { books: unknown[] }).books;
-                                                        }
-                                                        return [];
-                                                    })
-                                                    .filter(
-                                                        (b) =>
-                                                            b &&
-                                                            typeof b === 'object' &&
-                                                            'id' in b &&
-                                                            selectedBookIds.has((b as { id: string }).id)
-                                                    ) as unknown as BookInfo[];
-                                                workflow.generateInterpretation(selectedBooks);
-                                            }}
+                                            onGenerateInterpretation={(selectedBooks, userInput) =>
+                                                workflow.generateInterpretation(
+                                                    selectedBooks,
+                                                    userInput,
+                                                    'simple'
+                                                )
+                                            }
                                         />
                                     </div>
                                 </div>

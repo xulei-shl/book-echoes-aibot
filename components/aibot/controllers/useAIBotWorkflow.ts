@@ -502,9 +502,13 @@ export function useAIBotWorkflow() {
 
     // ========== 6. 生成深度解读报告 ==========
     const generateInterpretation = useCallback(
-        async (selectedBooks: BookInfo[], customDraftOrQuery?: string) => {
+        async (
+            selectedBooks: BookInfo[],
+            customDraftOrQuery?: string,
+            forcedSource?: PipelineSource
+        ) => {
             const source: PipelineSource =
-                'source' in state ? (state.source as PipelineSource) : 'deep';
+                forcedSource ?? ('source' in state ? (state.source as PipelineSource) : 'deep');
             const draftMarkdown =
                 customDraftOrQuery ||
                 ('draftMarkdown' in state ? (state.draftMarkdown as string) : '');

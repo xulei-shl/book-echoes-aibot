@@ -117,7 +117,7 @@ interface MessageStreamProps {
     retrievalPhase?: RetrievalPhase;
     selectedBookIds?: Set<string>;
     onBookSelection?: (bookId: string, isSelected: boolean) => void;
-    onGenerateInterpretation?: (selectedBookIds: Set<string>) => void;
+    onGenerateInterpretation?: (selectedBooks: BookInfo[], userInput: string) => void;
     onReenterSelection?: () => void;
     onSecondaryRetrieval?: (selectedBooks: BookInfo[], originalQuery: string) => void;
     originalQuery?: string;
@@ -306,8 +306,8 @@ export default function MessageStream({
                                             selectedBookIds={selectedBookIds}
                                             userInput={retrievalResults.get(message.id)!.searchQuery || originalQuery}
                                             onBookSelectionChange={onBookSelection}
-                                            onGenerateInterpretation={(selectedBooks) => {
-                                                onGenerateInterpretation?.(new Set(selectedBooks.map((b) => b.id)));
+                                            onGenerateInterpretation={(selectedBooks, draftOrQuery) => {
+                                                onGenerateInterpretation?.(selectedBooks, draftOrQuery || '');
                                             }}
                                             onReenterSelection={onReenterSelection}
                                             onSecondaryRetrieval={onSecondaryRetrieval}
