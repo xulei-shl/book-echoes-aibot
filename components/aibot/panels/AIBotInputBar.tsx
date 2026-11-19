@@ -99,7 +99,7 @@ export default function AIBotInputBar({
                         onClick={onModeToggle}
                         title={isDeepMode ? '当前为深度模式（点击切回简单模式）' : '切换为深度检索模式'}
                     >
-                        ⚡ 深度模式
+                        深度模式
                     </button>
 
                     {/* 模式指示器 */}

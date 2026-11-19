@@ -11,9 +11,6 @@ export default function AIBotHeader({ onClose }: AIBotHeaderProps) {
                 <div className="w-1.5 h-1.5 bg-[#C9A063] rounded-full shrink-0 animate-pulse" />
                 <div className="flex items-baseline gap-2 min-w-0 flex-wrap">
                     <p className="font-mono text-[#C9A063] tracking-[0.25em] text-sm font-semibold uppercase shrink-0">AIBot</p>
-                    <span className="text-[11px] text-[#A2A09A] font-info-content truncate">
-                        书海回响深度书目智能体
-                    </span>
                     <span className="hidden sm:inline-block text-[10px] text-[#C9A063]/40 font-mono tracking-wider">
                         · 本地模式
                     </span>

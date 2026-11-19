@@ -98,7 +98,6 @@ export default function DocumentUploadButton({
                     : `上传Markdown文档（${uploadedCount}/${maxFiles}）`
                 }
             >
-                <span>📎</span>
                 <span>上传文档</span>
             </button>
 

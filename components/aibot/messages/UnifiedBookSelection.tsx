@@ -169,7 +169,7 @@ export default function UnifiedBookSelection({
                                             className="px-2.5 py-1 text-xs font-mono tracking-wider border border-[#C9A063]/40 text-[#C9A063] hover:bg-[#C9A063]/10 active:scale-[0.96] transition-[background-color,border-color,transform] duration-150 shrink-0 whitespace-nowrap"
                                             title="自动筛选高相关度图书"
                                         >
-                                            ⚡ 智能优选 ({autoSelectCount})
+                                            智能优选 ({autoSelectCount})
                                         </button>
                                         {selectedCount > 0 && (
                                             <button

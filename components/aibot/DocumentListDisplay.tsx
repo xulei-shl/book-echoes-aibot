@@ -29,7 +29,7 @@ export default function DocumentListDisplay({
             {/* 文档列表标题 */}
             <div className="flex items-center justify-between text-[11px] text-[#C9A063]">
                 <span className="font-mono tracking-wider font-medium">
-                    📎 待分析文档 ({documents.length}/{maxDocuments})
+                    待分析文档 ({documents.length}/{maxDocuments})
                 </span>
                 <span className="text-[#A2A09A] text-[10px] font-info-content">支持 .md 文件</span>
             </div>
