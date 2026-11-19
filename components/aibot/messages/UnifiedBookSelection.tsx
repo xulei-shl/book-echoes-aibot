@@ -117,19 +117,19 @@ export default function UnifiedBookSelection({
         <div className="mb-4">
             {/* 列表头部 */}
             <motion.div
-                className={`flex items-center justify-between p-3 border border-[#C9A063]/30 cursor-pointer ${
+                className={`flex items-center justify-between p-3 border border-[#C9A063]/30 cursor-pointer gap-2.5 ${
                     isSelectionMode ? 'bg-[#1a1a1a]/95' : 'bg-[#1a1a1a]/85'
                 }`}
                 onClick={toggleExpanded}
                 whileHover={{ backgroundColor: 'rgba(26, 26, 26, 0.98)' }}
                 transition={{ duration: 0.2 }}
             >
-                <div className="flex items-center gap-3">
-                    <span className="text-[#C9A063] text-sm font-medium font-mono tracking-wider">
+                <div className="flex items-center gap-3 min-w-0 flex-wrap">
+                    <span className="text-[#C9A063] text-sm font-medium font-mono tracking-wider shrink-0 whitespace-nowrap">
                         📚 {title} ({books.length} 本)
                     </span>
                     {isSelectionMode && (
-                        <span className={`text-xs font-mono tracking-wider ${
+                        <span className={`text-xs font-mono tracking-wider shrink-0 whitespace-nowrap ${
                             selectedCount > 0 ? 'text-[#C9A063] font-semibold' : 'text-[#A2A09A]'
                         }`}>
                             已选 {selectedCount} 本
@@ -137,12 +137,12 @@ export default function UnifiedBookSelection({
                     )}
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0">
                     {/* 折叠箭头 */}
                     <motion.div
                         animate={{ rotate: isExpanded ? 180 : 0 }}
                         transition={{ duration: 0.2 }}
-                        className="text-[#A2A09A]"
+                        className="text-[#A2A09A] shrink-0"
                     >
                         ▼
                     </motion.div>
@@ -163,11 +163,11 @@ export default function UnifiedBookSelection({
                             {/* 工具栏：快捷筛选与清空 */}
                             {isSelectionMode && (
                                 <div className="flex items-center justify-between mb-3 pb-2 border-b border-[#C9A063]/20 flex-wrap gap-2">
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 flex-wrap">
                                         <button
                                             type="button"
                                             onClick={handleAutoSelect}
-                                            className="px-2.5 py-1 text-xs font-mono tracking-wider border border-[#C9A063]/40 text-[#C9A063] hover:bg-[#C9A063]/10 active:scale-[0.96] transition-all"
+                                            className="px-2.5 py-1 text-xs font-mono tracking-wider border border-[#C9A063]/40 text-[#C9A063] hover:bg-[#C9A063]/10 active:scale-[0.96] transition-all shrink-0 whitespace-nowrap"
                                             title="自动筛选高相关度图书"
                                         >
                                             ⚡ 智能优选 ({autoSelectCount})
@@ -176,7 +176,7 @@ export default function UnifiedBookSelection({
                                             <button
                                                 type="button"
                                                 onClick={handleClearSelection}
-                                                className="px-2.5 py-1 text-xs font-mono tracking-wider border border-[#A2A09A]/30 text-[#A2A09A] hover:text-[#E8E6DC] active:scale-[0.96] transition-all"
+                                                className="px-2.5 py-1 text-xs font-mono tracking-wider border border-[#A2A09A]/30 text-[#A2A09A] hover:text-[#E8E6DC] active:scale-[0.96] transition-all shrink-0 whitespace-nowrap"
                                             >
                                                 清空选择
                                             </button>
@@ -216,15 +216,15 @@ export default function UnifiedBookSelection({
                             )}
 
                             {/* 底部操作栏 */}
-                            <div className="mt-4 pt-3 border-t border-[#C9A063]/20 flex items-center justify-between flex-wrap gap-2">
-                                <div className="flex items-center gap-2">
+                            <div className="mt-4 pt-3 border-t border-[#C9A063]/20 flex items-center justify-between flex-wrap gap-2.5">
+                                <div className="flex items-center gap-2 flex-wrap">
                                     {onSecondaryRetrieval && (
                                         <button
                                             type="button"
                                             onClick={handleSecondaryRetrieval}
                                             disabled={isLoading || selectedCount === 0}
                                             title={selectedCount === 0 ? '请先勾选需要二次检索的图书' : `基于选中的 ${selectedCount} 本图书进行二次检索`}
-                                            className="px-3.5 py-1.5 border border-[#C9A063]/50 text-[#C9A063] hover:bg-[#C9A063]/15 active:scale-[0.96] text-xs font-mono tracking-wider transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
+                                            className="px-3.5 py-1.5 border border-[#C9A063]/50 text-[#C9A063] hover:bg-[#C9A063]/15 active:scale-[0.96] text-xs font-mono tracking-wider transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 shrink-0 whitespace-nowrap"
                                         >
                                             <span>🔍 基于选书二次检索</span>
                                             {selectedCount > 0 ? (
@@ -240,7 +240,7 @@ export default function UnifiedBookSelection({
                                         <button
                                             type="button"
                                             onClick={onReenterSelection}
-                                            className="px-3 py-1.5 border border-[#A2A09A]/40 text-[#A2A09A] hover:text-[#E8E6DC] text-xs font-mono tracking-wider transition-colors"
+                                            className="px-3 py-1.5 border border-[#A2A09A]/40 text-[#A2A09A] hover:text-[#E8E6DC] text-xs font-mono tracking-wider transition-colors shrink-0 whitespace-nowrap"
                                         >
                                             重新勾选图书
                                         </button>
@@ -252,11 +252,18 @@ export default function UnifiedBookSelection({
                                         type="button"
                                         onClick={handleGenerateInterpretation}
                                         disabled={isLoading}
-                                        className="px-4 py-1.5 bg-[#C9A063] text-[#1a1a1a] font-medium text-xs font-mono tracking-wider hover:bg-[#D4AF37] active:scale-[0.96] transition-all duration-150 disabled:opacity-50 flex items-center gap-1.5"
+                                        className="px-4 py-1.5 bg-[#C9A063] text-[#1a1a1a] font-medium text-xs font-mono tracking-wider hover:bg-[#D4AF37] active:scale-[0.96] transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 shrink-0 whitespace-nowrap"
                                     >
-                                        {selectedCount > 0
-                                            ? `生成深度解读 (${selectedCount}本) →`
-                                            : '智能优选并生成解读 →'}
+                                        {isLoading ? (
+                                            <>
+                                                <span className="w-2.5 h-2.5 border border-[#1a1a1a] border-t-transparent animate-spin inline-block shrink-0"></span>
+                                                <span>正在生成解读...</span>
+                                            </>
+                                        ) : selectedCount > 0 ? (
+                                            `生成深度解读 (${selectedCount}本) →`
+                                        ) : (
+                                            '智能优选并生成解读 →'
+                                        )}
                                     </button>
                                 )}
                             </div>

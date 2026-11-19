@@ -54,6 +54,8 @@ interface DeepSearchReportMessageContent {
     isStreaming: boolean;
     isComplete: boolean;
     selectedBooks: BookInfo[];
+    source?: 'simple' | 'deep' | 'document';
+    error?: string;
 }
 
 type DeepSearchMessageContent =
@@ -227,6 +229,7 @@ export default function MessageStream({
                                             books={content.books}
                                             draftMarkdown={content.draftMarkdown}
                                             userInput={content.userInput}
+                                            isLoading={isStreaming}
                                             onGenerateInterpretation={(books) =>
                                                 onDeepSearchGenerateInterpretation?.(books, content.draftMarkdown)
                                             }
@@ -265,6 +268,7 @@ export default function MessageStream({
                                             books={content.books}
                                             draftMarkdown={content.draftMarkdown}
                                             userInput={content.userInput}
+                                            isLoading={isStreaming}
                                             autoCollapseOnReportStart={false}
                                             onGenerateInterpretation={(books) =>
                                                 onDocumentAnalysisGenerateInterpretation?.(books, content.draftMarkdown)
@@ -280,6 +284,13 @@ export default function MessageStream({
                                             isStreaming={content.isStreaming}
                                             isComplete={content.isComplete}
                                             selectedBooks={content.selectedBooks}
+                                            error={content.error}
+                                            onRetry={() =>
+                                                onDocumentAnalysisGenerateInterpretation?.(
+                                                    content.selectedBooks,
+                                                    ''
+                                                )
+                                            }
                                             onSecondaryRetrieval={onSecondaryRetrieval}
                                         />
                                     )}
@@ -294,6 +305,19 @@ export default function MessageStream({
                                             isStreaming={typeof content === 'object' ? content.isStreaming : isStreaming}
                                             isComplete={typeof content === 'object' ? content.isComplete : !isStreaming}
                                             selectedBooks={typeof content === 'object' ? content.selectedBooks : []}
+                                            error={typeof content === 'object' ? content.error : undefined}
+                                            onRetry={() => {
+                                                if (typeof content === 'object' && content.selectedBooks) {
+                                                    if (content.source === 'simple') {
+                                                        onGenerateInterpretation?.(content.selectedBooks, '');
+                                                    } else {
+                                                        onDeepSearchGenerateInterpretation?.(
+                                                            content.selectedBooks,
+                                                            ''
+                                                        );
+                                                    }
+                                                }
+                                            }}
                                             onSecondaryRetrieval={onSecondaryRetrieval}
                                         />
                                     )}
@@ -305,6 +329,7 @@ export default function MessageStream({
                                             mode="selection"
                                             selectedBookIds={selectedBookIds}
                                             userInput={retrievalResults.get(message.id)!.searchQuery || originalQuery}
+                                            isLoading={isStreaming}
                                             onBookSelectionChange={onBookSelection}
                                             onGenerateInterpretation={(selectedBooks, draftOrQuery) => {
                                                 onGenerateInterpretation?.(selectedBooks, draftOrQuery || '');
@@ -324,7 +349,7 @@ export default function MessageStream({
                                     typeof content === 'string' &&
                                     message.id === lastAssistantMessageId) && (
                                     <div
-                                        className={`inline-block px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap font-info-content border ${
+                                        className={`inline-block max-w-[88%] break-words px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap font-info-content border ${
                                             message.role === 'user'
                                                 ? 'bg-[#111111]/80 border-[#C9A063]/20 text-[#E8E6DC]'
                                                 : 'bg-[#1a1a1a]/80 border-[#C9A063]/20 text-[#E8E6DC]'

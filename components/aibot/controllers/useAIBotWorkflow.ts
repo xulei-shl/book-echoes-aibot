@@ -31,6 +31,7 @@ const generateUUID = (): string => {
 export function useAIBotWorkflow() {
     const [state, dispatch] = useReducer(pipelineReducer, initialPipelineState);
     const abortRef = useRef<AbortController | null>(null);
+    const currentReportMessageIdRef = useRef<string | null>(null);
 
     const {
         appendMessage,
@@ -50,6 +51,7 @@ export function useAIBotWorkflow() {
     // 关闭弹窗或重置时：物理中断请求 + 状态原子归零
     const reset = useCallback(() => {
         cancelOngoing();
+        currentReportMessageIdRef.current = null;
         dispatch({ type: 'RESET' });
     }, [cancelOngoing]);
 
@@ -71,6 +73,7 @@ export function useAIBotWorkflow() {
     // ========== 1. 简单检索模式 ==========
     const startSimpleSearch = useCallback(
         async (query: string) => {
+            currentReportMessageIdRef.current = null;
             const signal = getNewSignal();
             dispatch({ type: 'START_ANALYSIS', source: 'simple', initialPhase: 'search' });
 
@@ -134,6 +137,7 @@ export function useAIBotWorkflow() {
     // ========== 2. 深度检索模式 ==========
     const startDeepSearch = useCallback(
         async (query: string) => {
+            currentReportMessageIdRef.current = null;
             const signal = getNewSignal();
             dispatch({ type: 'START_ANALYSIS', source: 'deep', initialPhase: 'keyword' });
             setMode('deep');
@@ -284,6 +288,7 @@ export function useAIBotWorkflow() {
     // ========== 3. 文档分析模式 ==========
     const startDocumentAnalysis = useCallback(
         async (documents: UploadedDocument[]) => {
+            currentReportMessageIdRef.current = null;
             const signal = getNewSignal();
             dispatch({ type: 'START_ANALYSIS', source: 'document', initialPhase: 'document-analysis' });
             setMode('document');
@@ -522,21 +527,52 @@ export function useAIBotWorkflow() {
                 selectedBooks
             });
 
-            const reportMessageId = generateUUID();
             const reportMessageType =
                 source === 'document' ? 'document-analysis-report' : 'deep-search-report';
 
-            appendMessage({
-                id: reportMessageId,
-                role: 'assistant',
-                content: {
-                    type: reportMessageType,
-                    reportMarkdown: '',
-                    isStreaming: true,
-                    isComplete: false,
-                    selectedBooks
+            // 检查当前是否已有该轮次失败或待填充的解读卡片，实现原地替换与幂等性
+            const currentMessages = useAIBotStore.getState().messages;
+            let targetMessageId = currentReportMessageIdRef.current;
+            if (targetMessageId && !currentMessages.some((m) => m.id === targetMessageId)) {
+                targetMessageId = null;
+            }
+            if (!targetMessageId) {
+                const lastMsg = currentMessages[currentMessages.length - 1];
+                if (
+                    lastMsg &&
+                    lastMsg.role === 'assistant' &&
+                    typeof lastMsg.content === 'object' &&
+                    lastMsg.content !== null &&
+                    (lastMsg.content as { type?: string }).type === reportMessageType &&
+                    (Boolean((lastMsg.content as { error?: string }).error) ||
+                        !(lastMsg.content as { reportMarkdown?: string }).reportMarkdown)
+                ) {
+                    targetMessageId = lastMsg.id;
                 }
-            });
+            }
+
+            const initialReportContent = {
+                type: reportMessageType,
+                reportMarkdown: '',
+                isStreaming: true,
+                isComplete: false,
+                selectedBooks,
+                source,
+                error: undefined
+            };
+
+            if (targetMessageId) {
+                currentReportMessageIdRef.current = targetMessageId;
+                updateMessageContent(targetMessageId, initialReportContent);
+            } else {
+                targetMessageId = generateUUID();
+                currentReportMessageIdRef.current = targetMessageId;
+                appendMessage({
+                    id: targetMessageId,
+                    role: 'assistant',
+                    content: initialReportContent
+                });
+            }
 
             try {
                 const endpoint =
@@ -564,7 +600,14 @@ export function useAIBotWorkflow() {
                 });
 
                 if (!response.ok || !response.body) {
-                    throw new Error('深度解读生成失败');
+                    const failure = (await response.json().catch(() => null)) as { message?: string; error?: string } | null;
+                    const errorDetail =
+                        typeof failure?.message === 'string' && failure.message
+                            ? failure.message
+                            : typeof failure?.error === 'string' && failure.error
+                              ? failure.error
+                              : '深度解读生成失败';
+                    throw new Error(errorDetail);
                 }
 
                 const reader = response.body.getReader();
@@ -579,21 +622,25 @@ export function useAIBotWorkflow() {
 
                     dispatch({ type: 'APPEND_REPORT_CHUNK', chunk });
 
-                    updateMessageContent(reportMessageId, {
+                    updateMessageContent(targetMessageId, {
                         type: reportMessageType,
                         reportMarkdown: accumulatedReport,
                         isStreaming: true,
                         isComplete: false,
-                        selectedBooks
+                        selectedBooks,
+                        source,
+                        error: undefined
                     });
                 }
 
-                updateMessageContent(reportMessageId, {
+                updateMessageContent(targetMessageId, {
                     type: reportMessageType,
                     reportMarkdown: accumulatedReport,
                     isStreaming: false,
                     isComplete: true,
-                    selectedBooks
+                    selectedBooks,
+                    source,
+                    error: undefined
                 });
 
                 dispatch({
@@ -602,9 +649,26 @@ export function useAIBotWorkflow() {
                     selectedBooks,
                     reportMarkdown: accumulatedReport
                 });
+
+                // 生成成功完成后，重置当前卡片引用，后续再次独立触发将另行起卡
+                currentReportMessageIdRef.current = null;
             } catch (err: unknown) {
                 if (err instanceof DOMException && err.name === 'AbortError') return;
                 const errorMsg = err instanceof Error ? err.message : '解读生成异常';
+
+                // 原地在目标卡片中反映错误状态与原因，消除游标脉冲
+                if (targetMessageId) {
+                    updateMessageContent(targetMessageId, {
+                        type: reportMessageType,
+                        reportMarkdown: '',
+                        isStreaming: false,
+                        isComplete: false,
+                        selectedBooks,
+                        source,
+                        error: errorMsg
+                    });
+                }
+
                 dispatch({ type: 'SET_ERROR', source, error: errorMsg });
             }
         },

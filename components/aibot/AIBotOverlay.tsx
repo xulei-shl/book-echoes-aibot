@@ -145,8 +145,16 @@ export default function AIBotOverlay() {
         URL.revokeObjectURL(url);
     }, [messages]);
 
+    // 当错误已经在消息流卡片中就地承载时（例如解读报告失败卡片），不在弹窗底部脱节展示
+    const isReportErrorDisplayedInStream = messages.some((m) => {
+        const c = (m as { content?: unknown }).content;
+        return c && typeof c === 'object' && 'error' in c && Boolean((c as { error?: string }).error);
+    });
+
     const workflowError =
-        workflow.state.status === 'error' ? workflow.state.error : undefined;
+        workflow.state.status === 'error' && !isReportErrorDisplayedInStream
+            ? workflow.state.error
+            : undefined;
     const displayedError = error ?? workflowError;
 
     const isBusy =
@@ -188,7 +196,7 @@ export default function AIBotOverlay() {
                     />
                     <motion.div
                         key="aibot-dialog"
-                        className="fixed inset-x-4 md:inset-x-20 lg:inset-x-32 top-12 bottom-12 bg-[#1a1a1a]/90 backdrop-blur-xl border border-[#C9A063]/30 overflow-hidden z-[10000] pointer-events-auto flex flex-col"
+                        className="fixed inset-x-2 sm:inset-x-4 md:inset-x-20 lg:inset-x-32 top-3 sm:top-6 md:top-12 bottom-3 sm:bottom-6 md:bottom-12 bg-[#1a1a1a]/90 backdrop-blur-xl border border-[#C9A063]/30 overflow-hidden z-[10000] pointer-events-auto flex flex-col"
                         style={{ minHeight: 0 }}
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
@@ -216,7 +224,7 @@ export default function AIBotOverlay() {
                         <div className="relative flex-1 overflow-hidden z-10 flex flex-col" style={{ minHeight: '0' }}>
                             <div className="relative flex-1 overflow-hidden">
                                 <div
-                                    className="h-full flex flex-col gap-6 px-6 md:px-10 py-8 overflow-y-auto about-overlay-scroll"
+                                    className="h-full flex flex-col gap-6 px-4 sm:px-6 md:px-10 py-6 md:py-8 overflow-y-auto about-overlay-scroll"
                                     style={{ minHeight: '0' }}
                                 >
                                     <div className="flex-1 min-h-0" style={{ overflow: 'hidden' }}>
@@ -273,7 +281,7 @@ export default function AIBotOverlay() {
                             )}
 
                             {/* 底部信息栏 */}
-                            <div className="px-6 md:px-10 py-3 border-t border-[#C9A063]/20 flex justify-between items-center bg-[#1a1a1a] relative z-10">
+                            <div className="px-4 sm:px-6 md:px-10 py-2.5 md:py-3 border-t border-[#C9A063]/20 flex justify-between items-center bg-[#1a1a1a] relative z-10">
                                 <span className="font-mono text-[10px] text-[#C9A063]/40 tracking-widest">
                                     BOOK ECHOES SHANGHAI LIBRARY
                                 </span>

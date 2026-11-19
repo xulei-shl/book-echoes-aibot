@@ -78,14 +78,14 @@ export default function DocumentUploadButton({
     const hasUploadedDocuments = uploadedCount > 0;
 
     return (
-        <div className="relative flex items-center">
+        <div className="relative flex items-center shrink-0">
             <button
                 type="button"
                 onClick={handleClick}
                 disabled={buttonDisabled}
                 className={`
                     px-3 py-1 border text-xs font-mono tracking-wider transition-colors duration-300
-                    flex items-center gap-2
+                    flex items-center gap-2 shrink-0 whitespace-nowrap
                     ${buttonDisabled
                         ? 'border-[#3A3A3A] text-[#555] cursor-not-allowed opacity-60'
                         : hasUploadedDocuments
@@ -114,7 +114,7 @@ export default function DocumentUploadButton({
             {/* 数量提示 */}
             {uploadedCount > 0 && (
                 <span className={`
-                    ml-2 px-2 py-0.5 text-[10px] font-mono tracking-wider border
+                    ml-2 px-2 py-0.5 text-[10px] font-mono tracking-wider border shrink-0 whitespace-nowrap
                     ${isNearLimit
                         ? 'border-orange-500 text-orange-300 bg-orange-500/10'
                         : 'border-[#C9A063]/30 text-[#C9A063] bg-[#C9A063]/5'

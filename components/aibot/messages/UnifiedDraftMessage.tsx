@@ -102,33 +102,33 @@ export default function UnifiedDraftMessage({
 
             {/* 草稿头部 */}
             <motion.div
-                className="flex items-center justify-between p-3 border border-[#C9A063]/30 bg-[#1a1a1a]/90 backdrop-blur-xl cursor-pointer"
+                className="flex items-center justify-between p-3 border border-[#C9A063]/30 bg-[#1a1a1a]/90 backdrop-blur-xl cursor-pointer gap-2.5 flex-wrap"
                 onClick={() => !isEditing && setIsExpanded(!isExpanded)}
                 whileHover={{ backgroundColor: 'rgba(26, 26, 26, 0.95)' }}
                 transition={{ duration: 0.2 }}
             >
-                <div className="flex items-center gap-3">
-                    <span className="text-[#C9A063] text-sm font-medium font-mono tracking-wider">
+                <div className="flex items-center gap-2.5 min-w-0 flex-wrap">
+                    <span className="text-[#C9A063] text-sm font-medium font-mono tracking-wider shrink-0 whitespace-nowrap">
                         {title}
                     </span>
                     {isStreaming && (
-                        <span className="animate-pulse text-xs text-[#A2A09A] font-mono tracking-wider">
+                        <span className="animate-pulse text-xs text-[#A2A09A] font-mono tracking-wider shrink-0 whitespace-nowrap">
                             生成中...
                         </span>
                     )}
                     {isComplete && !isStreaming && (
-                        <span className="text-xs text-[#C9A063]/70 font-mono tracking-wider">
+                        <span className="text-xs text-[#C9A063]/70 font-mono tracking-wider shrink-0 whitespace-nowrap">
                             ✓ 生成完成 ({cleanedDraft.length} 字符)
                         </span>
                     )}
                     {!isComplete && !isStreaming && cleanedDraft && (
-                        <span className="text-xs text-[#E8E6DC] font-mono tracking-wider">
+                        <span className="text-xs text-[#E8E6DC] font-mono tracking-wider shrink-0 whitespace-nowrap">
                             {cleanedDraft.length} 字符
                         </span>
                     )}
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0">
                     {hasMetadata && (
                         <button
                             type="button"
@@ -136,7 +136,7 @@ export default function UnifiedDraftMessage({
                                 e.stopPropagation();
                                 setShowMetadata(!showMetadata);
                             }}
-                            className="bg-transparent border border-[#C9A063]/30 text-[#C9A063]/70 hover:bg-[#C9A063] hover:text-[#1a1a1a] transition-colors text-xs px-2 py-1 font-mono tracking-wider"
+                            className="bg-transparent border border-[#C9A063]/30 text-[#C9A063]/70 hover:bg-[#C9A063] hover:text-[#1a1a1a] transition-colors text-xs px-2 py-1 font-mono tracking-wider shrink-0 whitespace-nowrap"
                         >
                             源数据 (
                             {[
@@ -152,7 +152,7 @@ export default function UnifiedDraftMessage({
                     <motion.div
                         animate={{ rotate: isExpanded ? 180 : 0 }}
                         transition={{ duration: 0.2 }}
-                        className="text-[#A2A09A]"
+                        className="text-[#A2A09A] shrink-0"
                     >
                         ▼
                     </motion.div>
@@ -279,13 +279,13 @@ export default function UnifiedDraftMessage({
                                     </div>
 
                                     {/* 操作按钮区 */}
-                                    <div className="mt-4 pt-3 border-t border-[#C9A063]/20 flex items-center justify-between flex-wrap gap-2">
-                                        <div className="flex items-center gap-2">
+                                    <div className="mt-4 pt-3 border-t border-[#C9A063]/20 flex items-center justify-between flex-wrap gap-2.5">
+                                        <div className="flex items-center gap-2 flex-wrap">
                                             {onDraftChange && !isStreaming && (
                                                 <button
                                                     type="button"
                                                     onClick={handleStartEdit}
-                                                    className="px-3 py-1.5 border border-[#C9A063]/40 text-[#C9A063] hover:bg-[#C9A063]/10 text-xs font-mono tracking-wider transition-colors"
+                                                    className="px-3 py-1.5 border border-[#C9A063]/40 text-[#C9A063] hover:bg-[#C9A063]/10 text-xs font-mono tracking-wider transition-colors shrink-0 whitespace-nowrap active:scale-[0.96]"
                                                 >
                                                     ✏️ 编辑草稿
                                                 </button>
@@ -294,19 +294,19 @@ export default function UnifiedDraftMessage({
                                                 <button
                                                     type="button"
                                                     onClick={onRegenerate}
-                                                    className="px-3 py-1.5 border border-[#A2A09A]/40 text-[#A2A09A] hover:text-[#E8E6DC] text-xs font-mono tracking-wider transition-colors"
+                                                    className="px-3 py-1.5 border border-[#A2A09A]/40 text-[#A2A09A] hover:text-[#E8E6DC] text-xs font-mono tracking-wider transition-colors shrink-0 whitespace-nowrap active:scale-[0.96]"
                                                 >
                                                     🔄 重新生成
                                                 </button>
                                             )}
                                         </div>
 
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-2 flex-wrap">
                                             {onCancel && (
                                                 <button
                                                     type="button"
                                                     onClick={onCancel}
-                                                    className="px-3 py-1.5 border border-[#A2A09A]/40 text-[#A2A09A] hover:text-[#E8E6DC] text-xs font-mono tracking-wider transition-colors"
+                                                    className="px-3 py-1.5 border border-[#A2A09A]/40 text-[#A2A09A] hover:text-[#E8E6DC] text-xs font-mono tracking-wider transition-colors shrink-0 whitespace-nowrap active:scale-[0.96]"
                                                 >
                                                     取消
                                                 </button>
@@ -316,7 +316,7 @@ export default function UnifiedDraftMessage({
                                                     type="button"
                                                     onClick={onConfirm}
                                                     disabled={isStreaming || !cleanedDraft}
-                                                    className="px-4 py-1.5 bg-[#C9A063] text-[#1a1a1a] font-medium text-xs font-mono tracking-wider hover:bg-[#D4AF37] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    className="px-4 py-1.5 bg-[#C9A063] text-[#1a1a1a] font-medium text-xs font-mono tracking-wider hover:bg-[#D4AF37] transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0 whitespace-nowrap active:scale-[0.96]"
                                                 >
                                                     确认并检索图书 →
                                                 </button>

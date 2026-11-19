@@ -40,7 +40,7 @@ export default function AIBotInputBar({
     return (
         <form
             id="aibot-form"
-            className="space-y-3 px-6 md:px-10 py-4 border-t border-[#C9A063]/20 bg-[#1a1a1a] relative z-10 shrink-0"
+            className="space-y-3 px-4 sm:px-6 md:px-10 py-3.5 md:py-4 border-t border-[#C9A063]/20 bg-[#1a1a1a] relative z-10 shrink-0"
             onSubmit={onSubmit}
         >
             {/* 输入区与文档上传抽屉 */}
@@ -76,8 +76,8 @@ export default function AIBotInputBar({
             </div>
 
             {/* 工具栏与提交按钮 */}
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3 text-xs text-[#7C7A74]">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-2.5 sm:gap-3 text-xs text-[#7C7A74] flex-wrap min-w-0">
                     <DocumentUploadButton
                         onFilesSelected={documentUploadController.handleFilesSelected}
                         disabled={disabled}
@@ -88,7 +88,7 @@ export default function AIBotInputBar({
                     <button
                         type="button"
                         className={clsx(
-                            'px-3 py-1 border text-xs font-mono tracking-wider transition-colors duration-300',
+                            'px-3 py-1 border text-xs font-mono tracking-wider transition-colors duration-300 shrink-0 whitespace-nowrap active:scale-[0.96]',
                             isDeepMode
                                 ? 'border-[#C9A063] bg-[#C9A063] text-[#1a1a1a]'
                                 : 'border-[#C9A063]/30 text-[#C9A063] hover:bg-[#C9A063] hover:text-[#1a1a1a]'
@@ -99,7 +99,7 @@ export default function AIBotInputBar({
                     </button>
 
                     {/* 模式指示器 */}
-                    <div className="flex items-center gap-1 text-xs">
+                    <div className="flex items-center gap-1 text-xs shrink-0 whitespace-nowrap">
                         <span
                             className="inline-block w-2 h-2 rounded-full shrink-0"
                             style={{
@@ -133,7 +133,7 @@ export default function AIBotInputBar({
                         type="button"
                         onClick={onClear}
                         disabled={disabled}
-                        className="px-3 py-1 border border-[#C9A063]/30 text-[#C9A063] hover:bg-[#C9A063] hover:text-[#1a1a1a] transition-colors duration-300 disabled:cursor-not-allowed disabled:text-[#555] text-xs font-mono tracking-wider"
+                        className="px-3 py-1 border border-[#C9A063]/30 text-[#C9A063] hover:bg-[#C9A063] hover:text-[#1a1a1a] transition-colors duration-300 disabled:cursor-not-allowed disabled:text-[#555] text-xs font-mono tracking-wider shrink-0 whitespace-nowrap active:scale-[0.96]"
                     >
                         清空
                     </button>
@@ -141,7 +141,7 @@ export default function AIBotInputBar({
                     <button
                         type="button"
                         onClick={onDownload}
-                        className="px-3 py-1 border border-[#C9A063]/30 text-[#C9A063] hover:bg-[#C9A063] hover:text-[#1a1a1a] transition-colors duration-300 text-xs font-mono tracking-wider"
+                        className="px-3 py-1 border border-[#C9A063]/30 text-[#C9A063] hover:bg-[#C9A063] hover:text-[#1a1a1a] transition-colors duration-300 text-xs font-mono tracking-wider shrink-0 whitespace-nowrap active:scale-[0.96]"
                     >
                         下载
                     </button>
@@ -154,7 +154,7 @@ export default function AIBotInputBar({
                         isDocumentMode ||
                         documentUploadController.statusStats.uploading > 0
                     }
-                    className="px-4 py-2 border border-[#C9A063] bg-[#C9A063] text-[#1a1a1a] text-sm font-mono tracking-wider disabled:opacity-50 transition-colors duration-300 hover:bg-[#C9A063]/20 hover:text-[#C9A063]"
+                    className="px-4 py-2 border border-[#C9A063] bg-[#C9A063] text-[#1a1a1a] text-sm font-mono tracking-wider disabled:opacity-50 transition-colors duration-300 hover:bg-[#C9A063]/20 hover:text-[#C9A063] shrink-0 whitespace-nowrap active:scale-[0.96]"
                 >
                     {busyLabel ||
                         (documentUploadController.statusStats.ready > 0 &&

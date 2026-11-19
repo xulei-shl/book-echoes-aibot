@@ -314,6 +314,8 @@ export interface DeepSearchReportContent {
     isStreaming: boolean;           // 是否正在流式输出
     isComplete: boolean;            // 是否流式完成
     selectedBooks: BookInfo[];
+    source?: 'simple' | 'deep' | 'document';
+    error?: string;                 // 失败错误信息（就地展示与重试）
 }
 
 // 深度检索消息内容联合类型
@@ -431,6 +433,8 @@ export interface DocumentAnalysisReportContent {
     isStreaming: boolean;           // 是否正在流式输出
     isComplete: boolean;            // 是否流式完成
     selectedBooks: BookInfo[];
+    source?: 'simple' | 'deep' | 'document';
+    error?: string;                 // 失败错误信息（就地展示与重试）
 }
 
 // 文档分析消息内容联合类型
