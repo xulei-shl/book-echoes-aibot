@@ -108,6 +108,7 @@ cp .env.local.example .env.local     # 敏感配置（LLM key、embedding key、
 |---|---|---|
 | `AIBOT_LOCAL_ENABLED` | `1` | 服务端开关；必须为 `1`，否则 AIBot 接口直接拒绝 |
 | `NEXT_PUBLIC_ENABLE_AIBOT_LOCAL` | `1` | 前端入口开关；必须为 `1` 才显示悬浮按钮 |
+| `AIBOT_ACCESS_PASSWORD` | — | 本地对话访问密码；配置后打开模块需先输入密码，留空不启用。服务端校验，不会下发到浏览器 |
 | `AIBOT_LLM_PRIMARY_BASE_URL` / `_API_KEY` / `_MODEL` | — | 主模型（OpenAI 兼容接口） |
 | `AIBOT_LLM_SECONDARY_*` | — | 可选备用模型，主模型失败时自动切换 |
 | `AIBOT_LLM_TEMPERATURE` | — | 全局温度，可被 `<prefix>_TEMPERATURE` 覆盖 |
@@ -369,6 +370,8 @@ NEXT_PUBLIC_ENABLE_AIBOT_LOCAL=1
 ```
 
 服务端接口统一用 `assertAIBotEnabled()` 做门禁，未开启时直接拒绝；前端入口同样受开关控制。需要至少一套完整的 LLM 配置（`AIBOT_LLM_PRIMARY_*` 或旧版 `AIBOT_LLM_*`），否则会明确报配置缺失而不是静默失败。
+
+配置 `AIBOT_ACCESS_PASSWORD` 后，打开「本地对话」会先显示密码蒙版，验证通过后才能使用。密码只在服务端比对，成功后写入 httpOnly 会话 Cookie；`proxy.ts` 会拦截未携带该 Cookie 的 `/api/local-aibot/*` 请求（登录接口除外），无法绕过前端直接调接口。留空则完全保持原行为。
 
 相关代码：`app/api/local-aibot/*`、`src/core/aibot/`、`components/aibot/`、`store/aibot/`。
 

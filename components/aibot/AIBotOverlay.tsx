@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState, useCallback, useSyncExternalStore } from 'react';
+import React, { useEffect, useState, useCallback, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import MessageStream from '@/components/aibot/MessageStream';
 import AIBotHeader from '@/components/aibot/panels/AIBotHeader';
 import AIBotInputBar from '@/components/aibot/panels/AIBotInputBar';
+import AIBotPasswordGate from '@/components/aibot/AIBotPasswordGate';
 import { useAIBotWorkflow } from '@/components/aibot/controllers/useAIBotWorkflow';
 import { useDocumentUploadController } from '@/components/aibot/DocumentUploadWorkflow';
 import { useAIBotStore } from '@/store/aibot/useAIBotStore';
@@ -13,6 +14,8 @@ import { AIBOT_MODES } from '@/src/core/aibot/constants';
 import type { UploadedDocument } from '@/src/core/aibot/types';
 
 const subscribeMounted = () => () => {};
+
+type AIBotAccessState = 'checking' | 'locked' | 'unlocked';
 
 export default function AIBotOverlay() {
     const isMounted = useSyncExternalStore(
@@ -33,6 +36,45 @@ export default function AIBotOverlay() {
         setError,
         error
     } = useAIBotStore();
+
+    const [accessState, setAccessState] = useState<AIBotAccessState>('checking');
+
+    // 打开弹窗时向服务端确认密码门状态；未配置密码时直接视为已解锁
+    useEffect(() => {
+        if (!isOverlayOpen) {
+            setAccessState('checking');
+            return;
+        }
+
+        let cancelled = false;
+        setAccessState('checking');
+
+        const loadAccessState = async () => {
+            try {
+                const response = await fetch('/api/local-aibot/auth', { cache: 'no-store' });
+                if (!response.ok) {
+                    throw new Error(`访问验证状态查询失败：${response.status}`);
+                }
+                const data = (await response.json()) as {
+                    required?: boolean;
+                    authenticated?: boolean;
+                };
+                if (!cancelled) {
+                    setAccessState(data.required && !data.authenticated ? 'locked' : 'unlocked');
+                }
+            } catch {
+                if (!cancelled) {
+                    setAccessState('locked');
+                }
+            }
+        };
+
+        void loadAccessState();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [isOverlayOpen]);
 
     const workflow = useAIBotWorkflow();
 
@@ -225,56 +267,67 @@ export default function AIBotOverlay() {
 
                         {/* 消息主体 (扁平化单一滚动区，保留全部交互) */}
                         <div className="relative flex-1 min-h-0 z-10 flex flex-col overflow-hidden">
-                            <MessageStream
-                                messages={messages}
-                                isStreaming={isBusy}
-                                onDeepSearchDraftConfirm={() => workflow.confirmDraft()}
-                                onDeepSearchDraftChange={(draft) => workflow.confirmDraft(draft)}
-                                onDeepSearchDraftRegenerate={() => workflow.regenerateDraft()}
-                                onDeepSearchDraftCancel={() => workflow.cancelDraft()}
-                                onDocumentAnalysisDraftConfirm={() => workflow.confirmDraft()}
-                                onDocumentAnalysisDraftChange={(draft) => workflow.confirmDraft(draft)}
-                                onDocumentAnalysisDraftRegenerate={() => workflow.regenerateDraft()}
-                                onDocumentAnalysisDraftCancel={() => workflow.cancelDraft()}
-                                onDeepSearchGenerateInterpretation={(books, draft) =>
-                                    workflow.generateInterpretation(books, draft)
-                                }
-                                onDocumentAnalysisGenerateInterpretation={(books, draft) =>
-                                    workflow.generateInterpretation(books, draft)
-                                }
-                                onSecondaryRetrieval={(books, query) =>
-                                    workflow.secondaryRetrieval(books, query)
-                                }
-                                onGenerateInterpretation={(selectedBooks, userInput) =>
-                                    workflow.generateInterpretation(
-                                        selectedBooks,
-                                        userInput,
-                                        'simple'
-                                    )
-                                }
-                            />
+                            {accessState === 'unlocked' && (
+                                <>
+                                    <MessageStream
+                                        messages={messages}
+                                        isStreaming={isBusy}
+                                        onDeepSearchDraftConfirm={() => workflow.confirmDraft()}
+                                        onDeepSearchDraftChange={(draft) => workflow.confirmDraft(draft)}
+                                        onDeepSearchDraftRegenerate={() => workflow.regenerateDraft()}
+                                        onDeepSearchDraftCancel={() => workflow.cancelDraft()}
+                                        onDocumentAnalysisDraftConfirm={() => workflow.confirmDraft()}
+                                        onDocumentAnalysisDraftChange={(draft) => workflow.confirmDraft(draft)}
+                                        onDocumentAnalysisDraftRegenerate={() => workflow.regenerateDraft()}
+                                        onDocumentAnalysisDraftCancel={() => workflow.cancelDraft()}
+                                        onDeepSearchGenerateInterpretation={(books, draft) =>
+                                            workflow.generateInterpretation(books, draft)
+                                        }
+                                        onDocumentAnalysisGenerateInterpretation={(books, draft) =>
+                                            workflow.generateInterpretation(books, draft)
+                                        }
+                                        onSecondaryRetrieval={(books, query) =>
+                                            workflow.secondaryRetrieval(books, query)
+                                        }
+                                        onGenerateInterpretation={(selectedBooks, userInput) =>
+                                            workflow.generateInterpretation(
+                                                selectedBooks,
+                                                userInput,
+                                                'simple'
+                                            )
+                                        }
+                                    />
 
-                            {/* 统一输入栏 */}
-                            <AIBotInputBar
-                                inputValue={inputValue}
-                                onInputChange={setInputValue}
-                                onSubmit={handleSubmit}
-                                mode={mode}
-                                onModeToggle={() =>
-                                    setMode(mode === AIBOT_MODES.DEEP ? AIBOT_MODES.TEXT : AIBOT_MODES.DEEP)
-                                }
-                                onClear={handleClear}
-                                onDownload={handleDownload}
-                                disabled={isBusy}
-                                busyLabel={busyLabel}
-                                onAbort={() => workflow.cancelOngoing()}
-                                documentUploadController={documentUploadController}
-                            />
+                                    {/* 统一输入栏 */}
+                                    <AIBotInputBar
+                                        inputValue={inputValue}
+                                        onInputChange={setInputValue}
+                                        onSubmit={handleSubmit}
+                                        mode={mode}
+                                        onModeToggle={() =>
+                                            setMode(mode === AIBOT_MODES.DEEP ? AIBOT_MODES.TEXT : AIBOT_MODES.DEEP)
+                                        }
+                                        onClear={handleClear}
+                                        onDownload={handleDownload}
+                                        disabled={isBusy}
+                                        busyLabel={busyLabel}
+                                        onAbort={() => workflow.cancelOngoing()}
+                                        documentUploadController={documentUploadController}
+                                    />
 
-                            {displayedError && (
-                                <p className="px-4 sm:px-6 py-2 border-t border-[#C76B6B]/30 text-xs text-[#E58585] bg-[#C76B6B]/10 relative z-10 font-info-content">
-                                    {displayedError}
-                                </p>
+                                    {displayedError && (
+                                        <p className="px-4 sm:px-6 py-2 border-t border-[#C76B6B]/30 text-xs text-[#E58585] bg-[#C76B6B]/10 relative z-10 font-info-content">
+                                            {displayedError}
+                                        </p>
+                                    )}
+                                </>
+                            )}
+
+                            {accessState !== 'unlocked' && (
+                                <AIBotPasswordGate
+                                    checking={accessState === 'checking'}
+                                    onUnlocked={() => setAccessState('unlocked')}
+                                />
                             )}
                         </div>
                     </motion.div>
