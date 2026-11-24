@@ -1,4 +1,4 @@
-import { getRandomBooks } from '@/lib/content';
+import { getRandomBooks, getAboutContent } from '@/lib/content';
 import RandomMasonry from '@/components/RandomMasonry';
 import { Metadata } from 'next';
 
@@ -10,6 +10,16 @@ export const metadata: Metadata = {
 };
 
 export default async function RandomPage() {
-    const { items, nextCursor, seed } = await getRandomBooks(18);
-    return <RandomMasonry initialBooks={items} initialCursor={nextCursor} seed={seed} />;
+    const [{ items, nextCursor, seed }, aboutContent] = await Promise.all([
+        getRandomBooks(18),
+        getAboutContent(),
+    ]);
+    return (
+        <RandomMasonry
+            initialBooks={items}
+            initialCursor={nextCursor}
+            seed={seed}
+            aboutContent={aboutContent}
+        />
+    );
 }

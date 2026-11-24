@@ -9,6 +9,7 @@ interface RandomMasonryProps {
     initialBooks: RandomBook[];
     initialCursor?: string;
     seed: number;
+    aboutContent?: string;
 }
 
 interface LineParticle {
@@ -181,7 +182,7 @@ function RandomBookCard({ book, index, shouldAnimate, animationStartIndex, label
     );
 }
 
-export default function RandomMasonry({ initialBooks, initialCursor, seed }: RandomMasonryProps) {
+export default function RandomMasonry({ initialBooks, initialCursor, seed, aboutContent }: RandomMasonryProps) {
     const [books, setBooks] = useState(initialBooks);
     const [nextCursor, setNextCursor] = useState<string | undefined>(initialCursor);
     const [currentSeed, setCurrentSeed] = useState(seed);
@@ -321,7 +322,7 @@ export default function RandomMasonry({ initialBooks, initialCursor, seed }: Ran
             </div>
 
             {/* Header Navigation（全站统一顶部导航） */}
-            <TopNav theme="dark" />
+            <TopNav theme="dark" aboutContent={aboutContent} />
 
             {/* Main Content */}
             <div className="relative z-10 w-full px-6 md:px-10 lg:px-16 py-32 mx-auto max-w-6xl">
