@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, useLayoutEffect, useRef, type RefObject } from 'react';
+import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { useRouter } from 'next/navigation';
 import TopNav from './TopNav';
 
 interface RandomMasonryProps {
@@ -101,11 +101,10 @@ interface RandomBookCardProps {
     animationStartIndex: number;
     label: string;
     metrics: GridMetrics | null;
-    onOpen: (book: RandomBook) => void;
 }
 
 /** 单张卡片：加载态收敛在卡片内部，避免某张图 onLoad 时重渲染整个列表 */
-function RandomBookCard({ book, index, shouldAnimate, animationStartIndex, label, metrics, onOpen }: RandomBookCardProps) {
+function RandomBookCard({ book, index, shouldAnimate, animationStartIndex, label, metrics }: RandomBookCardProps) {
     const [coverLoaded, setCoverLoaded] = useState(false);
 
     // 优先原图的 WebP 显示版；未重编码时用等比占位图，最后才退到原图
@@ -140,38 +139,44 @@ function RandomBookCard({ book, index, shouldAnimate, animationStartIndex, label
                 height: itemHeight ? `${itemHeight}px` : undefined,
                 aspectRatio: itemHeight ? undefined : String(aspect)
             }}
-            onClick={() => onOpen(book)}
         >
-            <div className="relative h-full w-full overflow-hidden rounded-sm shadow-[0_15px_45px_rgba(0,0,0,0.45)] hover:shadow-[0_25px_60px_rgba(0,0,0,0.6)] transition-shadow duration-500 bg-[#1c1915] border border-[#d4a5741a]">
-                {/* 等比占位/兜底层：原图缩略图模糊铺底，主图到达后淡出 */}
-                {placeholderSrc && (
-                    <div
-                        aria-hidden
-                        className={`absolute inset-0 bg-cover bg-center transition-opacity duration-700 ${coverLoaded ? 'opacity-0' : 'opacity-100'}`}
-                        style={{ backgroundImage: `url(${placeholderSrc})`, filter: 'blur(14px)', transform: 'scale(1.08)' }}
+            <Link
+                href={`/${book.month}?focus=${book.id}`}
+                className="block h-full w-full select-none"
+                prefetch={false}
+                aria-label={`${book.title} (${label})`}
+            >
+                <div className="relative h-full w-full overflow-hidden rounded-sm shadow-[0_15px_45px_rgba(0,0,0,0.45)] hover:shadow-[0_25px_60px_rgba(0,0,0,0.6)] active:scale-[0.98] transition-all duration-300 bg-[#1c1915] border border-[#d4a5741a]">
+                    {/* 等比占位/兜底层：原图缩略图模糊铺底，主图到达后淡出 */}
+                    {placeholderSrc && (
+                        <div
+                            aria-hidden
+                            className={`absolute inset-0 bg-cover bg-center transition-opacity duration-700 ${coverLoaded ? 'opacity-0' : 'opacity-100'}`}
+                            style={{ backgroundImage: `url(${placeholderSrc})`, filter: 'blur(14px)', transform: 'scale(1.08)' }}
+                        />
+                    )}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                        ref={attachCover}
+                        src={coverSrc}
+                        alt={book.title}
+                        loading={index < 6 ? 'eager' : 'lazy'}
+                        decoding="async"
+                        draggable={false}
+                        onLoad={() => setCoverLoaded(true)}
+                        onError={() => setCoverLoaded(true)}
+                        className={`relative h-full w-full object-cover transition-opacity duration-500 ${coverLoaded ? 'opacity-100' : 'opacity-0'}`}
                     />
-                )}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                    ref={attachCover}
-                    src={coverSrc}
-                    alt={book.title}
-                    loading={index < 6 ? 'eager' : 'lazy'}
-                    decoding="async"
-                    draggable={false}
-                    onLoad={() => setCoverLoaded(true)}
-                    onError={() => setCoverLoaded(true)}
-                    className={`relative h-full w-full object-cover transition-opacity duration-500 ${coverLoaded ? 'opacity-100' : 'opacity-0'}`}
-                />
 
-                {/* 悬浮遮罩：提高題名对比度，避免亮底部干扰 */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex flex-col justify-end p-6 backdrop-blur-[1.5px]">
-                    <div className="bg-black/55 backdrop-blur-sm rounded-sm px-3 py-2 shadow-[0_8px_25px_rgba(0,0,0,0.45)]">
-                        <h3 className="text-[#F2F0E9] font-bold text-lg font-display tracking-wide line-clamp-2 leading-relaxed">{book.title}</h3>
-                        <p className="text-[#D4A574] text-xs mt-2 font-accent tracking-wider">{label}</p>
+                    {/* 悬浮遮罩：提高題名对比度，避免亮底部干扰 */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex flex-col justify-end p-6 backdrop-blur-[1.5px]">
+                        <div className="bg-black/55 backdrop-blur-sm rounded-sm px-3 py-2 shadow-[0_8px_25px_rgba(0,0,0,0.45)]">
+                            <h3 className="text-[#F2F0E9] font-bold text-lg font-display tracking-wide line-clamp-2 leading-relaxed">{book.title}</h3>
+                            <p className="text-[#D4A574] text-xs mt-2 font-accent tracking-wider">{label}</p>
+                        </div>
                     </div>
                 </div>
-            </div>
+            </Link>
         </motion.div>
     );
 }
@@ -182,7 +187,6 @@ export default function RandomMasonry({ initialBooks, initialCursor, seed }: Ran
     const [currentSeed, setCurrentSeed] = useState(seed);
     const [isLoading, setIsLoading] = useState(false);
     const [animationStartIndex, setAnimationStartIndex] = useState(0);
-    const router = useRouter();
     const loadMoreRef = useRef<HTMLDivElement | null>(null);
     const gridRef = useRef<HTMLDivElement | null>(null);
     const metrics = useGridMetrics(gridRef, [books.length]);
@@ -199,10 +203,6 @@ export default function RandomMasonry({ initialBooks, initialCursor, seed }: Ran
         setBooks(prev => [...prev].sort(() => Math.random() - 0.5));
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
-
-    const handleOpen = useCallback((book: RandomBook) => {
-        router.push(`/${book.month}?focus=${book.id}`);
-    }, [router]);
 
     const getLabel = (sourceId: string) => {
         if (sourceId.includes('-sleeping-')) {
@@ -344,7 +344,6 @@ export default function RandomMasonry({ initialBooks, initialCursor, seed }: Ran
                             animationStartIndex={animationStartIndex}
                             label={getLabel(book.month)}
                             metrics={metrics}
-                            onOpen={handleOpen}
                         />
                     ))}
                 </div>

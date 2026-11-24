@@ -2,6 +2,8 @@ import { getArchiveData, getAboutContent } from '@/lib/content';
 import TopNav from '@/components/TopNav';
 import ArchiveContent from '@/components/ArchiveContent';
 
+export const revalidate = 3600;
+
 export const metadata = {
     title: '往期回顾 | 书海回响',
     description: '书海回响往期期刊归档',

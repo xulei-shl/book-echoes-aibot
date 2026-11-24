@@ -13,8 +13,8 @@
  * 深色主题按钮为直角描边风格（无圆角），与全站直角设计语言一致。
  */
 
-import { useState, useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useState, useEffect, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
@@ -84,10 +84,35 @@ async function findSubjectMdFile(
     }
 }
 
-/** 带图标与文字的导航按钮（全站统一渲染，避免 JSX 重复） */
-function NavButton({ icon, label, onClick, ariaLabel, className }: { icon: React.ReactNode; label: string; onClick: () => void; ariaLabel: string; className: string }) {
+/** 带图标与文字的导航按钮（全站统一渲染，支持原生 Link 与普通 button） */
+function NavButton({
+    icon,
+    label,
+    onClick,
+    href,
+    ariaLabel,
+    className
+}: {
+    icon: React.ReactNode;
+    label: string;
+    onClick?: () => void;
+    href?: string;
+    ariaLabel: string;
+    className: string;
+}) {
+    if (href) {
+        return (
+            <Link href={href} className={className} aria-label={ariaLabel} prefetch={true}>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    {icon}
+                </svg>
+                <span>{label}</span>
+            </Link>
+        );
+    }
+
     return (
-        <button onClick={onClick} className={className} aria-label={ariaLabel}>
+        <button type="button" onClick={onClick} className={className} aria-label={ariaLabel}>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 {icon}
             </svg>
@@ -103,15 +128,14 @@ export default function TopNav({
     currentBook,
     month
 }: TopNavProps) {
-    const router = useRouter();
     const pathname = usePathname();
 
     // 关于弹层
     const [isAboutOpen, setIsAboutOpen] = useState(false);
 
-    // 向下滚动时隐藏、向上滚动时显示
+    // 向下滚动时隐藏、向上滚动时显示（使用 ref 追踪上次滚动高度，避免频繁重构监听器与重渲染）
     const [isVisible, setIsVisible] = useState(true);
-    const [lastScrollY, setLastScrollY] = useState(0);
+    const lastScrollYRef = useRef(0);
 
     // 主题卡MD内容相关状态
     const [isMdOverlayOpen, setIsMdOverlayOpen] = useState(false);
@@ -160,22 +184,22 @@ export default function TopNav({
     useEffect(() => {
         const handleScroll = () => {
             const currentScrollY = window.scrollY;
-            if (currentScrollY > lastScrollY && currentScrollY > 50) {
+            if (currentScrollY > lastScrollYRef.current && currentScrollY > 50) {
                 setIsVisible(false);
             } else {
                 setIsVisible(true);
             }
-            setLastScrollY(currentScrollY);
+            lastScrollYRef.current = currentScrollY;
         };
 
         window.addEventListener('scroll', handleScroll, { passive: true });
         return () => window.removeEventListener('scroll', handleScroll);
-    }, [lastScrollY]);
+    }, []);
 
     const isDark = theme === 'dark';
     const buttonStyles = isDark
-        ? 'flex items-center justify-center gap-2 border border-[#C9A063]/40 bg-[#161514]/90 px-4 py-2 md:px-5 md:py-2.5 text-sm md:text-base font-mono tracking-wider text-[#F2F0E9] shadow-[0_4px_16px_rgba(0,0,0,0.5)] backdrop-blur-md hover:bg-[#C9A063] hover:text-[#161514] transition-all duration-300'
-        : 'flex items-center justify-center gap-2 border border-[#C9A063]/30 bg-transparent px-4 py-2 md:px-5 md:py-2.5 text-sm md:text-base font-mono tracking-wider text-[#C9A063]/80 hover:bg-[#C9A063] hover:text-[#1a1a1a] transition-colors duration-300';
+        ? 'flex items-center justify-center gap-2 border border-[#C9A063]/40 bg-[#161514]/90 px-4 py-2 md:px-5 md:py-2.5 text-sm md:text-base font-mono tracking-wider text-[#F2F0E9] shadow-[0_4px_16px_rgba(0,0,0,0.5)] backdrop-blur-md hover:bg-[#C9A063] hover:text-[#161514] active:scale-[0.96] transition-all duration-300'
+        : 'flex items-center justify-center gap-2 border border-[#C9A063]/30 bg-transparent px-4 py-2 md:px-5 md:py-2.5 text-sm md:text-base font-mono tracking-wider text-[#C9A063]/80 hover:bg-[#C9A063] hover:text-[#1a1a1a] active:scale-[0.96] transition-colors duration-300';
 
     const isArchive = pathname === '/archive';
 
@@ -203,7 +227,7 @@ export default function TopNav({
                     >
                         {pathname !== '/' && (
                             <NavButton
-                                onClick={() => router.push('/')}
+                                href="/"
                                 ariaLabel="返回首页"
                                 label="首页"
                                 className={buttonStyles}
@@ -220,7 +244,7 @@ export default function TopNav({
 
                         {pathname !== '/archive' && (
                             <NavButton
-                                onClick={() => router.push('/archive')}
+                                href="/archive"
                                 ariaLabel="往期回顾"
                                 label="往期"
                                 className={buttonStyles}
@@ -241,7 +265,7 @@ export default function TopNav({
                             pathname !== '/' &&
                             pathname !== '/search' && (
                                 <NavButton
-                                    onClick={() => router.push('/search')}
+                                    href="/search"
                                     ariaLabel="语义检索"
                                     label="检索"
                                     className={buttonStyles}
@@ -259,7 +283,7 @@ export default function TopNav({
                         {/* 随机漫步按钮：归档页显示，其他非首页/漫步页也显示 */}
                         {(isArchive || (pathname && pathname !== '/' && !pathname.startsWith('/random'))) && (
                             <NavButton
-                                onClick={() => router.push('/random')}
+                                href="/random"
                                 ariaLabel="随机漫步"
                                 label="漫步"
                                 className={buttonStyles}

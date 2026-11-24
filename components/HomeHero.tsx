@@ -3,7 +3,7 @@
 import { useState, useEffect, useSyncExternalStore } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import TopNav from './TopNav';
 import Orb from './Orb';
 
@@ -76,7 +76,6 @@ function getInitialAspect(url?: string): number {
 }
 
 export default function HomeHero({ images, cards, targetLink, subtitle }: HomeHeroProps) {
-    const router = useRouter();
     const [currentIndex, setCurrentIndex] = useState(0);
     const [aspectRatios, setAspectRatios] = useState<Record<string, number>>({});
     const orbSize = useSyncExternalStore(subscribeResize, getOrbSizeSnapshot, getServerOrbSizeSnapshot);
@@ -394,14 +393,14 @@ export default function HomeHero({ images, cards, targetLink, subtitle }: HomeHe
 
             {/* Text Content - Dynamic Calligraphy Style (pointer-events-none 允许背景捕获点击水波，交互子项恢复 auto) */}
             <div className="relative z-[10] flex flex-col items-center justify-center pointer-events-none">
-                <motion.div
-                    className="relative flex items-center gap-0 md:gap-2 cursor-pointer group pointer-events-auto select-none"
-                    onClick={() => router.push(targetLink)}
-                    initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: 16 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                    whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
-                >
+                <Link href={targetLink} className="pointer-events-auto block" prefetch={true} aria-label="进入本期">
+                    <motion.div
+                        className="relative flex items-center gap-0 md:gap-2 cursor-pointer group select-none"
+                        initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: 16 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                        whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
+                    >
                     {/* Main Title with Dynamic Sizing */}
                     <div
                         className="flex items-end -space-x-2 md:-space-x-4 select-none"
@@ -466,6 +465,7 @@ export default function HomeHero({ images, cards, targetLink, subtitle }: HomeHe
                         </span>
                     </div>
                 </motion.div>
+                </Link>
 
                 {/* Subtitle - 紧随标题轻柔浮现，平衡折行 */}
                 <motion.p
@@ -478,20 +478,20 @@ export default function HomeHero({ images, cards, targetLink, subtitle }: HomeHe
                     {subtitle}
                 </motion.p>
 
-                {/* CTA 按钮 - 语义化 button、快速出场、Scale on Press 触感反馈 */}
+                {/* CTA 按钮 - 语义化 Link、快速出场、Scale on Press 触感反馈 */}
                 <motion.div
                     className="mt-8 pointer-events-auto"
                     initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.25, duration: 0.4, ease: 'easeOut' }}
                 >
-                    <button
-                        type="button"
-                        onClick={() => router.push(targetLink)}
+                    <Link
+                        href={targetLink}
+                        prefetch={true}
                         className="inline-block border border-[#C9A063]/40 bg-transparent px-8 py-3 text-sm font-mono tracking-[0.2em] text-[#C9A063] uppercase transition-[background-color,color,transform] duration-150 ease-out hover:bg-[#C9A063] hover:text-[#1a1a1a] active:scale-[0.96] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#C9A063] cursor-pointer"
                     >
                         Enter Issue
-                    </button>
+                    </Link>
                 </motion.div>
             </div>
         </div>
